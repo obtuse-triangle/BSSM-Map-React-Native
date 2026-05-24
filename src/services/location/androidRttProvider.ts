@@ -4,10 +4,6 @@ import { estimateIndoorPositionFromRtt } from '../../utils/positioning';
 import type { IndoorLocationProvider, IndoorLocationRequest, IndoorLocationResult } from './locationTypes';
 import type { RttMeasurement as AppRttMeasurement } from '../rtt/rttTypes';
 
-if (Platform.OS !== 'android') {
-  throw new Error('androidRttProvider can only be used on Android');
-}
-
 function toAppRttMeasurements(
   nativeResults: Array<{ bssid: string; distanceMm: number; rssi: number; success: boolean; timestamp: number }>,
   accessPoints: readonly import('../../types/accessPoint').AccessPoint[],
@@ -29,6 +25,9 @@ function toAppRttMeasurements(
 }
 
 export function createAndroidRttProvider(): IndoorLocationProvider {
+  if (Platform.OS !== 'android') {
+    throw new Error('androidRttProvider can only be used on Android');
+  }
   return {
     kind: 'android-wifi-rtt',
     label: 'WiFi RTT',

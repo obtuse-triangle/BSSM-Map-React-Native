@@ -5,11 +5,10 @@ import { createIosCalibratedIndoorPosition, type IosCalibrationInput } from '../
 import type { IndoorLocationProvider, IndoorLocationRequest, IndoorLocationResult } from './locationTypes';
 import type { RttMeasurement } from '../rtt/rttTypes';
 
-if (Platform.OS !== 'ios') {
-  throw new Error('iosBleProvider can only be used on iOS');
-}
-
 export function createIosBleProvider(calibration: IosCalibrationInput): IndoorLocationProvider {
+  if (Platform.OS !== 'ios') {
+    throw new Error('iosBleProvider can only be used on iOS');
+  }
   return {
     kind: 'ios-core-location',
     label: 'BLE + Core Location',
@@ -26,6 +25,8 @@ export function createIosBleProvider(calibration: IosCalibrationInput): IndoorLo
             distanceMeters: d.distanceEstimate > 0 ? d.distanceEstimate : 3.0,
             rssiDbm: d.rssi,
             measuredAt: d.timestamp,
+            // type compatibility: RttMeasurementSource doesn't include 'ios-core-location';
+            // the position.source is correctly set to 'ios-core-location' in the estimate call below
             source: 'android-wifi-rtt' as const,
             isValid: d.distanceEstimate > 0,
           }));
