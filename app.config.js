@@ -11,6 +11,9 @@ module.exports = {
       ...expo.ios,
       bundleIdentifier: "com.schoolmap",
     },
-    plugins: [],
+    plugins: [
+      "./plugins/withAndroidRttPermissions",
+      "./plugins/withIosBlePermissions",
+    ],
   },
 };
