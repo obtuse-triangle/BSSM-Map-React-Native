@@ -1,0 +1,88 @@
+import { Platform } from 'react-native';
+import { IosBlePositioning } from '../../../modules/ios-ble-positioning/src';
+import { estimateIndoorPositionFromRtt } from '../../utils/positioning';
+import { createIosCalibratedIndoorPosition, type IosCalibrationInput } from '../calibration/iosCalibration';
+import type { IndoorLocationProvider, IndoorLocationRequest, IndoorLocationResult } from './locationTypes';
+import type { RttMeasurement } from '../rtt/rttTypes';
+
+if (Platform.OS !== 'ios') {
+  throw new Error('iosBleProvider can only be used on iOS');
+}
+
+export function createIosBleProvider(calibration: IosCalibrationInput): IndoorLocationProvider {
+  return {
+    kind: 'ios-core-location',
+    label: 'BLE + Core Location',
+    locate: async (request: IndoorLocationRequest): Promise<IndoorLocationResult> => {
+      try {
+        const bleDevices = await IosBlePositioning.startBleScan(null);
+
+        if (bleDevices.length > 0) {
+          const bleMeasurements: RttMeasurement[] = bleDevices.map((d) => ({
+            accessPointId: `ble-${d.identifier}`,
+            floorKey: request.floorKey,
+            ssid: '',
+            bssid: d.identifier,
+            distanceMeters: d.distanceEstimate > 0 ? d.distanceEstimate : 3.0,
+            rssiDbm: d.rssi,
+            measuredAt: d.timestamp,
+            source: 'android-wifi-rtt' as const,
+            isValid: d.distanceEstimate > 0,
+          }));
+          const estimate = estimateIndoorPositionFromRtt({
+            floorKey: request.floorKey,
+            accessPoints: request.accessPoints,
+            measurements: bleMeasurements,
+            updatedAt: request.measuredAt ?? Date.now(),
+            source: 'ios-core-location',
+          });
+
+          return {
+            providerKind: 'ios-core-location',
+            measuredAt: request.measuredAt ?? Date.now(),
+            floorKey: request.floorKey,
+            accessPoints: [...request.accessPoints],
+            measurements: bleMeasurements,
+            referencePosition: null,
+            scanResult: null,
+            position: estimate.position,
+            measurementCount: bleMeasurements.length,
+            validMeasurementCount: estimate.validMeasurementCount,
+            precision: estimate.position.precision,
+            precisionNotes: estimate.position.precisionNotes,
+            floorGuaranteed: estimate.position.isFloorGuaranteed,
+            roomGuaranteed: estimate.position.isRoomGuaranteed,
+          };
+        }
+      } catch {
+        // BLE failed, fall through to Core Location
+      }
+
+      // Step 2: Core Location fallback
+      const location = await IosBlePositioning.getCurrentLocation();
+      const position = createIosCalibratedIndoorPosition({
+        floorKey: request.floorKey,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        calibration,
+      });
+
+      return {
+        providerKind: 'ios-core-location',
+        measuredAt: request.measuredAt ?? Date.now(),
+        floorKey: request.floorKey,
+        accessPoints: [...request.accessPoints],
+        measurements: [],
+        referencePosition: null,
+        scanResult: null,
+        position,
+        measurementCount: 0,
+        validMeasurementCount: 0,
+        precision: position.precision,
+        precisionNotes: position.precisionNotes,
+        floorGuaranteed: position.isFloorGuaranteed,
+        roomGuaranteed: position.isRoomGuaranteed,
+      };
+    },
+  };
+}
