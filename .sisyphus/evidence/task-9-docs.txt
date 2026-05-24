@@ -1,0 +1,21 @@
+Task 9 - AP Data Collection Documentation
+Date: 2026-05-24
+
+Verification Results:
+- docs/ap-data-collection-guide.md exists with Korean-language content ✅
+  - BSSID 수집 방법 (WiFi Scanner 앱 사용) 포함
+  - map-percent 좌표 계산 방법 (SVG맵 기준) 포함
+  - AccessPoint 타입 데이터 입력 형식 설명 포함
+  - 예시: { bssid, x, y, floorKey, roomName } 구조 포함
+  - 802.11mc RTT 지원 확인 방법 포함
+  - mock BSSID(02:xx) vs 실제 BSSID 구분 포함
+
+- src/constants/realAccessPoints.ts exists with correct structure ✅
+  - import type { AccessPoint } from '../types/accessPoint'
+  - export const realAccessPoints: AccessPoint[] = []
+  - TODO 주석으로 형식 안내 포함
+  - docs/ap-data-collection-guide.md 참조 주석 포함
+
+Files created (no existing source files modified):
+  1. docs/ap-data-collection-guide.md
+  2. src/constants/realAccessPoints.ts

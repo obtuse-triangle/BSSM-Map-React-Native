@@ -3,13 +3,20 @@ import { createMockIndoorLocationProvider } from './mockIndoorLocationProvider';
 import { createAndroidRttProvider } from './androidRttProvider';
 import { createIosBleProvider } from './iosBleProvider';
 import type { IndoorLocationProvider } from './locationTypes';
+import type { IosCalibrationInput } from '../calibration/iosCalibration';
+
+const DEFAULT_IOS_CALIBRATION: IosCalibrationInput = {
+  kind: 'bounds',
+  bounds: { topLatitude: 37.5, bottomLatitude: 37.4, leftLongitude: 127.0, rightLongitude: 127.1 },
+  accuracyMeters: 18,
+};
 
 const createDefaultProvider = (): IndoorLocationProvider => {
   if (Platform.OS === 'android') {
     return createAndroidRttProvider();
   }
   if (Platform.OS === 'ios') {
-    return createIosBleProvider();
+    return createIosBleProvider(DEFAULT_IOS_CALIBRATION);
   }
   return createMockIndoorLocationProvider();
 };

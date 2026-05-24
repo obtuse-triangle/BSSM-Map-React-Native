@@ -1,0 +1,35 @@
+Task 9 - End-to-End Integration Verification
+Date: 2026-05-24
+
+=== TypeScript Check ===
+$ npx tsc --noEmit
+Result: PASS (exit code 0, no errors)
+Output: (only npm config warning, no type errors)
+
+=== Prebuild Status ===
+iOS: EXISTS (ios/ directory prebuilt with Podfile, xcodeproj, xcworkspace)
+      Path: ios/Podfile, ios/schoolmapreactnative.xcodeproj, ios/schoolmapreactnative.xcworkspace
+      Status: Ready for `npx expo run:ios`
+Android: NOT YET PREBUILT (android/ directory does not exist — gitignored)
+         Status: Ready for `npx expo prebuild --clean --platform android` when needed
+
+=== Android Permissions (via plugins/withAndroidRttPermissions.js) ===
+✅ android.permission.ACCESS_FINE_LOCATION
+✅ android.permission.ACCESS_WIFI_STATE
+✅ android.permission.NEARBY_WIFI_DEVICES (with android:usesPermissionFlags="neverForLocation")
+
+=== iOS Permissions (via plugins/withIosBlePermissions.js) ===
+✅ NSLocationWhenInUseUsageDescription = '교내 위치 안내를 위해 위치 접근이 필요합니다.'
+✅ NSBluetoothAlwaysUsageDescription = '실내 위치 측위를 위해 Bluetooth 접근이 필요합니다.'
+✅ NSBluetoothPeripheralUsageDescription = '실내 위치 측위를 위해 Bluetooth 접근이 필요합니다.'
+
+=== Provider Kind Values ===
+✅ androidRttProvider.ts: kind = 'android-wifi-rtt', providerKind = 'android-wifi-rtt'
+✅ iosBleProvider.ts:    kind = 'ios-core-location', providerKind = 'ios-core-location'
+✅ mockIndoorLocationProvider.ts: kind = 'mock-rtt', providerKind = 'mock-rtt'
+✅ locationTypes.ts: IndoorLocationProviderKind = 'mock-rtt' | 'android-wifi-rtt' | 'ios-core-location'
+
+=== Plugin Configuration ===
+✅ app.config.js has plugins: ["./plugins/withAndroidRttPermissions", "./plugins/withIosBlePermissions"]
+✅ withAndroidRttPermissions: adds ACCESS_FINE_LOCATION, ACCESS_WIFI_STATE, NEARBY_WIFI_DEVICES
+✅ withIosBlePermissions: adds NSLocationWhenInUseUsageDescription, NSBluetoothAlwaysUsageDescription, NSBluetoothPeripheralUsageDescription
