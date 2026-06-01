@@ -34,15 +34,9 @@ export function MapScreen({ navigation }: MapScreenProps) {
     selectedFloorKey,
     selectedLevel,
     selectedFeatureId,
-    showApMarkers,
-    showOutline,
-    showDesignTiles,
     showSatellite,
     setSelectedLevel,
     setSelectedFeatureId,
-    toggleApMarkers,
-    toggleOutline,
-    toggleDesignTiles,
     toggleSatellite,
     userCoordinates,
   } = useMapStore();
@@ -220,46 +214,6 @@ export function MapScreen({ navigation }: MapScreenProps) {
                 ]}
               >
                 <Text style={[styles.iconActionGlyph, isLocateDisabled && styles.iconActionGlyphDisabled]}>⌖</Text>
-              </Pressable>
-
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={showApMarkers ? 'AP 마커 숨기기' : 'AP 마커 표시'}
-                onPress={toggleApMarkers}
-                style={({ pressed }) => [
-                  styles.iconActionButton,
-                  styles.apButton,
-                  showApMarkers && styles.apButtonActive,
-                  pressed && styles.iconActionButtonPressed,
-                ]}
-              >
-                <Text style={[styles.iconActionGlyph, styles.apButtonGlyph, showApMarkers && styles.apButtonGlyphActive]}>AP</Text>
-              </Pressable>
-
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={showOutline ? '외곽선 숨기기' : '외곽선 표시'}
-                onPress={toggleOutline}
-                style={({ pressed }) => [
-                  styles.iconActionButton,
-                  showOutline && styles.outlineButtonActive,
-                  pressed && styles.iconActionButtonPressed,
-                ]}
-              >
-                <Text style={[styles.iconActionGlyph]}>⬡</Text>
-              </Pressable>
-
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={showDesignTiles ? '설계도 숨기기' : '설계도 표시'}
-                onPress={toggleDesignTiles}
-                style={({ pressed }) => [
-                  styles.iconActionButton,
-                  showDesignTiles && styles.designButtonActive,
-                  pressed && styles.iconActionButtonPressed,
-                ]}
-              >
-                <Text style={[styles.iconActionGlyph]}>▦</Text>
               </Pressable>
 
               <Pressable
@@ -468,31 +422,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#eff6ff',
     borderColor: '#bfdbfe',
   },
-  apButton: {
-    backgroundColor: '#ffffff',
-  },
-  apButtonActive: {
-    backgroundColor: '#1d4ed8',
-    borderColor: '#1d4ed8',
-  },
-  apButtonGlyph: {
-    color: '#1d4ed8',
-    fontSize: 15,
-  },
-  apButtonGlyphActive: {
-    color: '#ffffff',
-  },
   debugButton: {
     backgroundColor: '#fff7ed',
     borderColor: '#fed7aa',
-  },
-  outlineButtonActive: {
-    backgroundColor: '#f0fdf4',
-    borderColor: '#86efac',
-  },
-  designButtonActive: {
-    backgroundColor: '#fefce8',
-    borderColor: '#fde047',
   },
   satelliteButtonActive: {
     backgroundColor: '#eff6ff',

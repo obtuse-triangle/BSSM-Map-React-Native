@@ -23,13 +23,6 @@ import { getFeatureById, getFeatureCentroid } from '../../utils/geoJsonHelpers';
 const campusData = campusDataUntyped as unknown as CampusGeoJSON;
 const outlineData = outlineDataUntyped as any;
 
-const getMbtilesPath = () => {
-  if (Platform.OS === 'android') {
-    return 'file:///android/assets/campus-design.mbtiles';
-  }
-  return 'campus-design.mbtiles';
-};
-
 const CAMPUS_BOUNDS: [number, number, number, number] = [128.9028, 35.1876, 128.9041, 35.1893];
 const CAMPUS_CENTER: [number, number] = [128.9035, 35.1885];
 
@@ -76,8 +69,6 @@ function CampusMap(_props: {}, ref: Ref<CampusMapHandle>) {
   const userCoordinates = useMapStore((state) => state.userCoordinates);
   const setDetectedBuildingId = useMapStore((state) => state.setDetectedBuildingId);
   const setUserCoordinates = useMapStore((state) => state.setUserCoordinates);
-  const showOutline = useMapStore((state) => state.showOutline);
-  const showDesignTiles = useMapStore((state) => state.showDesignTiles);
   const showSatellite = useMapStore((state) => state.showSatellite);
 
   const handleMapPress = useCallback(
@@ -201,7 +192,6 @@ function CampusMap(_props: {}, ref: Ref<CampusMapHandle>) {
           }}
         />
 
-        {/* Base map layers */}
         {!showSatellite ? (
           <RasterSource id="osm" {...OSM_RASTER}>
             <Layer id="osm-tiles" type="raster" />
@@ -212,19 +202,7 @@ function CampusMap(_props: {}, ref: Ref<CampusMapHandle>) {
           </RasterSource>
         )}
 
-        {/* School design plan raster overlay (MBTiles) */}
-        {showDesignTiles && (
-          <RasterSource
-            id="design-tiles"
-            url={getMbtilesPath()}
-            tileSize={256}
-          >
-            <Layer id="design-raster" type="raster" paint={{ 'raster-opacity': 0.85 }} />
-          </RasterSource>
-        )}
-
-        {/* School outline GeoJSON */}
-        {showOutline && (
+        {showSatellite && (
           <GeoJSONSource id="school-outline" data={outlineData}>
             <Layer
               id="outline-fill"

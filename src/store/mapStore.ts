@@ -10,8 +10,6 @@ type MapStoreState = {
   selectedRoomId: number | null;
   selectedFeatureId: string | null;
   showApMarkers: boolean;
-  showOutline: boolean;
-  showDesignTiles: boolean;
   showSatellite: boolean;
   detectedBuildingId: string | null;
   userCoordinates: { longitude: number; latitude: number } | null;
@@ -24,8 +22,6 @@ type MapStoreState = {
   setDetectedBuildingId: (buildingId: string | null) => void;
   setUserCoordinates: (coords: { longitude: number; latitude: number } | null) => void;
   toggleApMarkers: () => void;
-  toggleOutline: () => void;
-  toggleDesignTiles: () => void;
   toggleSatellite: () => void;
 };
 
@@ -37,8 +33,6 @@ export const useMapStore = create<MapStoreState>()((set) => ({
   selectedRoomId: null,
   selectedFeatureId: null,
   showApMarkers: false,
-  showOutline: true,
-  showDesignTiles: false,
   showSatellite: false,
   detectedBuildingId: null,
   userCoordinates: null,
@@ -68,12 +62,6 @@ export const useMapStore = create<MapStoreState>()((set) => ({
   },
   toggleApMarkers: () => {
     set((state) => ({ showApMarkers: !state.showApMarkers }));
-  },
-  toggleOutline: () => {
-    set((state) => ({ showOutline: !state.showOutline }));
-  },
-  toggleDesignTiles: () => {
-    set((state) => ({ showDesignTiles: !state.showDesignTiles }));
   },
   toggleSatellite: () => {
     set((state) => ({ showSatellite: !state.showSatellite }));
