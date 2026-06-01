@@ -30,8 +30,9 @@ const OSM_STYLE = {
   sources: {
     osm: {
       type: 'raster' as const,
-      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+      tiles: ['https://a.tile.openstreetmap.org/{z}/{x}/{y}.png', 'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png', 'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'],
       tileSize: 256,
+      maxzoom: 19,
       attribution: '© OpenStreetMap contributors',
     },
   },
@@ -134,7 +135,7 @@ function CampusMap(_props: {}, ref: Ref<CampusMapHandle>) {
   }, [userCoordinates]);
 
   const zoomIn = useCallback(() => {
-    const nextZoom = Math.min(zoomLevel + 1, 20);
+    const nextZoom = Math.min(zoomLevel + 1, 19);
 
     setZoomLevel(nextZoom);
     cameraRef.current?.zoomTo(nextZoom, { duration: 200 });
