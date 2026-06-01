@@ -1,3 +1,12 @@
+/**
+ * [LEGACY - deprecated in favor of CampusMap]
+ * 
+ * This component uses the old SVG-based map rendering with map-percent coordinates.
+ * It is preserved for RTT/BLE indoor positioning reference but should not be used
+ * in production. The MapLibre-based CampusMap component replaces this entirely.
+ * 
+ * @see src/components/map/CampusMap.tsx — the replacement
+ */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
