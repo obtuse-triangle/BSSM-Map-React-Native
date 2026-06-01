@@ -194,8 +194,20 @@ function CampusMap(_props: {}, ref: Ref<CampusMapHandle>) {
             type="fill"
             filter={levelFilter}
             paint={{
-              'fill-color': '#e8e8e8',
-              'fill-opacity': 0.7,
+              'fill-color': [
+                'match',
+                ['get', 'category'],
+                'classroom', '#D4E8FC',
+                'room', '#FFF9C4',
+                'facility', '#C8E6C9',
+                'restroom', '#B3E5FC',
+                'stair', '#D7CCC8',
+                'elevator', '#CFD8DC',
+                'corridor', '#F5F5F5',
+                'structural', '#EEEEEE',
+                '#F9F9F9',
+              ],
+              'fill-opacity': 0.85,
             }}
           />
           <Layer
@@ -203,8 +215,8 @@ function CampusMap(_props: {}, ref: Ref<CampusMapHandle>) {
             type="fill"
             filter={selectedFeatureFilter}
             paint={{
-              'fill-color': '#4A90D9',
-              'fill-opacity': 0.5,
+              'fill-color': '#2979FF',
+              'fill-opacity': 0.6,
             }}
             afterId="campus-fill"
           />
