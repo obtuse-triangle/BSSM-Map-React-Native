@@ -35,9 +35,15 @@ export function MapScreen({ navigation }: MapScreenProps) {
     selectedLevel,
     selectedFeatureId,
     showApMarkers,
+    showOutline,
+    showDesignTiles,
+    showSatellite,
     setSelectedLevel,
     setSelectedFeatureId,
     toggleApMarkers,
+    toggleOutline,
+    toggleDesignTiles,
+    toggleSatellite,
     userCoordinates,
   } = useMapStore();
 
@@ -228,6 +234,45 @@ export function MapScreen({ navigation }: MapScreenProps) {
                 ]}
               >
                 <Text style={[styles.iconActionGlyph, styles.apButtonGlyph, showApMarkers && styles.apButtonGlyphActive]}>AP</Text>
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={showOutline ? '외곽선 숨기기' : '외곽선 표시'}
+                onPress={toggleOutline}
+                style={({ pressed }) => [
+                  styles.iconActionButton,
+                  showOutline && styles.outlineButtonActive,
+                  pressed && styles.iconActionButtonPressed,
+                ]}
+              >
+                <Text style={[styles.iconActionGlyph]}>⬡</Text>
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={showDesignTiles ? '설계도 숨기기' : '설계도 표시'}
+                onPress={toggleDesignTiles}
+                style={({ pressed }) => [
+                  styles.iconActionButton,
+                  showDesignTiles && styles.designButtonActive,
+                  pressed && styles.iconActionButtonPressed,
+                ]}
+              >
+                <Text style={[styles.iconActionGlyph]}>▦</Text>
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={showSatellite ? '지도로 전환' : '위성지도로 전환'}
+                onPress={toggleSatellite}
+                style={({ pressed }) => [
+                  styles.iconActionButton,
+                  showSatellite && styles.satelliteButtonActive,
+                  pressed && styles.iconActionButtonPressed,
+                ]}
+              >
+                <Text style={[styles.iconActionGlyph]}>🛰</Text>
               </Pressable>
 
               <Pressable
@@ -440,6 +485,18 @@ const styles = StyleSheet.create({
   debugButton: {
     backgroundColor: '#fff7ed',
     borderColor: '#fed7aa',
+  },
+  outlineButtonActive: {
+    backgroundColor: '#f0fdf4',
+    borderColor: '#86efac',
+  },
+  designButtonActive: {
+    backgroundColor: '#fefce8',
+    borderColor: '#fde047',
+  },
+  satelliteButtonActive: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#93c5fd',
   },
   searchResultsCard: {
     backgroundColor: 'rgba(255,255,255,0.98)',

@@ -16,5 +16,8 @@ module.exports = {
       "./plugins/withIosBlePermissions",
       "@maplibre/maplibre-react-native",
     ],
+    assetBundlePatterns: [
+      "**/*.mbtiles",
+    ],
   },
 };

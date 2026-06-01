@@ -1,11 +1,12 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import {
   Camera,
   GeoJSONSource,
   Layer,
   Map,
   NativeUserLocation,
+  RasterSource,
   type FilterSpecification,
   type MapRef,
   type CameraRef,
@@ -13,38 +14,47 @@ import {
 } from '@maplibre/maplibre-react-native';
 
 import campusDataUntyped from '../../data/campus-wgs84.json';
+import outlineDataUntyped from '../../data/school-outline.json';
 import { useMapStore } from '../../store/mapStore';
 import { getDetectedBuildingId } from '../../utils/buildingDetection';
 import type { CampusGeoJSON } from '../../types/geojson';
 import { getFeatureById, getFeatureCentroid } from '../../utils/geoJsonHelpers';
 
 const campusData = campusDataUntyped as unknown as CampusGeoJSON;
+const outlineData = outlineDataUntyped as any;
+
+const getMbtilesPath = () => {
+  if (Platform.OS === 'android') {
+    return 'file:///android/assets/campus-design.mbtiles';
+  }
+  return 'campus-design.mbtiles';
+};
 
 const CAMPUS_BOUNDS: [number, number, number, number] = [128.9028, 35.1876, 128.9041, 35.1893];
 const CAMPUS_CENTER: [number, number] = [128.9035, 35.1885];
 
-const OSM_STYLE = {
+const OSM_RASTER = {
+  type: 'raster' as const,
+  tiles: ['https://a.tile.openstreetmap.org/{z}/{x}/{y}.png', 'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png', 'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'],
+  tileSize: 256,
+  maxzoom: 19,
+  attribution: '© OpenStreetMap contributors',
+};
+
+const SATELLITE_RASTER = {
+  type: 'raster' as const,
+  tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+  tileSize: 256,
+  maxzoom: 19,
+  attribution: '© Esri',
+};
+
+const BASE_STYLE = {
   version: 8 as const,
-  name: 'OSM',
+  name: 'base',
   glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
-  sources: {
-    osm: {
-      type: 'raster' as const,
-      tiles: ['https://a.tile.openstreetmap.org/{z}/{x}/{y}.png', 'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png', 'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'],
-      tileSize: 256,
-      maxzoom: 19,
-      attribution: '© OpenStreetMap contributors',
-    },
-  },
-  layers: [
-    {
-      id: 'osm-tiles',
-      type: 'raster' as const,
-      source: 'osm',
-      minzoom: 0,
-      maxzoom: 19,
-    },
-  ],
+  sources: {} as Record<string, any>,
+  layers: [] as any[],
 };
 
 export type CampusMapHandle = {
@@ -66,6 +76,9 @@ function CampusMap(_props: {}, ref: Ref<CampusMapHandle>) {
   const userCoordinates = useMapStore((state) => state.userCoordinates);
   const setDetectedBuildingId = useMapStore((state) => state.setDetectedBuildingId);
   const setUserCoordinates = useMapStore((state) => state.setUserCoordinates);
+  const showOutline = useMapStore((state) => state.showOutline);
+  const showDesignTiles = useMapStore((state) => state.showDesignTiles);
+  const showSatellite = useMapStore((state) => state.showSatellite);
 
   const handleMapPress = useCallback(
     async (event: any) => {
@@ -178,7 +191,7 @@ function CampusMap(_props: {}, ref: Ref<CampusMapHandle>) {
 
   return (
     <View style={styles.container}>
-      <Map ref={mapRef} mapStyle={OSM_STYLE} style={styles.map} onPress={handleMapPress}>
+      <Map ref={mapRef} mapStyle={BASE_STYLE} style={styles.map} onPress={handleMapPress}>
         <Camera
           ref={cameraRef}
           initialViewState={{
@@ -187,6 +200,51 @@ function CampusMap(_props: {}, ref: Ref<CampusMapHandle>) {
             bounds: CAMPUS_BOUNDS,
           }}
         />
+
+        {/* Base map layers */}
+        {!showSatellite ? (
+          <RasterSource id="osm" {...OSM_RASTER}>
+            <Layer id="osm-tiles" type="raster" />
+          </RasterSource>
+        ) : (
+          <RasterSource id="satellite" {...SATELLITE_RASTER}>
+            <Layer id="satellite-tiles" type="raster" />
+          </RasterSource>
+        )}
+
+        {/* School design plan raster overlay (MBTiles) */}
+        {showDesignTiles && (
+          <RasterSource
+            id="design-tiles"
+            url={getMbtilesPath()}
+            tileSize={256}
+          >
+            <Layer id="design-raster" type="raster" paint={{ 'raster-opacity': 0.85 }} />
+          </RasterSource>
+        )}
+
+        {/* School outline GeoJSON */}
+        {showOutline && (
+          <GeoJSONSource id="school-outline" data={outlineData}>
+            <Layer
+              id="outline-fill"
+              type="fill"
+              paint={{
+                'fill-color': '#E0E0E0',
+                'fill-opacity': 0.3,
+              }}
+            />
+            <Layer
+              id="outline-line"
+              type="line"
+              paint={{
+                'line-color': '#666666',
+                'line-width': 1.5,
+              }}
+            />
+          </GeoJSONSource>
+        )}
+
         <NativeUserLocation mode="default" />
         <GeoJSONSource id="campus-polygons" data={campusData as any}>
           <Layer
