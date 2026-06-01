@@ -25,6 +25,8 @@ const CAMPUS_CENTER: [number, number] = [128.9035, 35.1885];
 
 const OSM_STYLE = {
   version: 8 as const,
+  name: 'OSM',
+  glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
   sources: {
     osm: {
       type: 'raster' as const,
@@ -64,15 +66,24 @@ function CampusMap(_props: {}, ref: Ref<CampusMapHandle>) {
   const setDetectedBuildingId = useMapStore((state) => state.setDetectedBuildingId);
   const setUserCoordinates = useMapStore((state) => state.setUserCoordinates);
 
-  const handleSourcePress = useCallback(
-    (event: any) => {
-      const features = event?.nativeEvent?.features as
-        | Array<{ id?: string | number; properties?: { interactive?: boolean } }>
-        | undefined;
+  const handleMapPress = useCallback(
+    async (event: any) => {
+      const point = event?.nativeEvent?.point;
 
-      const pressedFeature = features?.find((f) => f?.properties?.interactive === true);
+      if (!point || !mapRef.current) {
+        setSelectedFeatureId(null);
+        return;
+      }
+
+      const features = await mapRef.current.queryRenderedFeatures(point, {
+        layers: ['campus-fill'],
+      });
+
+      const pressedFeature = (features as Array<{ id?: string | number; properties?: { interactive?: boolean } }> | undefined)
+        ?.find((f) => f?.properties?.interactive === true);
 
       if (!pressedFeature) {
+        setSelectedFeatureId(null);
         return;
       }
 
@@ -166,7 +177,7 @@ function CampusMap(_props: {}, ref: Ref<CampusMapHandle>) {
 
   return (
     <View style={styles.container}>
-      <Map ref={mapRef} mapStyle={OSM_STYLE} style={styles.map} onPress={() => setSelectedFeatureId(null)}>
+      <Map ref={mapRef} mapStyle={OSM_STYLE} style={styles.map} onPress={handleMapPress}>
         <Camera
           ref={cameraRef}
           initialViewState={{
@@ -176,7 +187,7 @@ function CampusMap(_props: {}, ref: Ref<CampusMapHandle>) {
           }}
         />
         <NativeUserLocation mode="default" />
-        <GeoJSONSource id="campus-polygons" data={campusData as any} onPress={handleSourcePress}>
+        <GeoJSONSource id="campus-polygons" data={campusData as any}>
           <Layer
             id="campus-fill"
             type="fill"
@@ -211,18 +222,20 @@ function CampusMap(_props: {}, ref: Ref<CampusMapHandle>) {
             filter={levelFilter}
             layout={{
               'text-field': ['get', 'name'],
-              'text-size': 11,
+              'text-size': 10,
               'text-anchor': 'center',
-              'text-allow-overlap': false,
-              'text-optional': true,
-              'text-max-width': 6,
+              'text-allow-overlap': true,
+              'text-ignore-placement': true,
+              'text-optional': false,
+              'text-max-width': 8,
+              'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
             }}
             paint={{
               'text-color': '#333333',
               'text-halo-color': '#ffffff',
-              'text-halo-width': 1,
+              'text-halo-width': 1.5,
             }}
-            minzoom={17}
+            minzoom={16}
           />
         </GeoJSONSource>
       </Map>
