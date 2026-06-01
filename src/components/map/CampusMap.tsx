@@ -192,15 +192,12 @@ function CampusMap(_props: {}, ref: Ref<CampusMapHandle>) {
           }}
         />
 
-        {!showSatellite ? (
-          <RasterSource id="osm" {...OSM_RASTER}>
-            <Layer id="osm-tiles" type="raster" />
-          </RasterSource>
-        ) : (
-          <RasterSource id="satellite" {...SATELLITE_RASTER}>
-            <Layer id="satellite-tiles" type="raster" />
-          </RasterSource>
-        )}
+        <RasterSource id="osm" {...OSM_RASTER}>
+          <Layer id="osm-tiles" type="raster" layout={{ visibility: showSatellite ? 'none' : 'visible' }} />
+        </RasterSource>
+        <RasterSource id="satellite" {...SATELLITE_RASTER}>
+          <Layer id="satellite-tiles" type="raster" layout={{ visibility: showSatellite ? 'visible' : 'none' }} />
+        </RasterSource>
 
         {showSatellite && (
           <GeoJSONSource id="school-outline" data={outlineData}>
