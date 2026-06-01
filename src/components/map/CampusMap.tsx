@@ -12,11 +12,13 @@ import {
   useCurrentPosition,
 } from '@maplibre/maplibre-react-native';
 
-// @ts-expect-error - GeoJSON import requires allowArbitraryExtensions + d.ts declaration
-import campusData from '../../data/campus-wgs84.geojson';
+import campusDataUntyped from '../../data/campus-wgs84.json';
 import { useMapStore } from '../../store/mapStore';
 import { getDetectedBuildingId } from '../../utils/buildingDetection';
+import type { CampusGeoJSON } from '../../types/geojson';
 import { getFeatureById, getFeatureCentroid } from '../../utils/geoJsonHelpers';
+
+const campusData = campusDataUntyped as unknown as CampusGeoJSON;
 
 const CAMPUS_BOUNDS: [number, number, number, number] = [128.9028, 35.1876, 128.9041, 35.1893];
 const CAMPUS_CENTER: [number, number] = [128.9035, 35.1885];
@@ -162,7 +164,7 @@ function CampusMap(_props: {}, ref: Ref<CampusMapHandle>) {
           }}
         />
         <NativeUserLocation mode="default" />
-        <GeoJSONSource id="campus-polygons" data={campusData}>
+        <GeoJSONSource id="campus-polygons" data={campusData as any}>
           <Layer
             id="campus-fill"
             type="fill"

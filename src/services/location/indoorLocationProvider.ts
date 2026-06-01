@@ -1,6 +1,5 @@
 import { Platform } from 'react-native';
 import { createMockIndoorLocationProvider } from './mockIndoorLocationProvider';
-import { createAndroidRttProvider } from './androidRttProvider';
 import { createIosBleProvider } from './iosBleProvider';
 import type { IndoorLocationProvider } from './locationTypes';
 import type { IosCalibrationInput } from '../calibration/iosCalibration';
@@ -13,6 +12,7 @@ const DEFAULT_IOS_CALIBRATION: IosCalibrationInput = {
 
 const createDefaultProvider = (): IndoorLocationProvider => {
   if (Platform.OS === 'android') {
+    const { createAndroidRttProvider } = require('./androidRttProvider');
     return createAndroidRttProvider();
   }
   if (Platform.OS === 'ios') {

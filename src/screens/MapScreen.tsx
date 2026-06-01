@@ -5,18 +5,20 @@ import type { LayoutChangeEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { bssmFloorMap } from '../constants/bssmFloorMap';
-// @ts-expect-error - GeoJSON import requires allowArbitraryExtensions + d.ts declaration
-import campusData from '../data/campus-wgs84.geojson';
+import campusDataUntyped from '../data/campus-wgs84.json';
 import CampusMap, { type CampusMapHandle } from '../components/map/CampusMap';
 import { PlaceDetailBottomSheet } from '../components/map/PlaceDetailBottomSheet';
 import { ZoomControls } from '../components/map/ZoomControls';
 import type { RootStackParamList } from '../navigation/types';
 import type { Floor, FloorElement } from '../types/floorMap';
+import type { CampusGeoJSON } from '../types/geojson';
 import { getAccessPointsForFloor } from '../utils/accessPoint';
 import { getFeatureById, getInteractiveFeatures, getLevelKeys } from '../utils/geoJsonHelpers';
 import { useMapStore } from '../store/mapStore';
 import { usePositionStore } from '../store/positionStore';
 import { getSelectedFloor } from '../utils/floorMap';
+
+const campusData = campusDataUntyped as unknown as CampusGeoJSON;
 
 type MapScreenProps = NativeStackScreenProps<RootStackParamList, 'Map'>;
 const MAP_TOP_CHROME_GAP = 8;

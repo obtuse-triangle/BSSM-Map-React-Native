@@ -5,7 +5,7 @@ import { validateCampusGeoJSON } from '../src/data/validate-geojson';
 
 const filePath = process.argv[2]
   ? path.resolve(process.cwd(), process.argv[2])
-  : path.resolve(process.cwd(), 'src/data/campus-wgs84.geojson');
+  : path.resolve(process.cwd(), 'src/data/campus-wgs84.json');
 
 const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8')) as unknown;
 validateCampusGeoJSON(parsed);
