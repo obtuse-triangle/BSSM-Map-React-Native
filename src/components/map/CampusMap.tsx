@@ -1,4 +1,4 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, type Ref } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from 'react';
 import { StyleSheet, View } from 'react-native';
 import {
   Camera,
@@ -22,11 +22,15 @@ const CAMPUS_CENTER: [number, number] = [128.9035, 35.1885];
 
 export type CampusMapHandle = {
   flyToUser: () => void;
+  zoomIn: () => void;
+  zoomOut: () => void;
+  resetView: () => void;
 };
 
 function CampusMap(_props: {}, ref: Ref<CampusMapHandle>) {
   const mapRef = useRef<MapRef>(null);
   const cameraRef = useRef<CameraRef>(null);
+  const [zoomLevel, setZoomLevel] = useState(17);
   const currentPosition = useCurrentPosition();
   const selectedLevel = useMapStore((state) => state.selectedLevel);
   const selectedFeatureId = useMapStore((state) => state.selectedFeatureId);
@@ -102,7 +106,26 @@ function CampusMap(_props: {}, ref: Ref<CampusMapHandle>) {
     });
   }, [userCoordinates]);
 
-  useImperativeHandle(ref, () => ({ flyToUser }), [flyToUser]);
+  const zoomIn = useCallback(() => {
+    const nextZoom = Math.min(zoomLevel + 1, 20);
+
+    setZoomLevel(nextZoom);
+    cameraRef.current?.zoomTo(nextZoom, { duration: 200 });
+  }, [zoomLevel]);
+
+  const zoomOut = useCallback(() => {
+    const nextZoom = Math.max(zoomLevel - 1, 14);
+
+    setZoomLevel(nextZoom);
+    cameraRef.current?.zoomTo(nextZoom, { duration: 200 });
+  }, [zoomLevel]);
+
+  const resetView = useCallback(() => {
+    setZoomLevel(17);
+    cameraRef.current?.fitBounds(CAMPUS_BOUNDS, { padding: { top: 50, right: 50, bottom: 50, left: 50 }, duration: 200 });
+  }, []);
+
+  useImperativeHandle(ref, () => ({ flyToUser, zoomIn, zoomOut, resetView }), [flyToUser, resetView, zoomIn, zoomOut]);
 
   const levelFilter = useMemo(
     () => ['==', ['get', 'level'], selectedLevel] as unknown as FilterSpecification,

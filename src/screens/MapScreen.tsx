@@ -1,19 +1,21 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { LayoutChangeEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { bssmFloorMap } from '../constants/bssmFloorMap';
-import { FloorSelector } from '../components/map/FloorSelector';
-import { NativeFloorMap } from '../components/map/NativeFloorMap';
-import { COLLAPSED_VISIBLE_HEIGHT, PlaceDetailBottomSheet } from '../components/map/PlaceDetailBottomSheet';
+// @ts-expect-error - GeoJSON import requires allowArbitraryExtensions + d.ts declaration
+import campusData from '../data/campus-wgs84.geojson';
+import CampusMap, { type CampusMapHandle } from '../components/map/CampusMap';
+import { PlaceDetailBottomSheet } from '../components/map/PlaceDetailBottomSheet';
+import { ZoomControls } from '../components/map/ZoomControls';
 import type { RootStackParamList } from '../navigation/types';
 import { getAccessPointsForFloor } from '../utils/accessPoint';
+import { getFeatureById, getInteractiveFeatures, getLevelKeys } from '../utils/geoJsonHelpers';
 import { useMapStore } from '../store/mapStore';
 import { usePositionStore } from '../store/positionStore';
-import { getFloorList, getSelectedFloor } from '../utils/floorMap';
-import type { FloorElement } from '../types/floorMap';
+import { getSelectedFloor } from '../utils/floorMap';
 
 type MapScreenProps = NativeStackScreenProps<RootStackParamList, 'Map'>;
 const MAP_TOP_CHROME_GAP = 8;
@@ -22,17 +24,18 @@ export function MapScreen({ navigation }: MapScreenProps) {
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [topChromeHeight, setTopChromeHeight] = useState(0);
-  const floorList = useMemo(() => getFloorList(bssmFloorMap), []);
-  const bottomObstructionHeight = COLLAPSED_VISIBLE_HEIGHT + insets.bottom;
+  const campusMapRef = useRef<CampusMapHandle>(null);
   const topObstructionHeight = topChromeHeight > 0 ? topChromeHeight + MAP_TOP_CHROME_GAP : insets.top + 12;
 
   const {
     selectedFloorKey,
-    selectedRoomId,
+    selectedLevel,
+    selectedFeatureId,
     showApMarkers,
-    setSelectedFloorKey,
-    setSelectedRoomId,
+    setSelectedLevel,
+    setSelectedFeatureId,
     toggleApMarkers,
+    userCoordinates,
   } = useMapStore();
 
   const { position, status, error, locateCurrentPosition } = usePositionStore();
@@ -60,21 +63,16 @@ export function MapScreen({ navigation }: MapScreenProps) {
 
   const statusForSelectedFloor = currentPosition !== null || status !== 'success' ? status : 'idle';
 
-  const selectedRoom = useMemo(() => {
-    if (!selectedFloor || selectedRoomId === null) {
+  const levels = useMemo(() => getLevelKeys(campusData), []);
+  const searchableFeatures = useMemo(() => getInteractiveFeatures(campusData), []);
+
+  const selectedFeature = useMemo(() => {
+    if (!selectedFeatureId) {
       return null;
     }
 
-    return selectedFloor.elements.find((element) => element.id === selectedRoomId) ?? null;
-  }, [selectedFloor, selectedRoomId]);
-
-  const searchableRooms = useMemo(() => {
-    if (!selectedFloor) {
-      return [];
-    }
-
-    return selectedFloor.elements.filter((element) => element.interactive === true && element.name.trim().length > 0);
-  }, [selectedFloor]);
+    return getFeatureById(campusData, selectedFeatureId) ?? null;
+  }, [selectedFeatureId]);
 
   const searchResults = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -83,33 +81,41 @@ export function MapScreen({ navigation }: MapScreenProps) {
       return [];
     }
 
-    return searchableRooms.filter((room) => room.name.toLowerCase().includes(normalizedQuery));
-  }, [searchQuery, searchableRooms]);
+    return searchableFeatures.filter((feature) => {
+      const searchableLabel = `${feature.properties.name} ${feature.properties.name_ko}`.toLowerCase();
 
-  const isLocateDisabled = status === 'loading' || accessPoints.length === 0;
+      return searchableLabel.includes(normalizedQuery);
+    });
+  }, [searchQuery, searchableFeatures]);
 
-  const handleLocateCurrentPosition = useCallback(() => {
+  const isLocateDisabled = status === 'loading' || userCoordinates === null;
+
+  const handleLocate = useCallback(() => {
+    if (userCoordinates) {
+      campusMapRef.current?.flyToUser();
+      return;
+    }
+
     if (!selectedFloorKey || accessPoints.length === 0) {
       return;
     }
 
     void locateCurrentPosition({ floorKey: selectedFloorKey, accessPoints });
-  }, [accessPoints, locateCurrentPosition, selectedFloorKey]);
+  }, [accessPoints, locateCurrentPosition, selectedFloorKey, userCoordinates]);
 
   const handleSelectSearchResult = useCallback(
-    (roomId: number) => {
-      setSelectedRoomId(roomId);
+    (featureId: string) => {
+      const feature = getFeatureById(campusData, featureId);
+
+      if (feature && feature.properties.level !== selectedLevel) {
+        setSelectedLevel(feature.properties.level);
+      }
+
+      setSelectedFeatureId(featureId);
       setSearchQuery('');
       Keyboard.dismiss();
     },
-    [setSelectedRoomId],
-  );
-
-  const handleSelectRoom = useCallback(
-    (room: FloorElement) => {
-      setSelectedRoomId(room.id);
-    },
-    [setSelectedRoomId],
+    [selectedLevel, setSelectedFeatureId, setSelectedLevel],
   );
 
   const handleTopChromeLayout = useCallback(
@@ -161,7 +167,7 @@ export function MapScreen({ navigation }: MapScreenProps) {
                 accessibilityRole="button"
                 accessibilityLabel={isLocateDisabled ? '현재 위치 찾기 불가' : '현재 위치 찾기'}
                 disabled={isLocateDisabled}
-                onPress={handleLocateCurrentPosition}
+                onPress={handleLocate}
                 style={({ pressed }) => [
                   styles.iconActionButton,
                   isLocateDisabled && styles.iconActionButtonDisabled,
@@ -197,7 +203,26 @@ export function MapScreen({ navigation }: MapScreenProps) {
             </View>
           </View>
 
-          <FloorSelector floors={floorList} selectedFloorKey={selectedFloorKey} onSelectFloor={setSelectedFloorKey} />
+          <View style={styles.levelSelector}>
+            <Text style={styles.levelSelectorLabel}>층</Text>
+            <View style={styles.levelButtonsRow}>
+              {levels.map((level) => {
+                const selected = level === selectedLevel;
+
+                return (
+                  <Pressable
+                    key={level}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${level}층 선택`}
+                    onPress={() => setSelectedLevel(level)}
+                    style={({ pressed }) => [styles.levelButton, selected && styles.levelButtonSelected, pressed && styles.levelButtonPressed]}
+                  >
+                    <Text style={[styles.levelButtonText, selected && styles.levelButtonTextSelected]}>{level}F</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
 
           {searchResults.length > 0 ? (
             <View style={styles.searchResultsCard}>
@@ -208,14 +233,14 @@ export function MapScreen({ navigation }: MapScreenProps) {
                 showsVerticalScrollIndicator={false}
                 style={styles.searchResultsList}
               >
-                {searchResults.map((room) => {
-                  const selected = room.id === selectedRoomId;
+                {searchResults.map((feature) => {
+                  const selected = feature.id === selectedFeature?.id;
 
                   return (
                     <Pressable
-                      key={room.id}
+                      key={feature.id}
                       accessibilityRole="button"
-                      onPress={() => handleSelectSearchResult(room.id)}
+                      onPress={() => handleSelectSearchResult(feature.id)}
                       style={({ pressed }) => [
                         styles.searchResultRow,
                         selected && styles.searchResultRowSelected,
@@ -223,10 +248,10 @@ export function MapScreen({ navigation }: MapScreenProps) {
                       ]}
                     >
                       <Text style={[styles.searchResultName, selected && styles.searchResultNameSelected]} numberOfLines={1}>
-                        {room.name}
+                        {feature.properties.name_ko || feature.properties.name}
                       </Text>
                       <Text style={[styles.searchResultMeta, selected && styles.searchResultMetaSelected]}>
-                        {selected ? '선택됨' : '현재 층 교실'}
+                        {selected ? '선택됨' : `L${feature.properties.level} · ${feature.properties.category}`}
                       </Text>
                     </Pressable>
                   );
@@ -253,21 +278,17 @@ export function MapScreen({ navigation }: MapScreenProps) {
       </View>
 
       <View style={styles.mapArea}>
-        <NativeFloorMap
-          floorKey={selectedFloorKey}
-          floor={selectedFloor}
-          topObstructionHeight={topObstructionHeight}
-          bottomObstructionHeight={bottomObstructionHeight}
-          selectedRoomId={selectedRoomId}
-          onSelectRoom={handleSelectRoom}
-          accessPoints={accessPoints}
-          currentPosition={currentPosition}
-          showApMarkers={showApMarkers}
+        <CampusMap ref={campusMapRef} />
+        <ZoomControls
+          onReset={() => campusMapRef.current?.resetView()}
+          onZoomIn={() => campusMapRef.current?.zoomIn()}
+          onZoomOut={() => campusMapRef.current?.zoomOut()}
+          style={{ top: topObstructionHeight + 16 }}
         />
       </View>
 
       <View style={[styles.bottomSheetContainer, { paddingBottom: insets.bottom }]}> 
-        <PlaceDetailBottomSheet floor={selectedFloor} room={selectedRoom} />
+        <PlaceDetailBottomSheet floor={undefined} room={null} />
       </View>
     </View>
   );
@@ -441,6 +462,59 @@ const styles = StyleSheet.create({
     color: '#64748b',
     fontSize: 12,
     lineHeight: 16,
+  },
+  levelSelector: {
+    alignSelf: 'flex-start',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    borderColor: '#d8e2ef',
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    shadowColor: '#0f172a',
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  levelSelectorLabel: {
+    color: '#64748b',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  levelButtonsRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  levelButton: {
+    alignItems: 'center',
+    backgroundColor: '#eff6ff',
+    borderColor: '#bfdbfe',
+    borderRadius: 999,
+    borderWidth: 1,
+    minWidth: 48,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+  levelButtonSelected: {
+    backgroundColor: '#1d4ed8',
+    borderColor: '#1d4ed8',
+  },
+  levelButtonPressed: {
+    opacity: 0.86,
+  },
+  levelButtonText: {
+    color: '#1d4ed8',
+    fontSize: 12,
+    fontWeight: '800',
+  },
+  levelButtonTextSelected: {
+    color: '#ffffff',
   },
   mapArea: {
     ...StyleSheet.absoluteFillObject,
