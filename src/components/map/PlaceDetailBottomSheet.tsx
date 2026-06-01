@@ -108,12 +108,25 @@ export function PlaceDetailBottomSheet({ floor, room }: PlaceDetailBottomSheetPr
                 <Text style={styles.detailLabel}>층</Text>
                 <Text style={styles.detailValue}>{floorLabel}</Text>
               </View>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>영역</Text>
-                <Text style={styles.detailValue}>
-                  x {formatPercent(room.x)} · y {formatPercent(room.y)} · {formatPercent(room.width)} × {formatPercent(room.height)}
-                </Text>
-              </View>
+              {(room as any)._geojsonMeta ? (
+                <>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>종류</Text>
+                    <Text style={styles.detailValue}>{(room as any)._geojsonMeta.category}</Text>
+                  </View>
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>좌표</Text>
+                    <Text style={styles.detailValue}>{(room as any)._geojsonMeta.centroid}</Text>
+                  </View>
+                </>
+              ) : (
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>영역</Text>
+                  <Text style={styles.detailValue}>
+                    x {formatPercent(room.x)} · y {formatPercent(room.y)} · {formatPercent(room.width)} × {formatPercent(room.height)}
+                  </Text>
+                </View>
+              )}
             </View>
           ) : (
             <Text style={styles.emptyText}>교실을 선택하면 층 정보와 영역 좌표가 표시됩니다.</Text>

@@ -13,7 +13,7 @@ import type { RootStackParamList } from '../navigation/types';
 import type { Floor, FloorElement } from '../types/floorMap';
 import type { CampusGeoJSON } from '../types/geojson';
 import { getAccessPointsForFloor } from '../utils/accessPoint';
-import { getFeatureById, getInteractiveFeatures, getLevelKeys } from '../utils/geoJsonHelpers';
+import { getFeatureById, getFeatureCentroid, getInteractiveFeatures, getLevelKeys } from '../utils/geoJsonHelpers';
 import { useMapStore } from '../store/mapStore';
 import { usePositionStore } from '../store/positionStore';
 import { getSelectedFloor } from '../utils/floorMap';
@@ -94,6 +94,8 @@ export function MapScreen({ navigation }: MapScreenProps) {
       return null;
     }
 
+    const centroid = getFeatureCentroid(selectedFeature);
+
     return {
       id: Number(selectedFeature.id) || 0,
       name: selectedFeature.properties.name_ko || selectedFeature.properties.name,
@@ -102,7 +104,11 @@ export function MapScreen({ navigation }: MapScreenProps) {
       width: 0,
       height: 0,
       interactive: selectedFeature.properties.interactive,
-    } as FloorElement;
+      _geojsonMeta: {
+        category: selectedFeature.properties.category,
+        centroid: `[${centroid[0].toFixed(5)}, ${centroid[1].toFixed(5)}]`,
+      },
+    } as FloorElement & { _geojsonMeta?: { category: string; centroid: string } };
   }, [selectedFeature]);
 
   const searchResults = useMemo(() => {
@@ -556,5 +562,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 0,
     bottom: 0,
+    backgroundColor: '#ffffff',
   },
 });
