@@ -1,16 +1,64 @@
+import { useCallback, useMemo, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Camera, GeoJSONSource, Layer, Map } from '@maplibre/maplibre-react-native';
+import { Camera, GeoJSONSource, Layer, Map, type FilterSpecification, type MapRef } from '@maplibre/maplibre-react-native';
 
 // @ts-expect-error - GeoJSON import requires allowArbitraryExtensions + d.ts declaration
 import campusData from '../../data/campus-wgs84.geojson';
+import { useMapStore } from '../../store/mapStore';
 
 const CAMPUS_BOUNDS: [number, number, number, number] = [128.9028, 35.1876, 128.9041, 35.1893];
 const CAMPUS_CENTER: [number, number] = [128.9035, 35.1885];
 
 export default function CampusMap() {
+  const mapRef = useRef<MapRef>(null);
+  const selectedLevel = useMapStore((state) => state.selectedLevel);
+  const selectedFeatureId = useMapStore((state) => state.selectedFeatureId);
+  const setSelectedFeatureId = useMapStore((state) => state.setSelectedFeatureId);
+
+  const handlePress = useCallback(
+    async (event: any) => {
+      const screenPointX = event?.nativeEvent?.screenPointX;
+      const screenPointY = event?.nativeEvent?.screenPointY;
+
+      if (typeof screenPointX !== 'number' || typeof screenPointY !== 'number') {
+        return;
+      }
+
+      const features = (await mapRef.current?.queryRenderedFeatures([screenPointX, screenPointY], {
+        layers: ['campus-fill'],
+      })) as Array<{ id?: string | number; properties?: { interactive?: boolean } }> | undefined;
+
+      const pressedFeature = features?.find((feature) => {
+        return feature?.properties?.interactive === true;
+      });
+
+      if (!pressedFeature) {
+        return;
+      }
+
+      const featureId = String(pressedFeature.id ?? '');
+
+      if (!featureId) {
+        return;
+      }
+
+      setSelectedFeatureId(featureId === selectedFeatureId ? null : featureId);
+    },
+    [selectedFeatureId, setSelectedFeatureId],
+  );
+
+  const levelFilter = useMemo(
+    () => ['==', ['get', 'level'], selectedLevel] as unknown as FilterSpecification,
+    [selectedLevel],
+  );
+  const selectedFeatureFilter = useMemo(
+    () => ['==', ['id'], selectedFeatureId ?? ''] as unknown as FilterSpecification,
+    [selectedFeatureId],
+  );
+
   return (
     <View style={styles.container}>
-      <Map mapStyle="https://demotiles.maplibre.org/style.json" style={styles.map}>
+      <Map ref={mapRef} mapStyle="https://demotiles.maplibre.org/style.json" style={styles.map} onPress={handlePress}>
         <Camera
           initialViewState={{
             center: CAMPUS_CENTER,
@@ -22,18 +70,49 @@ export default function CampusMap() {
           <Layer
             id="campus-fill"
             type="fill"
+            filter={levelFilter}
             paint={{
               'fill-color': '#e8e8e8',
               'fill-opacity': 0.7,
             }}
           />
           <Layer
+            id="room-highlight"
+            type="fill"
+            filter={selectedFeatureFilter}
+            paint={{
+              'fill-color': '#4A90D9',
+              'fill-opacity': 0.5,
+            }}
+            afterId="campus-fill"
+          />
+          <Layer
             id="campus-outline"
             type="line"
+            filter={levelFilter}
             paint={{
               'line-color': '#333333',
               'line-width': 1,
             }}
+          />
+          <Layer
+            id="room-labels"
+            type="symbol"
+            filter={levelFilter}
+            layout={{
+              'text-field': ['get', 'name'],
+              'text-size': 11,
+              'text-anchor': 'center',
+              'text-allow-overlap': false,
+              'text-optional': true,
+              'text-max-width': 6,
+            }}
+            paint={{
+              'text-color': '#333333',
+              'text-halo-color': '#ffffff',
+              'text-halo-width': 1,
+            }}
+            minzoom={17}
           />
         </GeoJSONSource>
       </Map>
