@@ -23,6 +23,27 @@ const campusData = campusDataUntyped as unknown as CampusGeoJSON;
 const CAMPUS_BOUNDS: [number, number, number, number] = [128.9028, 35.1876, 128.9041, 35.1893];
 const CAMPUS_CENTER: [number, number] = [128.9035, 35.1885];
 
+const OSM_STYLE = {
+  version: 8 as const,
+  sources: {
+    osm: {
+      type: 'raster' as const,
+      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+      tileSize: 256,
+      attribution: '© OpenStreetMap contributors',
+    },
+  },
+  layers: [
+    {
+      id: 'osm-tiles',
+      type: 'raster' as const,
+      source: 'osm',
+      minzoom: 0,
+      maxzoom: 19,
+    },
+  ],
+};
+
 export type CampusMapHandle = {
   flyToUser: () => void;
   flyToFeature: (featureId: string) => void;
@@ -43,22 +64,13 @@ function CampusMap(_props: {}, ref: Ref<CampusMapHandle>) {
   const setDetectedBuildingId = useMapStore((state) => state.setDetectedBuildingId);
   const setUserCoordinates = useMapStore((state) => state.setUserCoordinates);
 
-  const handlePress = useCallback(
-    async (event: any) => {
-      const screenPointX = event?.nativeEvent?.screenPointX;
-      const screenPointY = event?.nativeEvent?.screenPointY;
+  const handleSourcePress = useCallback(
+    (event: any) => {
+      const features = event?.nativeEvent?.features as
+        | Array<{ id?: string | number; properties?: { interactive?: boolean } }>
+        | undefined;
 
-      if (typeof screenPointX !== 'number' || typeof screenPointY !== 'number') {
-        return;
-      }
-
-      const features = (await mapRef.current?.queryRenderedFeatures([screenPointX, screenPointY], {
-        layers: ['campus-fill'],
-      })) as Array<{ id?: string | number; properties?: { interactive?: boolean } }> | undefined;
-
-      const pressedFeature = features?.find((feature) => {
-        return feature?.properties?.interactive === true;
-      });
+      const pressedFeature = features?.find((f) => f?.properties?.interactive === true);
 
       if (!pressedFeature) {
         return;
@@ -154,7 +166,7 @@ function CampusMap(_props: {}, ref: Ref<CampusMapHandle>) {
 
   return (
     <View style={styles.container}>
-      <Map ref={mapRef} mapStyle="https://demotiles.maplibre.org/style.json" style={styles.map} onPress={handlePress}>
+      <Map ref={mapRef} mapStyle={OSM_STYLE} style={styles.map} onPress={() => setSelectedFeatureId(null)}>
         <Camera
           ref={cameraRef}
           initialViewState={{
@@ -164,7 +176,7 @@ function CampusMap(_props: {}, ref: Ref<CampusMapHandle>) {
           }}
         />
         <NativeUserLocation mode="default" />
-        <GeoJSONSource id="campus-polygons" data={campusData as any}>
+        <GeoJSONSource id="campus-polygons" data={campusData as any} onPress={handleSourcePress}>
           <Layer
             id="campus-fill"
             type="fill"
