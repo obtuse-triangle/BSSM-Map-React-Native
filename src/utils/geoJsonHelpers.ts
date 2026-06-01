@@ -79,3 +79,27 @@ export const getFeatureById = (geojson: CampusGeoJSON | null | undefined, id: st
 
   return geojson.features.find((feature) => feature.id === id);
 };
+
+export const getFeatureCentroid = (feature: CampusFeature): [number, number] => {
+  if (!isPolygonGeometry(feature.geometry)) {
+    return [0, 0];
+  }
+
+  let totalLon = 0;
+  let totalLat = 0;
+  let count = 0;
+
+  for (const ring of getAllPolygonRings(feature.geometry)) {
+    for (const [lon, lat] of ring) {
+      totalLon += lon;
+      totalLat += lat;
+      count += 1;
+    }
+  }
+
+  if (count === 0) {
+    return [0, 0];
+  }
+
+  return [totalLon / count, totalLat / count];
+};

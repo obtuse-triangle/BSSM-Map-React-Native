@@ -16,12 +16,14 @@ import {
 import campusData from '../../data/campus-wgs84.geojson';
 import { useMapStore } from '../../store/mapStore';
 import { getDetectedBuildingId } from '../../utils/buildingDetection';
+import { getFeatureById, getFeatureCentroid } from '../../utils/geoJsonHelpers';
 
 const CAMPUS_BOUNDS: [number, number, number, number] = [128.9028, 35.1876, 128.9041, 35.1893];
 const CAMPUS_CENTER: [number, number] = [128.9035, 35.1885];
 
 export type CampusMapHandle = {
   flyToUser: () => void;
+  flyToFeature: (featureId: string) => void;
   zoomIn: () => void;
   zoomOut: () => void;
   resetView: () => void;
@@ -125,7 +127,19 @@ function CampusMap(_props: {}, ref: Ref<CampusMapHandle>) {
     cameraRef.current?.fitBounds(CAMPUS_BOUNDS, { padding: { top: 50, right: 50, bottom: 50, left: 50 }, duration: 200 });
   }, []);
 
-  useImperativeHandle(ref, () => ({ flyToUser, zoomIn, zoomOut, resetView }), [flyToUser, resetView, zoomIn, zoomOut]);
+  const flyToFeature = useCallback(
+    (featureId: string) => {
+      const feature = getFeatureById(campusData, featureId);
+      if (!feature) {
+        return;
+      }
+      const centroid = getFeatureCentroid(feature);
+      cameraRef.current?.flyTo({ center: centroid, duration: 500 });
+    },
+    [],
+  );
+
+  useImperativeHandle(ref, () => ({ flyToUser, flyToFeature, zoomIn, zoomOut, resetView }), [flyToUser, flyToFeature, resetView, zoomIn, zoomOut]);
 
   const levelFilter = useMemo(
     () => ['==', ['get', 'level'], selectedLevel] as unknown as FilterSpecification,

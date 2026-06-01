@@ -1,10 +1,3 @@
-declare const require: any;
-declare const module: any;
-declare const process: any;
-
-const fs = require('fs');
-const path = require('path');
-
 type Position = [number, number];
 type Ring = Position[];
 type PolygonCoordinates = Ring[];
@@ -207,14 +200,4 @@ export function validateCampusGeoJSON(data: unknown): GeoJSONFeatureCollection {
   }
 
   return data as GeoJSONFeatureCollection;
-}
-
-if (require.main === module) {
-  const filePath = process.argv[2]
-    ? path.resolve(process.cwd(), process.argv[2])
-    : path.resolve(process.cwd(), 'src/data/campus-wgs84.geojson');
-  const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8')) as unknown;
-  validateCampusGeoJSON(parsed);
-  // eslint-disable-next-line no-console
-  console.log('campus-wgs84.geojson validation passed');
 }

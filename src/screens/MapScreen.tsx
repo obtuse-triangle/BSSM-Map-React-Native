@@ -11,6 +11,7 @@ import CampusMap, { type CampusMapHandle } from '../components/map/CampusMap';
 import { PlaceDetailBottomSheet } from '../components/map/PlaceDetailBottomSheet';
 import { ZoomControls } from '../components/map/ZoomControls';
 import type { RootStackParamList } from '../navigation/types';
+import type { Floor, FloorElement } from '../types/floorMap';
 import { getAccessPointsForFloor } from '../utils/accessPoint';
 import { getFeatureById, getInteractiveFeatures, getLevelKeys } from '../utils/geoJsonHelpers';
 import { useMapStore } from '../store/mapStore';
@@ -74,6 +75,34 @@ export function MapScreen({ navigation }: MapScreenProps) {
     return getFeatureById(campusData, selectedFeatureId) ?? null;
   }, [selectedFeatureId]);
 
+  const bottomSheetFloor = useMemo<Floor | undefined>(() => {
+    if (!selectedFeature) {
+      return undefined;
+    }
+
+    return {
+      key: String(selectedFeature.properties.level),
+      label: `${selectedFeature.properties.level}F`,
+      elements: [],
+    } as Floor;
+  }, [selectedFeature]);
+
+  const bottomSheetRoom = useMemo<FloorElement | null>(() => {
+    if (!selectedFeature) {
+      return null;
+    }
+
+    return {
+      id: Number(selectedFeature.id) || 0,
+      name: selectedFeature.properties.name_ko || selectedFeature.properties.name,
+      x: 0,
+      y: 0,
+      width: 0,
+      height: 0,
+      interactive: selectedFeature.properties.interactive,
+    } as FloorElement;
+  }, [selectedFeature]);
+
   const searchResults = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
 
@@ -112,6 +141,7 @@ export function MapScreen({ navigation }: MapScreenProps) {
       }
 
       setSelectedFeatureId(featureId);
+      campusMapRef.current?.flyToFeature(featureId);
       setSearchQuery('');
       Keyboard.dismiss();
     },
@@ -288,7 +318,7 @@ export function MapScreen({ navigation }: MapScreenProps) {
       </View>
 
       <View style={[styles.bottomSheetContainer, { paddingBottom: insets.bottom }]}> 
-        <PlaceDetailBottomSheet floor={undefined} room={null} />
+        <PlaceDetailBottomSheet floor={bottomSheetFloor} room={bottomSheetRoom} />
       </View>
     </View>
   );
