@@ -1,19 +1,39 @@
-import { useCallback, useMemo, useRef } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, type Ref } from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Camera, GeoJSONSource, Layer, Map, type FilterSpecification, type MapRef } from '@maplibre/maplibre-react-native';
+import {
+  Camera,
+  GeoJSONSource,
+  Layer,
+  Map,
+  NativeUserLocation,
+  type FilterSpecification,
+  type MapRef,
+  type CameraRef,
+  useCurrentPosition,
+} from '@maplibre/maplibre-react-native';
 
 // @ts-expect-error - GeoJSON import requires allowArbitraryExtensions + d.ts declaration
 import campusData from '../../data/campus-wgs84.geojson';
 import { useMapStore } from '../../store/mapStore';
+import { getDetectedBuildingId } from '../../utils/buildingDetection';
 
 const CAMPUS_BOUNDS: [number, number, number, number] = [128.9028, 35.1876, 128.9041, 35.1893];
 const CAMPUS_CENTER: [number, number] = [128.9035, 35.1885];
 
-export default function CampusMap() {
+export type CampusMapHandle = {
+  flyToUser: () => void;
+};
+
+function CampusMap(_props: {}, ref: Ref<CampusMapHandle>) {
   const mapRef = useRef<MapRef>(null);
+  const cameraRef = useRef<CameraRef>(null);
+  const currentPosition = useCurrentPosition();
   const selectedLevel = useMapStore((state) => state.selectedLevel);
   const selectedFeatureId = useMapStore((state) => state.selectedFeatureId);
   const setSelectedFeatureId = useMapStore((state) => state.setSelectedFeatureId);
+  const userCoordinates = useMapStore((state) => state.userCoordinates);
+  const setDetectedBuildingId = useMapStore((state) => state.setDetectedBuildingId);
+  const setUserCoordinates = useMapStore((state) => state.setUserCoordinates);
 
   const handlePress = useCallback(
     async (event: any) => {
@@ -47,6 +67,43 @@ export default function CampusMap() {
     [selectedFeatureId, setSelectedFeatureId],
   );
 
+  const handleUserLocationUpdate = useCallback(
+    (position: { coords?: { longitude?: number; latitude?: number } } | undefined) => {
+      const coords = position?.coords;
+
+      if (!coords) {
+        return;
+      }
+
+      const { longitude, latitude } = coords;
+
+      if (typeof longitude !== 'number' || typeof latitude !== 'number') {
+        return;
+      }
+
+      setUserCoordinates({ longitude, latitude });
+      setDetectedBuildingId(getDetectedBuildingId(longitude, latitude, campusData));
+    },
+    [setDetectedBuildingId, setUserCoordinates],
+  );
+
+  useEffect(() => {
+    handleUserLocationUpdate(currentPosition);
+  }, [currentPosition, handleUserLocationUpdate]);
+
+  const flyToUser = useCallback(() => {
+    if (!userCoordinates) {
+      return;
+    }
+
+    cameraRef.current?.flyTo({
+      center: [userCoordinates.longitude, userCoordinates.latitude],
+      duration: 500,
+    });
+  }, [userCoordinates]);
+
+  useImperativeHandle(ref, () => ({ flyToUser }), [flyToUser]);
+
   const levelFilter = useMemo(
     () => ['==', ['get', 'level'], selectedLevel] as unknown as FilterSpecification,
     [selectedLevel],
@@ -60,12 +117,14 @@ export default function CampusMap() {
     <View style={styles.container}>
       <Map ref={mapRef} mapStyle="https://demotiles.maplibre.org/style.json" style={styles.map} onPress={handlePress}>
         <Camera
+          ref={cameraRef}
           initialViewState={{
             center: CAMPUS_CENTER,
             zoom: 17,
             bounds: CAMPUS_BOUNDS,
           }}
         />
+        <NativeUserLocation mode="default" />
         <GeoJSONSource id="campus-polygons" data={campusData}>
           <Layer
             id="campus-fill"
@@ -119,6 +178,8 @@ export default function CampusMap() {
     </View>
   );
 }
+
+export default forwardRef(CampusMap);
 
 const styles = StyleSheet.create({
   container: {

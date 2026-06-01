@@ -10,12 +10,16 @@ type MapStoreState = {
   selectedRoomId: number | null;
   selectedFeatureId: string | null;
   showApMarkers: boolean;
+  detectedBuildingId: string | null;
+  userCoordinates: { longitude: number; latitude: number } | null;
   setSelectedFloorKey: (floorKey: FloorKey) => void;
   setSelectedLevel: (level: number) => void;
   setSelectedRoomId: (roomId: number | null) => void;
   setSelectedFeatureId: (featureId: string | null) => void;
   clearSelectedRoom: () => void;
   setShowApMarkers: (showApMarkers: boolean) => void;
+  setDetectedBuildingId: (buildingId: string | null) => void;
+  setUserCoordinates: (coords: { longitude: number; latitude: number } | null) => void;
   toggleApMarkers: () => void;
 };
 
@@ -27,6 +31,8 @@ export const useMapStore = create<MapStoreState>()((set) => ({
   selectedRoomId: null,
   selectedFeatureId: null,
   showApMarkers: false,
+  detectedBuildingId: null,
+  userCoordinates: null,
   setSelectedFloorKey: (floorKey) => {
     set({ selectedFloorKey: floorKey, selectedRoomId: null, selectedFeatureId: null });
   },
@@ -44,6 +50,12 @@ export const useMapStore = create<MapStoreState>()((set) => ({
   },
   setShowApMarkers: (showApMarkers) => {
     set({ showApMarkers });
+  },
+  setDetectedBuildingId: (detectedBuildingId) => {
+    set({ detectedBuildingId });
+  },
+  setUserCoordinates: (userCoordinates) => {
+    set({ userCoordinates });
   },
   toggleApMarkers: () => {
     set((state) => ({ showApMarkers: !state.showApMarkers }));
