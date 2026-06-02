@@ -324,7 +324,7 @@ export function MapScreen({ navigation }: MapScreenProps) {
         />
       </View>
 
-      <View style={[styles.bottomSheetContainer, { paddingBottom: insets.bottom }]}> 
+      <View style={styles.bottomSheetContainer} pointerEvents="box-none">
         <PlaceDetailBottomSheet floor={bottomSheetFloor} room={bottomSheetRoom} />
       </View>
     </View>
@@ -547,11 +547,11 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   bottomSheetContainer: {
-    left: 0,
     position: 'absolute',
+    left: 0,
     right: 0,
     bottom: 0,
     height: SHEET_HEIGHT,
-    backgroundColor: '#ffffff',
+    overflow: 'hidden',
   },
 });
