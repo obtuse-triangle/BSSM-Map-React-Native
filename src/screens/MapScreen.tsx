@@ -315,7 +315,7 @@ export function MapScreen({ navigation }: MapScreenProps) {
       </View>
 
       <View style={styles.mapArea}>
-        <CampusMap ref={campusMapRef} />
+        <CampusMap ref={campusMapRef} topPadding={topObstructionHeight} />
         <ZoomControls
           onReset={() => campusMapRef.current?.resetView()}
           onZoomIn={() => campusMapRef.current?.zoomIn()}

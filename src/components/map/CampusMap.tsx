@@ -58,7 +58,11 @@ export type CampusMapHandle = {
   resetView: () => void;
 };
 
-function CampusMap(_props: {}, ref: Ref<CampusMapHandle>) {
+type CampusMapProps = {
+  topPadding?: number;
+};
+
+function CampusMap({ topPadding = 50 }: CampusMapProps, ref: Ref<CampusMapHandle>) {
   const mapRef = useRef<MapRef>(null);
   const cameraRef = useRef<CameraRef>(null);
   const [zoomLevel, setZoomLevel] = useState(17);
@@ -154,8 +158,8 @@ function CampusMap(_props: {}, ref: Ref<CampusMapHandle>) {
 
   const resetView = useCallback(() => {
     setZoomLevel(17);
-    cameraRef.current?.fitBounds(CAMPUS_BOUNDS, { padding: { top: 50, right: 50, bottom: 50, left: 50 }, duration: 200 });
-  }, []);
+    cameraRef.current?.fitBounds(CAMPUS_BOUNDS, { padding: { top: topPadding, right: 50, bottom: 50, left: 50 }, duration: 200 });
+  }, [topPadding]);
 
   const flyToFeature = useCallback(
     (featureId: string) => {
@@ -189,6 +193,7 @@ function CampusMap(_props: {}, ref: Ref<CampusMapHandle>) {
             center: CAMPUS_CENTER,
             zoom: 17,
             bounds: CAMPUS_BOUNDS,
+            padding: { top: topPadding, right: 50, bottom: 50, left: 50 },
           }}
         />
 
