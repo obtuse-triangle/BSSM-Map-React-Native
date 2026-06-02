@@ -35,9 +35,11 @@ export function MapScreen({ navigation }: MapScreenProps) {
     selectedLevel,
     selectedFeatureId,
     showSatellite,
+    showDesignTiles,
     setSelectedLevel,
     setSelectedFeatureId,
     toggleSatellite,
+    toggleDesignTiles,
     userCoordinates,
   } = useMapStore();
 
@@ -227,6 +229,19 @@ export function MapScreen({ navigation }: MapScreenProps) {
                 ]}
               >
                 <Text style={[styles.iconActionGlyph]}>🛰</Text>
+              </Pressable>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={showDesignTiles ? '설계도 숨기기' : '설계도 표시'}
+                onPress={toggleDesignTiles}
+                style={({ pressed }) => [
+                  styles.iconActionButton,
+                  showDesignTiles && styles.designButtonActive,
+                  pressed && styles.iconActionButtonPressed,
+                ]}
+              >
+                <Text style={[styles.iconActionGlyph]}>▦</Text>
               </Pressable>
 
               <Pressable
@@ -425,6 +440,10 @@ const styles = StyleSheet.create({
   debugButton: {
     backgroundColor: '#fff7ed',
     borderColor: '#fed7aa',
+  },
+  designButtonActive: {
+    backgroundColor: '#fefce8',
+    borderColor: '#fde047',
   },
   satelliteButtonActive: {
     backgroundColor: '#eff6ff',

@@ -1,5 +1,6 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
+import { Asset } from 'expo-asset';
 import {
   Camera,
   GeoJSONSource,
@@ -62,10 +63,13 @@ type CampusMapProps = {
   topPadding?: number;
 };
 
+const designTilesAsset = Asset.fromModule(require('../../data/campus-design.mbtiles'));
+
 function CampusMap({ topPadding = 50 }: CampusMapProps, ref: Ref<CampusMapHandle>) {
   const mapRef = useRef<MapRef>(null);
   const cameraRef = useRef<CameraRef>(null);
   const [zoomLevel, setZoomLevel] = useState(17);
+  const [mbtilesPath, setMbtilesPath] = useState<string | null>(null);
   const currentPosition = useCurrentPosition();
   const selectedLevel = useMapStore((state) => state.selectedLevel);
   const selectedFeatureId = useMapStore((state) => state.selectedFeatureId);
@@ -74,6 +78,15 @@ function CampusMap({ topPadding = 50 }: CampusMapProps, ref: Ref<CampusMapHandle
   const setDetectedBuildingId = useMapStore((state) => state.setDetectedBuildingId);
   const setUserCoordinates = useMapStore((state) => state.setUserCoordinates);
   const showSatellite = useMapStore((state) => state.showSatellite);
+  const showDesignTiles = useMapStore((state) => state.showDesignTiles);
+
+  useEffect(() => {
+    designTilesAsset.downloadAsync().then((asset) => {
+      if (asset.localUri) {
+        setMbtilesPath(asset.localUri.replace('file://', ''));
+      }
+    });
+  }, []);
 
   const handleMapPress = useCallback(
     async (event: any) => {
@@ -203,6 +216,12 @@ function CampusMap({ topPadding = 50 }: CampusMapProps, ref: Ref<CampusMapHandle
         <RasterSource id="satellite" {...SATELLITE_RASTER}>
           <Layer id="satellite-tiles" type="raster" layout={{ visibility: showSatellite ? 'visible' : 'none' }} />
         </RasterSource>
+
+        {showDesignTiles && mbtilesPath && (
+          <RasterSource id="design-tiles" tileSize={256} tiles={[`mbtiles://${mbtilesPath}`]}>
+            <Layer id="design-raster" type="raster" paint={{ 'raster-opacity': 0.85 }} />
+          </RasterSource>
+        )}
 
         <GeoJSONSource id="school-outline" data={outlineData}>
             <Layer

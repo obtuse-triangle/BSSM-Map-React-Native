@@ -1,0 +1,2 @@
+minimumReleaseAgeExclude:
+  - '@maplibre/maplibre-react-native@11.3.2'

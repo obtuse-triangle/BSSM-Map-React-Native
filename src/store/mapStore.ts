@@ -11,6 +11,7 @@ type MapStoreState = {
   selectedFeatureId: string | null;
   showApMarkers: boolean;
   showSatellite: boolean;
+  showDesignTiles: boolean;
   detectedBuildingId: string | null;
   userCoordinates: { longitude: number; latitude: number } | null;
   setSelectedFloorKey: (floorKey: FloorKey) => void;
@@ -23,6 +24,7 @@ type MapStoreState = {
   setUserCoordinates: (coords: { longitude: number; latitude: number } | null) => void;
   toggleApMarkers: () => void;
   toggleSatellite: () => void;
+  toggleDesignTiles: () => void;
 };
 
 const initialFloorKey = getFirstFloorKey(bssmFloorMap) ?? null;
@@ -34,6 +36,7 @@ export const useMapStore = create<MapStoreState>()((set) => ({
   selectedFeatureId: null,
   showApMarkers: false,
   showSatellite: false,
+  showDesignTiles: false,
   detectedBuildingId: null,
   userCoordinates: null,
   setSelectedFloorKey: (floorKey) => {
@@ -65,5 +68,8 @@ export const useMapStore = create<MapStoreState>()((set) => ({
   },
   toggleSatellite: () => {
     set((state) => ({ showSatellite: !state.showSatellite }));
+  },
+  toggleDesignTiles: () => {
+    set((state) => ({ showDesignTiles: !state.showDesignTiles }));
   },
 }));

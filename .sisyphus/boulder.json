@@ -1,0 +1,91 @@
+{
+  "active_plan": "/Users/obtuse/gitRepos/school-map-react-native/.sisyphus/plans/geojson-maplibre-migration.md",
+  "started_at": "2026-06-01T14:17:34.326Z",
+  "session_ids": [
+    "ses_17d217549ffeyVLa25sNDn8Hmw",
+    "ses_17bbf5460ffeXHmQiCciqmD9aA",
+    "ses_17bbf1206ffelcpp0YmqCc04uo",
+    "ses_17bbeddfcffeZIJJWYO03Hfjnl"
+  ],
+  "session_origins": {
+    "ses_17d217549ffeyVLa25sNDn8Hmw": "direct",
+    "ses_17bbf5460ffeXHmQiCciqmD9aA": "appended",
+    "ses_17bbf1206ffelcpp0YmqCc04uo": "appended",
+    "ses_17bbeddfcffeZIJJWYO03Hfjnl": "appended"
+  },
+  "plan_name": "geojson-maplibre-migration",
+  "agent": "atlas",
+  "task_sessions": {
+    "todo:1": {
+      "task_key": "todo:1",
+      "task_label": "1",
+      "task_title": "GeoJSON 데이터 파일 복사 + 검증 스크립트",
+      "session_id": "ses_17c4de263ffeZwXH2mWT30SXKp",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-06-01T15:03:08.321Z"
+    },
+    "todo:2": {
+      "task_key": "todo:2",
+      "task_label": "2",
+      "task_title": "GeoJSON 헬퍼 유틸 + 타입 정의",
+      "session_id": "ses_17c4503d9ffeeCVGawk60MnFat",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-06-01T15:10:23.846Z"
+    },
+    "todo:5": {
+      "task_key": "todo:5",
+      "task_label": "5",
+      "task_title": "기본 MapLibre 맵 + GeoJSON 교실 폴리곤 렌더링",
+      "session_id": "ses_17c3e01a2ffeNSw6whL5U66C7n",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-06-01T15:20:51.146Z"
+    },
+    "todo:6": {
+      "task_key": "todo:6",
+      "task_label": "6",
+      "task_title": "층 전환 — GeoJSON 레벨 필터링",
+      "session_id": "ses_17c35304fffeIEBIaDSFrW2zNP",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-06-01T15:29:06.466Z"
+    },
+    "todo:9": {
+      "task_key": "todo:9",
+      "task_label": "9",
+      "task_title": "GPS UserLocation + 건물 자동 감지 연동",
+      "session_id": "ses_17c2dd8e6ffemdLjOKFkrYYQiR",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-06-01T15:37:17.759Z"
+    },
+    "todo:10": {
+      "task_key": "todo:10",
+      "task_label": "10",
+      "task_title": "MapScreen 통합 + 줌 컨트롤 + 검색 연동",
+      "session_id": "ses_17c270246ffeb5HWB6XMUtr22u",
+      "agent": "Sisyphus-Junior",
+      "category": "deep",
+      "updated_at": "2026-06-01T15:45:56.284Z"
+    },
+    "todo:11": {
+      "task_key": "todo:11",
+      "task_label": "11",
+      "task_title": "기존 코드 정리 — NativeFloorMap 레거시 보존 + 미사용 import cleanup",
+      "session_id": "ses_17c204a03ffevYA7TnGJtdLVQ5",
+      "agent": "Sisyphus-Junior",
+      "category": "quick",
+      "updated_at": "2026-06-01T15:49:42.501Z"
+    },
+    "final-wave:f1": {
+      "task_key": "final-wave:f1",
+      "task_label": "F1",
+      "task_title": "Plan Compliance Audit — oracle",
+      "session_id": "ses_17bbf5460ffeXHmQiCciqmD9aA",
+      "agent": "oracle",
+      "updated_at": "2026-06-01T17:36:55.554Z"
+    }
+  }
+}
