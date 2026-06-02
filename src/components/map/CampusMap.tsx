@@ -199,8 +199,7 @@ function CampusMap(_props: {}, ref: Ref<CampusMapHandle>) {
           <Layer id="satellite-tiles" type="raster" layout={{ visibility: showSatellite ? 'visible' : 'none' }} />
         </RasterSource>
 
-        {showSatellite && (
-          <GeoJSONSource id="school-outline" data={outlineData}>
+        <GeoJSONSource id="school-outline" data={outlineData}>
             <Layer
               id="outline-fill"
               type="fill"
@@ -218,7 +217,6 @@ function CampusMap(_props: {}, ref: Ref<CampusMapHandle>) {
               }}
             />
           </GeoJSONSource>
-        )}
 
         <NativeUserLocation mode="default" />
         <GeoJSONSource id="campus-polygons" data={campusData as any}>
