@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { bssmFloorMap } from '../constants/bssmFloorMap';
 import campusDataUntyped from '../data/campus-wgs84.json';
 import CampusMap, { type CampusMapHandle } from '../components/map/CampusMap';
-import { PlaceDetailBottomSheet } from '../components/map/PlaceDetailBottomSheet';
+import { PlaceDetailBottomSheet, SHEET_HEIGHT } from '../components/map/PlaceDetailBottomSheet';
 import { ZoomControls } from '../components/map/ZoomControls';
 import type { RootStackParamList } from '../navigation/types';
 import type { Floor, FloorElement } from '../types/floorMap';
@@ -551,6 +551,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 0,
     bottom: 0,
+    height: SHEET_HEIGHT,
     backgroundColor: '#ffffff',
   },
 });
