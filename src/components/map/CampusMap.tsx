@@ -1,6 +1,7 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { Asset } from 'expo-asset';
+import * as FileSystem from 'expo-file-system';
 import {
   Camera,
   GeoJSONSource,
@@ -63,18 +64,27 @@ type CampusMapProps = {
   topPadding?: number;
 };
 
-let designTilesAssetPromise: Promise<string | null> | null = null;
+let designTilesPathPromise: Promise<string | null> | null = null;
 
 function getDesignTilesPath(): Promise<string | null> {
-  if (!designTilesAssetPromise) {
-    try {
-      const asset = Asset.fromModule(require('../../data/campus-design.mbtiles'));
-      designTilesAssetPromise = asset.downloadAsync().then((a) => a.localUri?.replace('file://', '') ?? null);
-    } catch {
-      designTilesAssetPromise = Promise.resolve(null);
-    }
+  if (!designTilesPathPromise) {
+    designTilesPathPromise = (async () => {
+      try {
+        const asset = Asset.fromModule(require('../../data/campus-design.mbtiles'));
+        if (asset.uri) {
+          return asset.uri.replace('file://', '');
+        }
+        const downloaded = await asset.downloadAsync();
+        if (downloaded.localUri) {
+          return downloaded.localUri.replace('file://', '');
+        }
+        return null;
+      } catch {
+        return null;
+      }
+    })();
   }
-  return designTilesAssetPromise;
+  return designTilesPathPromise;
 }
 
 function CampusMap({ topPadding = 50 }: CampusMapProps, ref: Ref<CampusMapHandle>) {
