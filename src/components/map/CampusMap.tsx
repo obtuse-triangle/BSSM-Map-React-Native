@@ -268,9 +268,9 @@ function CampusMap(_props: {}, ref: Ref<CampusMapHandle>) {
               'text-field': ['get', 'name'],
               'text-size': 10,
               'text-anchor': 'center',
-              'text-allow-overlap': true,
-              'text-ignore-placement': true,
-              'text-optional': false,
+              'text-allow-overlap': false,
+              'text-ignore-placement': false,
+              'text-optional': true,
               'text-max-width': 8,
               'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
             }}
