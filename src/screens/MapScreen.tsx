@@ -1,6 +1,6 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Keyboard, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Keyboard, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import type { LayoutChangeEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -14,11 +14,39 @@ import type { Floor, FloorElement } from '../types/floorMap';
 import type { CampusGeoJSON } from '../types/geojson';
 import { getAccessPointsForFloor } from '../utils/accessPoint';
 import { getFeatureById, getFeatureCentroid, getInteractiveFeatures, getLevelKeys } from '../utils/geoJsonHelpers';
-import { useMapStore } from '../store/mapStore';
+import { useMapStore, type CampusFeatureCategory, type MapBaseLayer } from '../store/mapStore';
 import { usePositionStore } from '../store/positionStore';
 import { getSelectedFloor } from '../utils/floorMap';
 
 const campusData = campusDataUntyped as unknown as CampusGeoJSON;
+
+const CATEGORY_LABELS: Record<CampusFeatureCategory, string> = {
+  classroom: '교실',
+  corridor: '복도',
+  elevator: '엘리베이터',
+  facility: '시설',
+  restroom: '화장실',
+  room: '방',
+  stair: '계단',
+  structural: '구조',
+};
+
+const CATEGORY_COLORS: Record<CampusFeatureCategory, string> = {
+  classroom: '#D4E8FC',
+  corridor: '#F5F5F5',
+  elevator: '#CFD8DC',
+  facility: '#C8E6C9',
+  restroom: '#B3E5FC',
+  room: '#FFF9C4',
+  stair: '#D7CCC8',
+  structural: '#EEEEEE',
+};
+
+const BASE_LAYER_OPTIONS: { key: MapBaseLayer; label: string; icon: string }[] = [
+  { key: 'osm', label: '일반 지도', icon: '🗺' },
+  { key: 'satellite', label: '위성', icon: '🛰' },
+  { key: 'design', label: '설계도', icon: '▦' },
+];
 
 type MapScreenProps = NativeStackScreenProps<RootStackParamList, 'Map'>;
 const MAP_TOP_CHROME_GAP = 8;
@@ -27,6 +55,7 @@ export function MapScreen({ navigation }: MapScreenProps) {
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [topChromeHeight, setTopChromeHeight] = useState(0);
+  const [settingsVisible, setSettingsVisible] = useState(false);
   const campusMapRef = useRef<CampusMapHandle>(null);
   const topObstructionHeight = topChromeHeight > 0 ? topChromeHeight + MAP_TOP_CHROME_GAP : insets.top + 12;
 
@@ -34,15 +63,16 @@ export function MapScreen({ navigation }: MapScreenProps) {
     selectedFloorKey,
     selectedLevel,
     selectedFeatureId,
-    showSatellite,
-    showDesignTiles,
+    baseLayer,
+    hiddenCategories,
     setSelectedLevel,
     setSelectedFeatureId,
-    toggleSatellite,
-    toggleDesignTiles,
+    setBaseLayer,
+    toggleCategory,
     userCoordinates,
   } = useMapStore();
 
+  const allCategories = useMapStore((s) => s.allCategories);
   const { position, status, error, locateCurrentPosition } = usePositionStore();
 
   const selectedFloor = useMemo(
@@ -54,7 +84,6 @@ export function MapScreen({ navigation }: MapScreenProps) {
     if (!selectedFloorKey || !selectedFloor) {
       return [];
     }
-
     return getAccessPointsForFloor(selectedFloorKey, selectedFloor);
   }, [selectedFloor, selectedFloorKey]);
 
@@ -62,7 +91,6 @@ export function MapScreen({ navigation }: MapScreenProps) {
     if (!selectedFloorKey || !position || position.floorKey !== selectedFloorKey) {
       return null;
     }
-
     return position;
   }, [position, selectedFloorKey]);
 
@@ -75,7 +103,6 @@ export function MapScreen({ navigation }: MapScreenProps) {
     if (!selectedFeatureId) {
       return null;
     }
-
     return getFeatureById(campusData, selectedFeatureId) ?? null;
   }, [selectedFeatureId]);
 
@@ -83,7 +110,6 @@ export function MapScreen({ navigation }: MapScreenProps) {
     if (!selectedFeature) {
       return undefined;
     }
-
     return {
       key: String(selectedFeature.properties.level),
       label: `${selectedFeature.properties.level}F`,
@@ -95,9 +121,7 @@ export function MapScreen({ navigation }: MapScreenProps) {
     if (!selectedFeature) {
       return null;
     }
-
     const centroid = getFeatureCentroid(selectedFeature);
-
     return {
       id: Number(selectedFeature.id) || 0,
       name: selectedFeature.properties.name_ko || selectedFeature.properties.name,
@@ -115,14 +139,11 @@ export function MapScreen({ navigation }: MapScreenProps) {
 
   const searchResults = useMemo(() => {
     const normalizedQuery = searchQuery.trim().toLowerCase();
-
     if (!normalizedQuery) {
       return [];
     }
-
     return searchableFeatures.filter((feature) => {
       const searchableLabel = `${feature.properties.name} ${feature.properties.name_ko}`.toLowerCase();
-
       return searchableLabel.includes(normalizedQuery);
     });
   }, [searchQuery, searchableFeatures]);
@@ -134,22 +155,18 @@ export function MapScreen({ navigation }: MapScreenProps) {
       campusMapRef.current?.flyToUser();
       return;
     }
-
     if (!selectedFloorKey || accessPoints.length === 0) {
       return;
     }
-
     void locateCurrentPosition({ floorKey: selectedFloorKey, accessPoints });
   }, [accessPoints, locateCurrentPosition, selectedFloorKey, userCoordinates]);
 
   const handleSelectSearchResult = useCallback(
     (featureId: string) => {
       const feature = getFeatureById(campusData, featureId);
-
       if (feature && feature.properties.level !== selectedLevel) {
         setSelectedLevel(feature.properties.level);
       }
-
       setSelectedFeatureId(featureId);
       campusMapRef.current?.flyToFeature(featureId);
       setSearchQuery('');
@@ -163,13 +180,13 @@ export function MapScreen({ navigation }: MapScreenProps) {
       if (searchQuery.trim().length > 0) {
         return;
       }
-
       const nextHeight = Math.ceil(event.nativeEvent.layout.height);
-
       setTopChromeHeight((currentHeight) => (currentHeight === nextHeight ? currentHeight : nextHeight));
     },
     [searchQuery],
   );
+
+  const baseLayerIcon = baseLayer === 'satellite' ? '🛰' : baseLayer === 'design' ? '▦' : '⚙';
 
   return (
     <View style={styles.screen}>
@@ -202,57 +219,32 @@ export function MapScreen({ navigation }: MapScreenProps) {
               ) : null}
             </View>
 
-            <View style={styles.iconActionsRow}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={isLocateDisabled ? '현재 위치 찾기 불가' : '현재 위치 찾기'}
-                disabled={isLocateDisabled}
-                onPress={handleLocate}
-                style={({ pressed }) => [
-                  styles.iconActionButton,
-                  isLocateDisabled && styles.iconActionButtonDisabled,
-                  !isLocateDisabled && styles.locateButton,
-                  pressed && !isLocateDisabled && styles.iconActionButtonPressed,
-                ]}
-              >
-                <Text style={[styles.iconActionGlyph, isLocateDisabled && styles.iconActionGlyphDisabled]}>⌖</Text>
-              </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={isLocateDisabled ? '현재 위치 찾기 불가' : '현재 위치 찾기'}
+              disabled={isLocateDisabled}
+              onPress={handleLocate}
+              style={({ pressed }) => [
+                styles.iconActionButton,
+                isLocateDisabled && styles.iconActionButtonDisabled,
+                !isLocateDisabled && styles.locateButton,
+                pressed && !isLocateDisabled && styles.iconActionButtonPressed,
+              ]}
+            >
+              <Text style={[styles.iconActionGlyph, isLocateDisabled && styles.iconActionGlyphDisabled]}>⌖</Text>
+            </Pressable>
 
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={showSatellite ? '지도로 전환' : '위성지도로 전환'}
-                onPress={toggleSatellite}
-                style={({ pressed }) => [
-                  styles.iconActionButton,
-                  showSatellite && styles.satelliteButtonActive,
-                  pressed && styles.iconActionButtonPressed,
-                ]}
-              >
-                <Text style={[styles.iconActionGlyph]}>🛰</Text>
-              </Pressable>
-
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={showDesignTiles ? '설계도 숨기기' : '설계도 표시'}
-                onPress={toggleDesignTiles}
-                style={({ pressed }) => [
-                  styles.iconActionButton,
-                  showDesignTiles && styles.designButtonActive,
-                  pressed && styles.iconActionButtonPressed,
-                ]}
-              >
-                <Text style={[styles.iconActionGlyph]}>▦</Text>
-              </Pressable>
-
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="RTT 디버그 화면으로 이동"
-                onPress={() => navigation.navigate('DebugRtt')}
-                style={({ pressed }) => [styles.iconActionButton, styles.debugButton, pressed && styles.iconActionButtonPressed]}
-              >
-                <Text style={styles.iconActionGlyph}>🐞</Text>
-              </Pressable>
-            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="지도 설정"
+              onPress={() => setSettingsVisible(true)}
+              style={({ pressed }) => [
+                styles.iconActionButton,
+                pressed && styles.iconActionButtonPressed,
+              ]}
+            >
+              <Text style={styles.iconActionGlyph}>{baseLayerIcon}</Text>
+            </Pressable>
           </View>
 
           <View style={styles.levelSelector}>
@@ -260,7 +252,6 @@ export function MapScreen({ navigation }: MapScreenProps) {
             <View style={styles.levelButtonsRow}>
               {levels.map((level) => {
                 const selected = level === selectedLevel;
-
                 return (
                   <Pressable
                     key={level}
@@ -287,7 +278,6 @@ export function MapScreen({ navigation }: MapScreenProps) {
               >
                 {searchResults.map((feature) => {
                   const selected = feature.id === selectedFeature?.id;
-
                   return (
                     <Pressable
                       key={feature.id}
@@ -342,6 +332,56 @@ export function MapScreen({ navigation }: MapScreenProps) {
       <View style={styles.bottomSheetContainer} pointerEvents="box-none">
         <PlaceDetailBottomSheet floor={bottomSheetFloor} room={bottomSheetRoom} />
       </View>
+
+      <Modal visible={settingsVisible} transparent animationType="fade" onRequestClose={() => setSettingsVisible(false)}>
+        <Pressable style={styles.modalOverlay} onPress={() => setSettingsVisible(false)}>
+          <Pressable style={[styles.modalCard, { marginTop: insets.top + 60 }]} onPress={() => {}}>
+            <Text style={styles.modalTitle}>지도 설정</Text>
+
+            <Text style={styles.modalSectionTitle}>배경 지도</Text>
+            <View style={styles.baseLayerRow}>
+              {BASE_LAYER_OPTIONS.map((opt) => {
+                const active = baseLayer === opt.key;
+                return (
+                  <Pressable
+                    key={opt.key}
+                    onPress={() => { setBaseLayer(opt.key); }}
+                    style={[styles.baseLayerButton, active && styles.baseLayerButtonActive]}
+                  >
+                    <Text style={styles.baseLayerIcon}>{opt.icon}</Text>
+                    <Text style={[styles.baseLayerLabel, active && styles.baseLayerLabelActive]}>{opt.label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Text style={styles.modalSectionTitle}>카테고리 표시</Text>
+            <View style={styles.categoryGrid}>
+              {allCategories().map((cat) => {
+                const hidden = hiddenCategories.has(cat);
+                return (
+                  <Pressable
+                    key={cat}
+                    onPress={() => toggleCategory(cat)}
+                    style={[styles.categoryChip, { borderLeftColor: CATEGORY_COLORS[cat] }, hidden && styles.categoryChipHidden]}
+                  >
+                    <Text style={[styles.categoryChipText, hidden && styles.categoryChipTextHidden]}>
+                      {hidden ? '✕' : '✓'} {CATEGORY_LABELS[cat]}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <Pressable
+              onPress={() => setSettingsVisible(false)}
+              style={styles.modalCloseButton}
+            >
+              <Text style={styles.modalCloseText}>닫기</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -404,10 +444,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     lineHeight: 18,
   },
-  iconActionsRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
   iconActionButton: {
     alignItems: 'center',
     backgroundColor: '#ffffff',
@@ -436,18 +472,6 @@ const styles = StyleSheet.create({
   locateButton: {
     backgroundColor: '#eff6ff',
     borderColor: '#bfdbfe',
-  },
-  debugButton: {
-    backgroundColor: '#fff7ed',
-    borderColor: '#fed7aa',
-  },
-  designButtonActive: {
-    backgroundColor: '#fefce8',
-    borderColor: '#fde047',
-  },
-  satelliteButtonActive: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#93c5fd',
   },
   searchResultsCard: {
     backgroundColor: 'rgba(255,255,255,0.98)',
@@ -572,5 +596,98 @@ const styles = StyleSheet.create({
     bottom: 0,
     height: SHEET_HEIGHT,
     overflow: 'hidden',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  modalCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    marginHorizontal: 20,
+    padding: 20,
+    gap: 16,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 10,
+  },
+  modalTitle: {
+    color: '#0f172a',
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  modalSectionTitle: {
+    color: '#64748b',
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  baseLayerRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  baseLayerButton: {
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    borderColor: '#e2e8f0',
+    borderRadius: 14,
+    borderWidth: 1,
+    flex: 1,
+    gap: 4,
+    paddingVertical: 10,
+  },
+  baseLayerButtonActive: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#93c5fd',
+  },
+  baseLayerIcon: {
+    fontSize: 22,
+  },
+  baseLayerLabel: {
+    color: '#64748b',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  baseLayerLabelActive: {
+    color: '#1d4ed8',
+  },
+  categoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  categoryChip: {
+    backgroundColor: '#f8fafc',
+    borderLeftWidth: 3,
+    borderColor: '#e2e8f0',
+    borderRadius: 10,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  categoryChipHidden: {
+    backgroundColor: '#f1f5f9',
+    opacity: 0.55,
+  },
+  categoryChipText: {
+    color: '#0f172a',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  categoryChipTextHidden: {
+    color: '#94a3b8',
+  },
+  modalCloseButton: {
+    alignItems: 'center',
+    backgroundColor: '#1d4ed8',
+    borderRadius: 14,
+    paddingVertical: 12,
+  },
+  modalCloseText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });

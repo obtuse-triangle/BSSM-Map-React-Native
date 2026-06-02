@@ -4,14 +4,37 @@ import { bssmFloorMap } from '../constants/bssmFloorMap';
 import type { FloorKey } from '../types/floorMap';
 import { getFirstFloorKey } from '../utils/floorMap';
 
+export type MapBaseLayer = 'osm' | 'satellite' | 'design';
+
+export type CampusFeatureCategory =
+  | 'classroom'
+  | 'corridor'
+  | 'elevator'
+  | 'facility'
+  | 'restroom'
+  | 'room'
+  | 'stair'
+  | 'structural';
+
+const ALL_CATEGORIES: CampusFeatureCategory[] = [
+  'classroom',
+  'corridor',
+  'elevator',
+  'facility',
+  'restroom',
+  'room',
+  'stair',
+  'structural',
+];
+
 type MapStoreState = {
   selectedFloorKey: FloorKey | null;
   selectedLevel: number;
   selectedRoomId: number | null;
   selectedFeatureId: string | null;
   showApMarkers: boolean;
-  showSatellite: boolean;
-  showDesignTiles: boolean;
+  baseLayer: MapBaseLayer;
+  hiddenCategories: Set<CampusFeatureCategory>;
   detectedBuildingId: string | null;
   userCoordinates: { longitude: number; latitude: number } | null;
   setSelectedFloorKey: (floorKey: FloorKey) => void;
@@ -23,20 +46,23 @@ type MapStoreState = {
   setDetectedBuildingId: (buildingId: string | null) => void;
   setUserCoordinates: (coords: { longitude: number; latitude: number } | null) => void;
   toggleApMarkers: () => void;
-  toggleSatellite: () => void;
-  toggleDesignTiles: () => void;
+  setBaseLayer: (layer: MapBaseLayer) => void;
+  toggleCategory: (category: CampusFeatureCategory) => void;
+  showAllCategories: () => void;
+  hideAllCategories: () => void;
+  allCategories: () => CampusFeatureCategory[];
 };
 
 const initialFloorKey = getFirstFloorKey(bssmFloorMap) ?? null;
 
-export const useMapStore = create<MapStoreState>()((set) => ({
+export const useMapStore = create<MapStoreState>()((set, get) => ({
   selectedFloorKey: initialFloorKey,
   selectedLevel: 1,
   selectedRoomId: null,
   selectedFeatureId: null,
   showApMarkers: false,
-  showSatellite: false,
-  showDesignTiles: false,
+  baseLayer: 'osm',
+  hiddenCategories: new Set<CampusFeatureCategory>(),
   detectedBuildingId: null,
   userCoordinates: null,
   setSelectedFloorKey: (floorKey) => {
@@ -66,10 +92,25 @@ export const useMapStore = create<MapStoreState>()((set) => ({
   toggleApMarkers: () => {
     set((state) => ({ showApMarkers: !state.showApMarkers }));
   },
-  toggleSatellite: () => {
-    set((state) => ({ showSatellite: !state.showSatellite }));
+  setBaseLayer: (layer) => {
+    set({ baseLayer: layer });
   },
-  toggleDesignTiles: () => {
-    set((state) => ({ showDesignTiles: !state.showDesignTiles }));
+  toggleCategory: (category) => {
+    set((state) => {
+      const next = new Set(state.hiddenCategories);
+      if (next.has(category)) {
+        next.delete(category);
+      } else {
+        next.add(category);
+      }
+      return { hiddenCategories: next };
+    });
   },
+  showAllCategories: () => {
+    set({ hiddenCategories: new Set() });
+  },
+  hideAllCategories: () => {
+    set({ hiddenCategories: new Set(ALL_CATEGORIES) });
+  },
+  allCategories: () => ALL_CATEGORIES,
 }));

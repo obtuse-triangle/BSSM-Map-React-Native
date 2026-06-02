@@ -1,5 +1,5 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Asset } from 'expo-asset';
 import {
   Camera,
@@ -16,7 +16,7 @@ import {
 
 import campusDataUntyped from '../../data/campus-wgs84.json';
 import outlineDataUntyped from '../../data/school-outline.json';
-import { useMapStore } from '../../store/mapStore';
+import { useMapStore, type CampusFeatureCategory, type MapBaseLayer } from '../../store/mapStore';
 import { getDetectedBuildingId } from '../../utils/buildingDetection';
 import type { CampusGeoJSON } from '../../types/geojson';
 import { getFeatureById, getFeatureCentroid } from '../../utils/geoJsonHelpers';
@@ -63,7 +63,19 @@ type CampusMapProps = {
   topPadding?: number;
 };
 
-const designTilesAsset = Asset.fromModule(require('../../data/campus-design.mbtiles'));
+let designTilesAssetPromise: Promise<string | null> | null = null;
+
+function getDesignTilesPath(): Promise<string | null> {
+  if (!designTilesAssetPromise) {
+    try {
+      const asset = Asset.fromModule(require('../../data/campus-design.mbtiles'));
+      designTilesAssetPromise = asset.downloadAsync().then((a) => a.localUri?.replace('file://', '') ?? null);
+    } catch {
+      designTilesAssetPromise = Promise.resolve(null);
+    }
+  }
+  return designTilesAssetPromise;
+}
 
 function CampusMap({ topPadding = 50 }: CampusMapProps, ref: Ref<CampusMapHandle>) {
   const mapRef = useRef<MapRef>(null);
@@ -77,15 +89,11 @@ function CampusMap({ topPadding = 50 }: CampusMapProps, ref: Ref<CampusMapHandle
   const userCoordinates = useMapStore((state) => state.userCoordinates);
   const setDetectedBuildingId = useMapStore((state) => state.setDetectedBuildingId);
   const setUserCoordinates = useMapStore((state) => state.setUserCoordinates);
-  const showSatellite = useMapStore((state) => state.showSatellite);
-  const showDesignTiles = useMapStore((state) => state.showDesignTiles);
+  const baseLayer = useMapStore((state) => state.baseLayer);
+  const hiddenCategories = useMapStore((state) => state.hiddenCategories);
 
   useEffect(() => {
-    designTilesAsset.downloadAsync().then((asset) => {
-      if (asset.localUri) {
-        setMbtilesPath(asset.localUri.replace('file://', ''));
-      }
-    });
+    getDesignTilesPath().then(setMbtilesPath);
   }, []);
 
   const handleMapPress = useCallback(
@@ -157,14 +165,12 @@ function CampusMap({ topPadding = 50 }: CampusMapProps, ref: Ref<CampusMapHandle
 
   const zoomIn = useCallback(() => {
     const nextZoom = Math.min(zoomLevel + 1, 19);
-
     setZoomLevel(nextZoom);
     cameraRef.current?.zoomTo(nextZoom, { duration: 200 });
   }, [zoomLevel]);
 
   const zoomOut = useCallback(() => {
     const nextZoom = Math.max(zoomLevel - 1, 14);
-
     setZoomLevel(nextZoom);
     cameraRef.current?.zoomTo(nextZoom, { duration: 200 });
   }, [zoomLevel]);
@@ -192,10 +198,24 @@ function CampusMap({ topPadding = 50 }: CampusMapProps, ref: Ref<CampusMapHandle
     () => ['==', ['get', 'level'], selectedLevel] as unknown as FilterSpecification,
     [selectedLevel],
   );
+
+  const categoryFilter = useMemo(() => {
+    if (hiddenCategories.size === 0) {
+      return levelFilter;
+    }
+
+    const hidden = Array.from(hiddenCategories);
+    return ['all', levelFilter, ['!', ['in', ['get', 'category'], ['literal', hidden]]]] as unknown as FilterSpecification;
+  }, [levelFilter, hiddenCategories]);
+
   const selectedFeatureFilter = useMemo(
     () => ['==', ['id'], selectedFeatureId ?? ''] as unknown as FilterSpecification,
     [selectedFeatureId],
   );
+
+  const showOsm = baseLayer === 'osm';
+  const showSat = baseLayer === 'satellite';
+  const showDesign = baseLayer === 'design';
 
   return (
     <View style={styles.container}>
@@ -211,43 +231,37 @@ function CampusMap({ topPadding = 50 }: CampusMapProps, ref: Ref<CampusMapHandle
         />
 
         <RasterSource id="osm" {...OSM_RASTER}>
-          <Layer id="osm-tiles" type="raster" layout={{ visibility: showSatellite ? 'none' : 'visible' }} />
+          <Layer id="osm-tiles" type="raster" layout={{ visibility: showOsm ? 'visible' : 'none' }} />
         </RasterSource>
         <RasterSource id="satellite" {...SATELLITE_RASTER}>
-          <Layer id="satellite-tiles" type="raster" layout={{ visibility: showSatellite ? 'visible' : 'none' }} />
+          <Layer id="satellite-tiles" type="raster" layout={{ visibility: showSat ? 'visible' : 'none' }} />
         </RasterSource>
-
-        {showDesignTiles && mbtilesPath && (
+        {mbtilesPath && (
           <RasterSource id="design-tiles" tileSize={256} tiles={[`mbtiles://${mbtilesPath}`]}>
-            <Layer id="design-raster" type="raster" paint={{ 'raster-opacity': 0.85 }} />
+            <Layer id="design-raster" type="raster" layout={{ visibility: showDesign ? 'visible' : 'none' }} paint={{ 'raster-opacity': 0.7 }} />
           </RasterSource>
         )}
 
         <GeoJSONSource id="school-outline" data={outlineData}>
-            <Layer
-              id="outline-fill"
-              type="fill"
-              paint={{
-                'fill-color': '#E0E0E0',
-                'fill-opacity': 0.3,
-              }}
-            />
-            <Layer
-              id="outline-line"
-              type="line"
-              paint={{
-                'line-color': '#666666',
-                'line-width': 1.5,
-              }}
-            />
-          </GeoJSONSource>
+          <Layer
+            id="outline-fill"
+            type="fill"
+            paint={{ 'fill-color': '#E0E0E0', 'fill-opacity': 0.3 }}
+          />
+          <Layer
+            id="outline-line"
+            type="line"
+            paint={{ 'line-color': '#666666', 'line-width': 1.5 }}
+          />
+        </GeoJSONSource>
 
         <NativeUserLocation mode="default" />
+
         <GeoJSONSource id="campus-polygons" data={campusData as any}>
           <Layer
             id="campus-fill"
             type="fill"
-            filter={levelFilter}
+            filter={categoryFilter}
             paint={{
               'fill-color': [
                 'match',
@@ -269,25 +283,19 @@ function CampusMap({ topPadding = 50 }: CampusMapProps, ref: Ref<CampusMapHandle
             id="room-highlight"
             type="fill"
             filter={selectedFeatureFilter}
-            paint={{
-              'fill-color': '#2979FF',
-              'fill-opacity': 0.6,
-            }}
+            paint={{ 'fill-color': '#2979FF', 'fill-opacity': 0.6 }}
             afterId="campus-fill"
           />
           <Layer
             id="campus-outline"
             type="line"
-            filter={levelFilter}
-            paint={{
-              'line-color': '#333333',
-              'line-width': 1,
-            }}
+            filter={categoryFilter}
+            paint={{ 'line-color': '#333333', 'line-width': 1 }}
           />
           <Layer
             id="room-labels"
             type="symbol"
-            filter={levelFilter}
+            filter={categoryFilter}
             layout={{
               'text-field': ['get', 'name'],
               'text-size': 10,
