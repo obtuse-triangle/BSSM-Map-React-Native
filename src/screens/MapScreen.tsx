@@ -277,12 +277,13 @@ export function MapScreen({ navigation }: MapScreenProps) {
                 style={styles.searchResultsList}
               >
                 {searchResults.map((feature) => {
-                  const selected = feature.id === selectedFeature?.id;
+                  const featureKey = feature.properties.id ?? String(feature.id);
+                  const selected = featureKey === selectedFeature?.properties?.id;
                   return (
                     <Pressable
-                      key={feature.id}
+                      key={featureKey}
                       accessibilityRole="button"
-                      onPress={() => handleSelectSearchResult(feature.id)}
+                      onPress={() => handleSelectSearchResult(featureKey)}
                       style={({ pressed }) => [
                         styles.searchResultRow,
                         selected && styles.searchResultRowSelected,

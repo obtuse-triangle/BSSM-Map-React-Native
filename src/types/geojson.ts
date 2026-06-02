@@ -10,6 +10,8 @@ export type CampusFeatureCategory =
   | 'unknown';
 
 export interface CampusFeatureProperties {
+  fid: number;
+  id: string;
   name: string;
   name_ko: string;
   level: number;
@@ -41,7 +43,7 @@ export type CampusGeometry = GeoJSONPoint | GeoJSONPolygon | GeoJSONMultiPolygon
 
 export interface CampusFeature {
   type: 'Feature';
-  id: string;
+  id: string | number;
   geometry: CampusGeometry;
   properties: CampusFeatureProperties;
 }

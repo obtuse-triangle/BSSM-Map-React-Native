@@ -77,7 +77,12 @@ export const getFeatureById = (geojson: CampusGeoJSON | null | undefined, id: st
     return undefined;
   }
 
-  return geojson.features.find((feature) => feature.id === id);
+  return geojson.features.find((feature) => {
+    if (String(feature.id) === id) {
+      return true;
+    }
+    return feature.properties.id === id;
+  });
 };
 
 export const getFeatureCentroid = (feature: CampusFeature): [number, number] => {

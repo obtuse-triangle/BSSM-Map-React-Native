@@ -109,7 +109,7 @@ function CampusMap({ topPadding = 50 }: CampusMapProps, ref: Ref<CampusMapHandle
         layers: ['campus-fill'],
       });
 
-      const pressedFeature = (features as Array<{ id?: string | number; properties?: { interactive?: boolean } }> | undefined)
+      const pressedFeature = (features as Array<{ id?: string | number; properties?: { interactive?: boolean; id?: string } }> | undefined)
         ?.find((f) => f?.properties?.interactive === true);
 
       if (!pressedFeature) {
@@ -117,9 +117,9 @@ function CampusMap({ topPadding = 50 }: CampusMapProps, ref: Ref<CampusMapHandle
         return;
       }
 
-      const featureId = String(pressedFeature.id ?? '');
+      const featureId = String(pressedFeature.id ?? pressedFeature.properties?.id ?? '');
 
-      if (!featureId) {
+      if (!featureId || featureId === 'undefined') {
         return;
       }
 
@@ -236,11 +236,9 @@ function CampusMap({ topPadding = 50 }: CampusMapProps, ref: Ref<CampusMapHandle
         <RasterSource id="satellite" {...SATELLITE_RASTER}>
           <Layer id="satellite-tiles" type="raster" layout={{ visibility: showSat ? 'visible' : 'none' }} />
         </RasterSource>
-        {mbtilesPath && (
-          <RasterSource id="design-tiles" tileSize={256} tiles={[`mbtiles://${mbtilesPath}`]}>
-            <Layer id="design-raster" type="raster" layout={{ visibility: showDesign ? 'visible' : 'none' }} paint={{ 'raster-opacity': 0.7 }} />
-          </RasterSource>
-        )}
+        <RasterSource id="design-tiles" tileSize={256} tiles={mbtilesPath ? [`mbtiles://${mbtilesPath}`] : []}>
+          <Layer id="design-raster" type="raster" layout={{ visibility: showDesign && mbtilesPath ? 'visible' : 'none' }} paint={{ 'raster-opacity': 0.7 }} />
+        </RasterSource>
 
         <GeoJSONSource id="school-outline" data={outlineData}>
           <Layer
