@@ -4,5 +4,6 @@
     "strict": true,
     "allowArbitraryExtensions": true
   },
-  "include": ["src/**/*", "modules/*/src/**/*"]
+  "include": ["src/**/*", "modules/*/src/**/*"],
+  "exclude": ["**/*.test.ts", "**/*.spec.ts"]
 }

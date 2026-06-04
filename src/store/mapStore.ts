@@ -4,7 +4,9 @@ import { bssmFloorMap } from '../constants/bssmFloorMap';
 import type { FloorKey } from '../types/floorMap';
 import { getFirstFloorKey } from '../utils/floorMap';
 
-export type MapBaseLayer = 'osm' | 'satellite' | 'design';
+import type { MapStyleId } from '../constants/mapStyles';
+
+export type MapBaseLayer = MapStyleId;
 
 export type CampusFeatureCategory =
   | 'classroom'

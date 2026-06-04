@@ -1,0 +1,53 @@
+import { useCallback, useState } from 'react'
+import { Alert, Linking, Platform } from 'react-native'
+import { LocationManager } from '@maplibre/maplibre-react-native'
+
+export function usePermissions() {
+  const [isLoading, setIsLoading] = useState(false)
+
+  const requestLocationPermission = useCallback(async (): Promise<boolean> => {
+    setIsLoading(true)
+    try {
+      const granted = await LocationManager.requestPermissions()
+      if (!granted) {
+        Alert.alert(
+          '위치 권한 필요',
+          '지도에서 현재 위치를 표시하려면 위치 권한이 필요합니다.',
+          [
+            { text: '취소' },
+            { text: '설정 열기', onPress: () => Linking.openSettings() },
+          ],
+        )
+        return false
+      }
+      return true
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  const requestPreciseLocation = useCallback(async (): Promise<boolean> => {
+    if (Platform.OS !== 'ios') {
+      return true
+    }
+    try {
+      let IosBlePositioning: any = null;
+      try {
+        ({ IosBlePositioning } = require('../../modules/ios-ble-positioning/src'));
+      } catch {
+        return true;
+      }
+      await IosBlePositioning.requestPreciseLocationPermission()
+      return true
+    } catch {
+      Alert.alert(
+        '정확한 위치',
+        '더 정확한 실내 위치 확인을 위해 정확한 위치 권한을 허용해주세요.',
+        [{ text: '확인' }],
+      )
+      return false
+    }
+  }, [])
+
+  return { requestLocationPermission, requestPreciseLocation, isLoading }
+}

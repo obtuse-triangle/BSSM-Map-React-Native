@@ -17,7 +17,9 @@ import {
 
 import campusDataUntyped from '../../data/campus-wgs84.json';
 import outlineDataUntyped from '../../data/school-outline.json';
+import { MAP_STYLES } from '../../constants/mapStyles';
 import { useMapStore, type CampusFeatureCategory, type MapBaseLayer } from '../../store/mapStore';
+import CampusBleMarker from './CampusBleMarker';
 import { getDetectedBuildingId } from '../../utils/buildingDetection';
 import type { CampusGeoJSON } from '../../types/geojson';
 import { getFeatureById, getFeatureCentroid } from '../../utils/geoJsonHelpers';
@@ -27,22 +29,6 @@ const outlineData = outlineDataUntyped as any;
 
 const CAMPUS_BOUNDS: [number, number, number, number] = [128.9028, 35.1876, 128.9041, 35.1893];
 const CAMPUS_CENTER: [number, number] = [128.9035, 35.1885];
-
-const OSM_RASTER = {
-  type: 'raster' as const,
-  tiles: ['https://a.tile.openstreetmap.org/{z}/{x}/{y}.png', 'https://b.tile.openstreetmap.org/{z}/{x}/{y}.png', 'https://c.tile.openstreetmap.org/{z}/{x}/{y}.png'],
-  tileSize: 256,
-  maxzoom: 19,
-  attribution: '© OpenStreetMap contributors',
-};
-
-const SATELLITE_RASTER = {
-  type: 'raster' as const,
-  tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
-  tileSize: 256,
-  maxzoom: 19,
-  attribution: '© Esri',
-};
 
 const BASE_STYLE = {
   version: 8 as const,
@@ -62,6 +48,7 @@ export type CampusMapHandle = {
 
 type CampusMapProps = {
   topPadding?: number;
+  locationTrackingEnabled?: boolean;
 };
 
 let designTilesPathPromise: Promise<string | null> | null = null;
@@ -71,15 +58,14 @@ function getDesignTilesPath(): Promise<string | null> {
     designTilesPathPromise = (async () => {
       try {
         const asset = Asset.fromModule(require('../../data/campus-design.mbtiles'));
-        if (asset.uri) {
-          return asset.uri.replace('file://', '');
-        }
         const downloaded = await asset.downloadAsync();
         if (downloaded.localUri) {
           return downloaded.localUri.replace('file://', '');
         }
+        console.warn('[CampusMap] downloadAsync returned no localUri for mbtiles asset');
         return null;
-      } catch {
+      } catch (err) {
+        console.error('[CampusMap] Failed to resolve mbtiles path:', err);
         return null;
       }
     })();
@@ -87,20 +73,32 @@ function getDesignTilesPath(): Promise<string | null> {
   return designTilesPathPromise;
 }
 
-function CampusMap({ topPadding = 50 }: CampusMapProps, ref: Ref<CampusMapHandle>) {
+function CampusMap({ topPadding = 50, locationTrackingEnabled = false }: CampusMapProps, ref: Ref<CampusMapHandle>) {
   const mapRef = useRef<MapRef>(null);
   const cameraRef = useRef<CameraRef>(null);
   const [zoomLevel, setZoomLevel] = useState(17);
   const [mbtilesPath, setMbtilesPath] = useState<string | null>(null);
-  const currentPosition = useCurrentPosition();
+  const currentPosition = useCurrentPosition({ enabled: locationTrackingEnabled });
   const selectedLevel = useMapStore((state) => state.selectedLevel);
   const selectedFeatureId = useMapStore((state) => state.selectedFeatureId);
   const setSelectedFeatureId = useMapStore((state) => state.setSelectedFeatureId);
-  const userCoordinates = useMapStore((state) => state.userCoordinates);
   const setDetectedBuildingId = useMapStore((state) => state.setDetectedBuildingId);
   const setUserCoordinates = useMapStore((state) => state.setUserCoordinates);
   const baseLayer = useMapStore((state) => state.baseLayer);
   const hiddenCategories = useMapStore((state) => state.hiddenCategories);
+  // userCoordinates ref — updated imperatively to avoid re-renders on
+  // every BLE WCL or GPS position tick.
+  const userCoordsRef = useRef<{ longitude: number; latitude: number } | null>(
+    useMapStore.getState().userCoordinates,
+  );
+
+  // Subscribe to mapStore.userCoordinates without triggering React re-renders.
+  useEffect(() => {
+    const unsub = useMapStore.subscribe(() => {
+      userCoordsRef.current = useMapStore.getState().userCoordinates;
+    });
+    return unsub;
+  }, []);
 
   useEffect(() => {
     getDesignTilesPath().then(setMbtilesPath);
@@ -163,15 +161,16 @@ function CampusMap({ topPadding = 50 }: CampusMapProps, ref: Ref<CampusMapHandle
   }, [currentPosition, handleUserLocationUpdate]);
 
   const flyToUser = useCallback(() => {
-    if (!userCoordinates) {
+    const coords = userCoordsRef.current;
+    if (!coords) {
       return;
     }
 
     cameraRef.current?.flyTo({
-      center: [userCoordinates.longitude, userCoordinates.latitude],
+      center: [coords.longitude, coords.latitude],
       duration: 500,
     });
-  }, [userCoordinates]);
+  }, []);
 
   const zoomIn = useCallback(() => {
     const nextZoom = Math.min(zoomLevel + 1, 19);
@@ -223,9 +222,9 @@ function CampusMap({ topPadding = 50 }: CampusMapProps, ref: Ref<CampusMapHandle
     [selectedFeatureId],
   );
 
-  const showOsm = baseLayer === 'osm';
-  const showSat = baseLayer === 'satellite';
   const showDesign = baseLayer === 'design';
+
+  const tileStyles = useMemo(() => MAP_STYLES.filter((s) => s.id !== 'design'), []);
 
   return (
     <View style={styles.container}>
@@ -240,12 +239,11 @@ function CampusMap({ topPadding = 50 }: CampusMapProps, ref: Ref<CampusMapHandle
           }}
         />
 
-        <RasterSource id="osm" {...OSM_RASTER}>
-          <Layer id="osm-tiles" type="raster" layout={{ visibility: showOsm ? 'visible' : 'none' }} />
-        </RasterSource>
-        <RasterSource id="satellite" {...SATELLITE_RASTER}>
-          <Layer id="satellite-tiles" type="raster" layout={{ visibility: showSat ? 'visible' : 'none' }} />
-        </RasterSource>
+        {tileStyles.map((style) => (
+          <RasterSource key={style.id} id={style.id} {...style.source}>
+            <Layer id={`${style.id}-tiles`} type="raster" layout={{ visibility: baseLayer === style.id ? 'visible' : 'none' }} />
+          </RasterSource>
+        ))}
         <RasterSource id="design-tiles" tileSize={256} tiles={mbtilesPath ? [`mbtiles://${mbtilesPath}`] : []}>
           <Layer id="design-raster" type="raster" layout={{ visibility: showDesign && mbtilesPath ? 'visible' : 'none' }} paint={{ 'raster-opacity': 0.7 }} />
         </RasterSource>
@@ -263,7 +261,9 @@ function CampusMap({ topPadding = 50 }: CampusMapProps, ref: Ref<CampusMapHandle
           />
         </GeoJSONSource>
 
-        <NativeUserLocation mode="default" />
+        {locationTrackingEnabled && <NativeUserLocation mode="heading" />}
+
+        <CampusBleMarker />
 
         <GeoJSONSource id="campus-polygons" data={campusData as any}>
           <Layer
