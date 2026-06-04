@@ -49,5 +49,5 @@ build/
 *.ipa
 *.zip
 
-# test/verification artifacts
-scripts/verify-*.ts
+# test/evidence artifacts (agent-generated)
+.sisyphus/evidence/
