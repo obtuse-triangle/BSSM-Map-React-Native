@@ -45,7 +45,8 @@ class WifiRttModule : Module() {
         }
       }.build()
 
-      if (request.rttPeers.isEmpty()) {
+      val rttPeerCount = bssids.count { bssid -> scanResults.any { it.BSSID == bssid } }
+      if (rttPeerCount == 0) {
         return@AsyncFunction emptyList<Map<String, Any>>()
       }
 
@@ -128,7 +129,7 @@ class WifiRttModule : Module() {
     val context = appContext.reactContext ?: return false
 
     val wifiRttManager = try {
-      context.getSystemService(Context.WIFI_RTT_RUNTIME_SERVICE) as? WifiRttManager
+      context.getSystemService("wifi_rtt") as? WifiRttManager
     } catch (_: Exception) {
       null
     } ?: return false
@@ -158,7 +159,7 @@ class WifiRttModule : Module() {
     checkLocationEnabled(context)
 
     val wifiRttManager = try {
-      context.getSystemService(Context.WIFI_RTT_RUNTIME_SERVICE) as? WifiRttManager
+      context.getSystemService("wifi_rtt") as? WifiRttManager
     } catch (_: Exception) {
       null
     }
@@ -203,7 +204,7 @@ class WifiRttModule : Module() {
 
   private fun getWifiRttManager(context: Context): WifiRttManager {
     return try {
-      context.getSystemService(Context.WIFI_RTT_RUNTIME_SERVICE) as WifiRttManager
+      context.getSystemService("wifi_rtt") as WifiRttManager
     } catch (_: Exception) {
       throw RttNotAvailableException()
     }

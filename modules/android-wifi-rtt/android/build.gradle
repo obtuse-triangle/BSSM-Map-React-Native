@@ -7,7 +7,7 @@ version = '1.0.0'
 
 android {
   namespace "expo.modules.wifirtt"
-  compileSdk 34
+  compileSdk rootProject.ext.compileSdkVersion
 
   defaultConfig {
     minSdk 28
