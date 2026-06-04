@@ -19,6 +19,8 @@ import type { Floor, FloorElement, FloorKey } from '../../types/floorMap';
 import type { IndoorPosition } from '../../types/position';
 import { FeedbackStateCard } from '../feedback/FeedbackStateCard';
 
+const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
+
 const LANDSCAPE_MAP_HEIGHT = 100;
 const PORTRAIT_MAP_WIDTH = 100;
 const PORTRAIT_MAP_HEIGHT = 165;
@@ -1050,6 +1052,7 @@ export function NativeFloorMap({
         <Pressable
           accessibilityLabel="지도를 확대합니다"
           accessibilityRole="button"
+          hitSlop={HIT_SLOP}
           disabled={viewportWidth <= 0 || effectiveViewportHeight <= 0}
           onPress={handleZoomIn}
           style={({ pressed }) => [styles.zoomButton, pressed && styles.zoomButtonPressed]}
@@ -1059,6 +1062,7 @@ export function NativeFloorMap({
         <Pressable
           accessibilityLabel="지도를 축소합니다"
           accessibilityRole="button"
+          hitSlop={HIT_SLOP}
           disabled={viewportWidth <= 0 || effectiveViewportHeight <= 0}
           onPress={handleZoomOut}
           style={({ pressed }) => [styles.zoomButton, pressed && styles.zoomButtonPressed]}
@@ -1068,6 +1072,7 @@ export function NativeFloorMap({
         <Pressable
           accessibilityLabel="지도를 중심으로 초기화합니다"
           accessibilityRole="button"
+          hitSlop={HIT_SLOP}
           disabled={viewportWidth <= 0 || effectiveViewportHeight <= 0}
           onPress={handleReset}
           style={({ pressed }) => [styles.zoomButton, pressed && styles.zoomButtonPressed]}

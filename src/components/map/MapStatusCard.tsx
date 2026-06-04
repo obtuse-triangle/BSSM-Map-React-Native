@@ -3,6 +3,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { IndoorPositionStatus } from '../../types/position';
 import type { IndoorPosition } from '../../types/position';
 
+const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
+
 type MapStatusCardProps = {
   apCount: number;
   showApMarkers: boolean;
@@ -64,6 +66,7 @@ export function MapStatusCard({
       <View style={styles.actionsRow}>
         <Pressable
           accessibilityRole="button"
+          hitSlop={HIT_SLOP}
           disabled={status === 'loading' || apCount === 0}
           onPress={onLocateCurrentPosition}
           style={({ pressed }) => [styles.primaryButton, pressed && styles.buttonPressed, (status === 'loading' || apCount === 0) && styles.buttonDisabled]}
@@ -73,6 +76,7 @@ export function MapStatusCard({
 
         <Pressable
           accessibilityRole="button"
+          hitSlop={HIT_SLOP}
           onPress={onToggleApMarkers}
           style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}
         >

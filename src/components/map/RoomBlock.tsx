@@ -3,6 +3,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { FloorElement } from '../../types/floorMap';
 import type { LayoutRect } from '../../utils/coordinate';
 
+const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
+
 type RoomBlockProps = {
   element: FloorElement;
   layout: LayoutRect;
@@ -41,6 +43,7 @@ export function RoomBlock({ element, layout, selected, onPress }: RoomBlockProps
   return (
     <Pressable
       accessibilityRole="button"
+      hitSlop={HIT_SLOP}
       onPress={() => onPress(element)}
       style={({ pressed }) => [...blockStyle, pressed && styles.pressed]}
     >

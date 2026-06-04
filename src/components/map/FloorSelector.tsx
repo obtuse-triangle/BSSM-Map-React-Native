@@ -2,6 +2,8 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { FloorKey, FloorListItem } from '../../types/floorMap';
 
+const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
+
 type FloorSelectorProps = {
   floors: FloorListItem[];
   selectedFloorKey: FloorKey | null;
@@ -21,6 +23,7 @@ export function FloorSelector({ floors, selectedFloorKey, onSelectFloor }: Floor
               key={floorKey}
               accessibilityRole="button"
               accessibilityLabel={`${floor.label} 선택`}
+              hitSlop={HIT_SLOP}
               onPress={() => onSelectFloor(floorKey)}
               style={({ pressed }) => [styles.button, selected && styles.buttonSelected, pressed && styles.buttonPressed]}
             >

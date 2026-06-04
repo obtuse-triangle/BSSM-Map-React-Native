@@ -8,6 +8,8 @@ import type { RootStackParamList } from '../navigation/types';
 import { useDebugStore } from '../store/debugStore';
 import { usePositionStore } from '../store/positionStore';
 
+const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
+
 type DebugRttScreenProps = NativeStackScreenProps<RootStackParamList, 'DebugRtt'>;
 
 const formatPoint = (point: { x: number; y: number } | null): string => {
@@ -45,14 +47,14 @@ export function DebugRttScreen({ navigation }: DebugRttScreenProps) {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.headerRow}>
-        <Pressable accessibilityRole="button" onPress={() => navigation.goBack()} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
+        <Pressable accessibilityRole="button" hitSlop={HIT_SLOP} onPress={() => navigation.goBack()} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
           <Text style={styles.backButtonText}>← 지도</Text>
         </Pressable>
         <View style={styles.headerCopy}>
           <Text style={styles.screenTitle}>Debug RTT</Text>
           <Text style={styles.screenSubtitle}>최근 RTT 측정, 참조 위치, 추정 위치를 확인합니다.</Text>
         </View>
-        <Pressable accessibilityRole="button" onPress={() => navigation.navigate('Home')} style={({ pressed }) => [styles.homeButton, pressed && styles.pressed]}>
+        <Pressable accessibilityRole="button" hitSlop={HIT_SLOP} onPress={() => navigation.navigate('Home')} style={({ pressed }) => [styles.homeButton, pressed && styles.pressed]}>
           <Text style={styles.homeButtonText}>홈</Text>
         </Pressable>
       </View>

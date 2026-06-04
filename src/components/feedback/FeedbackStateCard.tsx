@@ -1,5 +1,7 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
+const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
+
 type FeedbackStateVariant = 'loading' | 'error' | 'empty' | 'info';
 
 type FeedbackStateCardProps = {
@@ -41,13 +43,13 @@ export function FeedbackStateCard({
       <Text style={styles.message}>{message}</Text>
 
       {actionLabel && onAction ? (
-        <Pressable accessibilityRole="button" onPress={onAction} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
+        <Pressable accessibilityRole="button" hitSlop={HIT_SLOP} onPress={onAction} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
           <Text style={styles.primaryButtonText}>{actionLabel}</Text>
         </Pressable>
       ) : null}
 
       {secondaryActionLabel && onSecondaryAction ? (
-        <Pressable accessibilityRole="button" onPress={onSecondaryAction} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
+        <Pressable accessibilityRole="button" hitSlop={HIT_SLOP} onPress={onSecondaryAction} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
           <Text style={styles.secondaryButtonText}>{secondaryActionLabel}</Text>
         </Pressable>
       ) : null}
