@@ -39,3 +39,15 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# agent tool state
+.omo/
+.sisyphus/
+
+# build artifacts
+build/
+*.ipa
+*.zip
+
+# test/verification artifacts
+scripts/verify-*.ts
