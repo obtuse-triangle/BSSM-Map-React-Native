@@ -1,6 +1,7 @@
 import ExpoModulesCore
 import CoreBluetooth
 import CoreLocation
+import CoreMotion
 
 public class ExpoBlePositioningModule: Module {
   private lazy var centralManager: CBCentralManager = {
@@ -9,12 +10,23 @@ public class ExpoBlePositioningModule: Module {
   }()
 
   private var locationManager: CLLocationManager?
-  private var scanDelegate: BleScanDelegate?
+  private var scanDelegate: NSObject?
+  private var continuousScanDelegate: ArubaBleScanDelegate?
+  private var stateWaitDelegate: BleStateWaitDelegate?
   private var locationDelegate: LocationResultDelegate?
   private var discoveredDevices: [String: [String: Any]] = [:]
+  private var motionPedometer: CMPedometer?
+  private var motionManager: CMMotionManager?
+  private var lastKnownSteps: Int = 0
+  private var savedStepsBeforeBackground: Int = 0
+  private var motionUpdatesActive = false
+  private var pendingSteps: Int32 = 0
 
   public func definition() -> ModuleDefinition {
     Name("IosBlePositioning")
+
+    // ── Events ───────────────────────────────────────────────────────
+    Events("onArubaBleObservation", "onMotionUpdate")
 
     Function("isBleAvailable") { () -> Bool in
       return self.centralManager.state == .poweredOn
@@ -25,6 +37,12 @@ public class ExpoBlePositioningModule: Module {
         throw Exception(
           name: "BluetoothUnavailable",
           description: "Bluetooth is not available or powered off on this device"
+        )
+      }
+      guard self.continuousScanDelegate == nil else {
+        throw Exception(
+          name: "ScanConflict",
+          description: "Continuous scan is already running; stop it first with stopArubaBleScan()"
         )
       }
 
@@ -72,6 +90,135 @@ public class ExpoBlePositioningModule: Module {
       }
 
       return results
+    }
+
+    AsyncFunction("startArubaBleScan") { (durationMs: Double?) -> [[String: Any]] in
+      guard self.centralManager.state == .poweredOn else {
+        throw Exception(
+          name: "BluetoothUnavailable",
+          description: "Bluetooth is not available or powered off on this device"
+        )
+      }
+      guard self.continuousScanDelegate == nil else {
+        throw Exception(
+          name: "ScanConflict",
+          description: "Continuous scan is already running; stop it first with stopArubaBleScan()"
+        )
+      }
+
+      let scanDuration: Double = durationMs ?? 10000
+      let manufacturerId: UInt16 = 0x011B  // HPE / Aruba
+      let semaphore = DispatchSemaphore(value: 0)
+      var observations: [[String: Any]] = []
+      let lock = NSLock()
+
+      let delegate = ArubaBleScanDelegate()
+      delegate.onDiscover = { identifier, manufId, rssi, payloadHex, timestamp in
+        lock.lock()
+        observations.append([
+          "bleIdentifier": identifier,
+          "manufacturerId": manufId,
+          "rssi": rssi,
+          "payloadHex": payloadHex,
+          "observedAt": timestamp
+        ])
+        lock.unlock()
+      }
+
+      self.centralManager.delegate = delegate
+      self.scanDelegate = delegate
+
+      DispatchQueue.main.async {
+        self.centralManager.scanForPeripherals(
+          withServices: nil,
+          options: [CBCentralManagerScanOptionAllowDuplicatesKey: true]
+        )
+      }
+
+      DispatchQueue.main.asyncAfter(deadline: .now() + scanDuration / 1000.0) {
+        self.centralManager.stopScan()
+        semaphore.signal()
+      }
+
+      _ = semaphore.wait(timeout: .now() + scanDuration / 1000.0 + 2.0)
+
+      self.centralManager.delegate = nil
+      self.scanDelegate = nil
+
+      return observations
+    }
+
+    // ── Continuous scan (realtime events) ────────────────────────────
+    Function("startContinuousArubaBleScan") {
+      guard self.centralManager.state == .poweredOn else {
+        let stateDelegate = BleStateWaitDelegate()
+        stateDelegate.onPoweredOn = { [weak self] in
+          guard let self = self else { return }
+          self.stateWaitDelegate = nil
+          self.performContinuousScan()
+        }
+        self.stateWaitDelegate = stateDelegate
+        self.centralManager.delegate = stateDelegate
+        self.centralManager.scanForPeripherals(withServices: nil, options: nil)
+        self.centralManager.stopScan()
+        return
+      }
+
+      self.performContinuousScan()
+    }
+
+    Function("stopArubaBleScan") {
+      self.centralManager.stopScan()
+      if self.continuousScanDelegate != nil {
+        self.centralManager.delegate = nil
+        self.continuousScanDelegate = nil
+      }
+    }
+
+    AsyncFunction("requestPreciseLocationPermission") { () -> Bool in
+      let manager = CLLocationManager()
+      let status = manager.authorizationStatus
+
+      guard status == .authorizedWhenInUse || status == .authorizedAlways else {
+        throw Exception(
+          name: "LocationPermissionDenied",
+          description: "Location permission has not been granted. Please enable location access in Settings."
+        )
+      }
+
+      if manager.accuracyAuthorization == .fullAccuracy {
+        return true
+      }
+
+      guard let purposeKey = Bundle.main.object(forInfoDictionaryKey: "NSLocationTemporaryUsageDescriptionDictionary") as? [String: String],
+            let _ = purposeKey["SchoolMapPreciseLocation"] else {
+        throw Exception(
+          name: "MissingPurposeKey",
+          description: "NSLocationTemporaryUsageDescriptionDictionary with key SchoolMapPreciseLocation is missing from Info.plist"
+        )
+      }
+
+      let semaphore = DispatchSemaphore(value: 0)
+      var newAccuracy: CLAccuracyAuthorization = manager.accuracyAuthorization
+
+      let delegate = LocationResultDelegate()
+      manager.delegate = delegate
+      self.locationManager = manager
+      self.locationDelegate = delegate
+
+      delegate.onAuthorizationChange = { authStatus, accuracy in
+        newAccuracy = accuracy
+        semaphore.signal()
+      }
+
+      manager.requestTemporaryFullAccuracyAuthorization(withPurposeKey: "SchoolMapPreciseLocation")
+
+      _ = semaphore.wait(timeout: .now() + 5.0)
+
+      self.locationManager = nil
+      self.locationDelegate = delegate
+
+      return newAccuracy == .fullAccuracy
     }
 
     AsyncFunction("getCurrentLocation") { () -> [String: Any] in
@@ -130,7 +277,127 @@ public class ExpoBlePositioningModule: Module {
 
       return result
     }
+
+    // ── Motion updates (CoreMotion: pedometer + heading) ────────────
+    Function("startMotionUpdates") {
+      guard !self.motionUpdatesActive else { return }
+
+      // CMPedometer
+      let pedometer = CMPedometer()
+      self.motionPedometer = pedometer
+
+      if CMPedometer.isStepCountingAvailable() {
+        pedometer.startUpdates(from: Date()) { [weak self] data, error in
+          guard let self = self, let data = data, error == nil else { return }
+          let steps = data.numberOfSteps.intValue
+          let delta = Int32(steps - self.lastKnownSteps)
+          if delta > 0 {
+            OSAtomicAdd32(delta, &self.pendingSteps)
+          }
+          self.lastKnownSteps = steps
+        }
+      }
+
+      // CMMotionManager heading
+      let manager = CMMotionManager()
+      self.motionManager = manager
+
+      if manager.isDeviceMotionAvailable {
+        let queue = OperationQueue()
+        queue.name = "com.expo.motion.heading"
+          manager.startDeviceMotionUpdates(using: .xMagneticNorthZVertical, to: queue) { [weak self] motion, error in
+            guard let self = self, self.motionUpdatesActive, let motion = motion, error == nil else { return }
+            // Atomically consume one pending step. Only send event if one was available.
+            guard OSAtomicAdd32(-1, &self.pendingSteps) >= 0 else {
+              OSAtomicAdd32(1, &self.pendingSteps)
+              return
+            }
+            var headingDeg = motion.heading * 180.0 / .pi
+            if headingDeg < 0 { headingDeg += 360 }
+            let accel = motion.userAcceleration
+            let magnitude = sqrt(accel.x * accel.x + accel.y * accel.y + accel.z * accel.z)
+            self.sendEvent("onMotionUpdate", [
+              "steps": 1,
+              "heading": headingDeg,
+              "userAccelerationMagnitude": magnitude,
+              "timestamp": Date().timeIntervalSince1970 * 1000
+            ])
+          }
+
+      self.motionUpdatesActive = true
+    }
+
+    Function("stopMotionUpdates") {
+      self.motionPedometer?.stopUpdates()
+      self.motionPedometer = nil
+      self.motionManager?.stopDeviceMotionUpdates()
+      self.motionManager = nil
+      self.motionUpdatesActive = false
+      self.pendingSteps = 0
+    }
+
+    AsyncFunction("isMotionAvailable") { () -> Bool in
+      return CMPedometer.isStepCountingAvailable() && CMMotionManager().isDeviceMotionAvailable
+    }
+
+    OnAppEntersBackground {
+      if self.motionUpdatesActive {
+        self.savedStepsBeforeBackground = self.lastKnownSteps
+        self.pendingSteps = 0
+        self.motionPedometer?.stopUpdates()
+        self.motionManager?.stopDeviceMotionUpdates()
+      }
+    }
+
+    OnAppEntersForeground {
+      if self.motionUpdatesActive {
+        self.lastKnownSteps = self.savedStepsBeforeBackground
+        self.pendingSteps = 0
+        let pedometer = CMPedometer()
+        self.motionPedometer = pedometer
+
+        if CMPedometer.isStepCountingAvailable() {
+          pedometer.startUpdates(from: Date()) { [weak self] data, error in
+            guard let self = self, let data = data, error == nil else { return }
+            let steps = data.numberOfSteps.intValue
+            let delta = Int32(steps - self.lastKnownSteps)
+            if delta > 0 {
+              OSAtomicAdd32(delta, &self.pendingSteps)
+            }
+            self.lastKnownSteps = steps
+          }
+        }
+
+        let manager = CMMotionManager()
+        self.motionManager = manager
+
+        if manager.isDeviceMotionAvailable {
+          let queue = OperationQueue()
+          queue.name = "com.expo.motion.heading"
+          manager.startDeviceMotionUpdates(using: .xMagneticNorthZVertical, to: queue) { [weak self] motion, error in
+            guard let self = self, self.motionUpdatesActive, let motion = motion, error == nil else { return }
+            // Atomically consume one pending step. Only send event if one was available.
+            guard OSAtomicAdd32(-1, &self.pendingSteps) >= 0 else {
+              OSAtomicAdd32(1, &self.pendingSteps)
+              return
+            }
+            var headingDeg = motion.heading * 180.0 / .pi
+            if headingDeg < 0 { headingDeg += 360 }
+            let accel = motion.userAcceleration
+            let magnitude = sqrt(accel.x * accel.x + accel.y * accel.y + accel.z * accel.z)
+            self.sendEvent("onMotionUpdate", [
+              "steps": 1,
+              "heading": headingDeg,
+              "userAccelerationMagnitude": magnitude,
+              "timestamp": Date().timeIntervalSince1970 * 1000
+            ])
+          }
+        }
+      }
+    }
   }
+
+  }  // end definition()
 
   private func estimateDistance(rssi: Int) -> Double {
     guard rssi != 0 else { return -1.0 }
@@ -138,6 +405,32 @@ public class ExpoBlePositioningModule: Module {
     let n: Double = 4.0
     let ratio = Double(txPower - rssi) / (10.0 * n)
     return pow(10.0, ratio)
+  }
+
+  func performContinuousScan() {
+    guard self.continuousScanDelegate == nil else { return }
+
+    let delegate = ArubaBleScanDelegate()
+    delegate.onDiscover = { [weak self] identifier, manufId, rssi, payloadHex, timestamp in
+      guard let self = self else { return }
+      self.sendEvent("onArubaBleObservation", [
+        "bleIdentifier": identifier,
+        "manufacturerId": manufId,
+        "rssi": rssi,
+        "payloadHex": payloadHex,
+        "observedAt": timestamp,
+      ])
+    }
+
+    self.continuousScanDelegate = delegate
+    self.centralManager.delegate = delegate
+
+    DispatchQueue.main.async {
+      self.centralManager.scanForPeripherals(
+        withServices: nil,
+        options: [CBCentralManagerScanOptionAllowDuplicatesKey: true]
+      )
+    }
   }
 }
 
@@ -159,9 +452,56 @@ private class BleScanDelegate: NSObject, CBCentralManagerDelegate {
   }
 }
 
+/**
+ * Delegate for scanning Aruba/HPE BLE advertisements filtered by
+ * manufacturer ID 0x011B.
+ *
+ * bleIdentifier is derived from peripheral UUID + first 4 bytes of the
+ * manufacturer payload hex as a disambiguator.  This is a **documented
+ * fallback** — once the real payload identity schema (e.g. MAC, serial,
+ * iBeacon fields) is reverse-engineered, this derivation MUST be replaced.
+ */
+private class ArubaBleScanDelegate: NSObject, CBCentralManagerDelegate {
+  var onDiscover: ((String, Int, Int, String, Double) -> Void)?
+
+  func centralManagerDidUpdateState(_ central: CBCentralManager) {
+    // State validation is done before starting the scan
+  }
+
+  func centralManager(
+    _ central: CBCentralManager,
+    didDiscover peripheral: CBPeripheral,
+    advertisementData: [String: Any],
+    rssi RSSI: NSNumber
+  ) {
+    guard let manufData = advertisementData[CBAdvertisementDataManufacturerDataKey] as? Data else {
+      return
+    }
+
+    // First 2 bytes = manufacturer ID in little-endian
+    guard manufData.count >= 2 else { return }
+    let manufId = UInt16(manufData[0]) | (UInt16(manufData[1]) << 8)
+
+    // Filter for HPE / Aruba (0x011B)
+    guard manufId == 0x011B else { return }
+
+    // Full manufacturer payload as hex string
+    let payloadHex = manufData.map { String(format: "%02x", $0) }.joined()
+
+    // Derive a stable-ish identifier: peripheral UUID + first 4 bytes of payload
+    // This is a DOCUMENTED FALLBACK — see struct doc above.
+    let suffix = payloadHex.prefix(8)
+    let identifier = "\(peripheral.identifier.uuidString)_\(suffix)"
+
+    let timestamp = Date().timeIntervalSince1970 * 1000
+    onDiscover?(identifier, Int(manufId), RSSI.intValue, payloadHex, timestamp)
+  }
+}
+
 private class LocationResultDelegate: NSObject, CLLocationManagerDelegate {
   var onLocation: ((CLLocation) -> Void)?
   var onError: ((Error) -> Void)?
+  var onAuthorizationChange: ((CLAuthorizationStatus, CLAccuracyAuthorization) -> Void)?
 
   func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
     if let location = locations.last {
@@ -172,4 +512,19 @@ private class LocationResultDelegate: NSObject, CLLocationManagerDelegate {
   func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
     onError?(error)
   }
+
+  func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+    onAuthorizationChange?(manager.authorizationStatus, manager.accuracyAuthorization)
+  }
 }
+
+private class BleStateWaitDelegate: NSObject, CBCentralManagerDelegate {
+  var onPoweredOn: (() -> Void)?
+
+  func centralManagerDidUpdateState(_ central: CBCentralManager) {
+    if central.state == .poweredOn {
+      onPoweredOn?()
+    }
+  }
+}
+

@@ -1,9 +1,12 @@
 import { Platform } from 'react-native';
-import { IosBlePositioning } from '../../../modules/ios-ble-positioning/src';
 import { estimateIndoorPositionFromRtt } from '../../utils/positioning';
 import { createIosCalibratedIndoorPosition, type IosCalibrationInput } from '../calibration/iosCalibration';
 import type { IndoorLocationProvider, IndoorLocationRequest, IndoorLocationResult } from './locationTypes';
 import type { RttMeasurement } from '../rtt/rttTypes';
+
+function getIosBlePositioning() {
+  return require('../../../modules/ios-ble-positioning/src').IosBlePositioning as any;
+}
 
 export function createIosBleProvider(calibration: IosCalibrationInput): IndoorLocationProvider {
   if (Platform.OS !== 'ios') {
@@ -14,10 +17,10 @@ export function createIosBleProvider(calibration: IosCalibrationInput): IndoorLo
     label: 'BLE + Core Location',
     locate: async (request: IndoorLocationRequest): Promise<IndoorLocationResult> => {
       try {
-        const bleDevices = await IosBlePositioning.startBleScan(null);
+        const bleDevices: any[] = await getIosBlePositioning().startBleScan(null);
 
         if (bleDevices.length > 0) {
-          const bleMeasurements: RttMeasurement[] = bleDevices.map((d) => ({
+          const bleMeasurements: RttMeasurement[] = bleDevices.map((d: any) => ({
             accessPointId: `ble-${d.identifier}`,
             floorKey: request.floorKey,
             ssid: '',
@@ -60,7 +63,7 @@ export function createIosBleProvider(calibration: IosCalibrationInput): IndoorLo
       }
 
       // Step 2: Core Location fallback
-      const location = await IosBlePositioning.getCurrentLocation();
+      const location = await getIosBlePositioning().getCurrentLocation();
       const position = createIosCalibratedIndoorPosition({
         floorKey: request.floorKey,
         latitude: location.latitude,
