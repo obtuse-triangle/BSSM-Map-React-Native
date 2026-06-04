@@ -14,17 +14,42 @@ Expo 기반 BSSM 학교 지도 앱입니다. BSSM-Map MIT 데이터를 사용해
 - `npx tsc --noEmit`
 - `npx expo export --platform android --output-dir <output-dir>`
 
-## Scope
+## Coordinate Systems
 
-- 지도는 lat/lng가 아니라 map-percent `x/y/width/height`를 사용합니다.
-- AP는 교실 중심에서 생성되고, Mock RTT는 같은 map-percent 공간에서 동작합니다.
-- Debug RTT 화면에서 최근 측정, 참조 위치, 추정 위치, AP별 측정값을 확인할 수 있습니다.
+The app has two parallel coordinate pipelines:
+
+### Legacy RTT / SVG (map-percent)
+
+- The old indoor SVG overlay (`NativeFloorMap.tsx`) uses map-percent
+  `x/y/width/height` coordinates from `bssmFloorMap.ts`.
+- APs are generated from room centers in map-percent space.
+- Mock RTT operates in the same map-percent space.
+- The `IndoorLocationProvider` pipeline produces map-percent `IndoorPosition`.
+
+### BLE WCL (WGS84 / MapLibre)
+
+- The BLE WCL MVP (see `docs/ble-wcl-mvp.md`) produces WGS84
+  `[longitude, latitude]` coordinates directly.
+- It uses known Aruba/HPE BLE beacon positions in **EPSG:5183** (Korean
+  TM) and converts the centroid to WGS84 via `proj4`.
+- Coordinates are displayed on the MapLibre map (`CampusMap.tsx`) as a
+  GPS-style marker.
+- The BLE WCL path is **foreground-only**, **iOS-only**, and does not
+  use or modify the legacy map-percent pipeline.
+
+### Verify a coordinate's source
+
+- Debug RTT screen → legacy map-percent RTT data.
+- BLE WCL Status Card → BLE WCL WGS84 data. Shows used AP count,
+  confidence, accuracy, sample age, and STALE indicator.
 
 ## iOS limitation
 
 - iOS Core Location은 별도 보정 없이 실내 방/층 정확도를 보장하지 않습니다.
 - 이 저장소는 `src/services/calibration/iosCalibration.ts`의 보정 헬퍼와 어댑터 타입만 제공합니다.
 - 외부 lat/lng는 보정 bounds 또는 anchors를 통해서만 map-percent로 변환합니다.
+- BLE WCL은 iOS CoreBluetooth를 사용하며, foreground에서만 동작합니다. 1초 AP 광고 간격에도
+  iOS의 BLE 전달 지연은 5초에서 1분 이상까지 발생할 수 있습니다.
 
 ## Data source
 
