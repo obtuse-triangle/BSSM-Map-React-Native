@@ -264,6 +264,24 @@ function syncDetectedFloorKey(detectedFloorKey: string | null | undefined): void
   }
 }
 
+function setFusionUnavailableReason(
+  reason: string,
+  fusionEngineInstance: ParticleFusionEngine | null,
+  setState: (partial: Partial<BleLocationStoreState> | ((state: BleLocationStoreState) => Partial<BleLocationStoreState>)) => void,
+): void {
+  if (fusionEngineInstance) {
+    fusionEngineInstance.setUnavailableReason(reason);
+    const fusionUpdate = fusionEngineInstance.getState();
+    setState({ fusionState: fusionUpdate, fusionUnavailableReason: fusionUpdate.unavailableReason });
+    return;
+  }
+
+  setState((state) => ({
+    fusionUnavailableReason: reason,
+    fusionState: state.fusionState ? { ...state.fusionState, unavailableReason: reason } : state.fusionState,
+  }));
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // Store implementation
 // ────────────────────────────────────────────────────────────────────────────
@@ -348,6 +366,7 @@ export const useBleLocationStore = create<BleLocationStoreState>()((set, get) =>
       if (!floorKey) return;
 
       wclLog(`Continuous WCL: floor="${floorKey}", buffer=${continuousBuffer.size}, fixtures=${BLE_AP_FIXTURES.length}`);
+      const floorFixtures = BLE_AP_FIXTURES.filter((ap) => ap.floorKey === floorKey);
       const wclResult = computePositionFromBuffer(floorKey, continuousBuffer, BLE_AP_FIXTURES);
       if (wclResult && wclResult.confidence > 0) {
         wclLog(
@@ -386,7 +405,11 @@ export const useBleLocationStore = create<BleLocationStoreState>()((set, get) =>
           get().resetDrToBleAnchor(wclResult.latitude, wclResult.longitude);
         }
       } else {
-        wclLog(`Continuous WCL: no result (insufficient APs or out of bounds)`);
+        const unavailableReason = floorFixtures.length === 0
+          ? 'no_ap_fixtures_for_floor'
+          : 'insufficient_ble_evidence';
+        wclLog(`Continuous WCL: no result (${unavailableReason})`);
+        setFusionUnavailableReason(unavailableReason, fusionEngine, set);
       }
     }, CONTINUOUS_RECOMPUTE_INTERVAL_MS);
   },

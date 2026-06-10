@@ -254,7 +254,6 @@ export class ParticleFusionEngine {
     this.stepsSinceLastBle += steps;
     this.lastMotionFiniteEstimate = allFinite;
     this.lastUpdateTime = event.timestamp;
-    this.unavailableReason = null;
   }
 
   applyBleCorrection(observation: FusionBleObservation): void {
@@ -294,6 +293,10 @@ export class ParticleFusionEngine {
     this.lastUpdateTime = observation.timestamp;
     this.floorKey = observation.floorKey;
     this.unavailableReason = null;
+  }
+
+  setUnavailableReason(reason: string): void {
+    this.unavailableReason = reason;
   }
 
   getState(): FusionState {
@@ -369,11 +372,11 @@ export class ParticleFusionEngine {
       floorKey: this.particles[0].floorKey ?? this.floorKey,
       inferredZone: inferZone(centerLat, centerLng, this.particles[0].floorKey ?? this.floorKey),
       stepsSinceLastBle: this.stepsSinceLastBle,
-      particleCount: this.particles.length,
-      particleSpread,
-      unavailableReason: this.hasBleAnchor ? null : this.unavailableReason,
-      lastUpdateTime: this.lastUpdateTime,
-    };
+        particleCount: this.particles.length,
+        particleSpread,
+        unavailableReason: this.unavailableReason,
+        lastUpdateTime: this.lastUpdateTime,
+      };
   }
 
   resetUnavailable(reason: string): void {

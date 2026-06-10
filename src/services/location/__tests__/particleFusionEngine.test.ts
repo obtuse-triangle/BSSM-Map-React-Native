@@ -7,6 +7,7 @@ import {
   PARTICLE_COUNT,
   PARTICLE_INIT_RADIUS_M,
 } from '../../../constants/fusionConfig';
+import { BLE_AP_FIXTURES } from '../../../constants/bleAccessPoints';
 import { ParticleFusionEngine } from '../particleFusionEngine';
 
 const campusData = campusDataUntyped as unknown as CampusGeoJSON;
@@ -224,6 +225,52 @@ describe('ParticleFusionEngine', () => {
     const noAnchorEngine = new ParticleFusionEngine({ rngSeed: 42 });
     noAnchorEngine.resetUnavailable('missing anchor');
     expect(noAnchorEngine.getState().confidenceLevel).toBe('unknown');
+    expect(noAnchorEngine.getState().unavailableReason).toBe('missing anchor');
+  });
+
+  it('retains the last estimate when BLE evidence is unavailable', () => {
+    const engine = new ParticleFusionEngine({ rngSeed: 42 });
+    primeSyntheticState(engine, 8, {
+      lastBleConfidence: 0.6,
+      stepsSinceLastBle: 10,
+      motionContinuity: true,
+      hasBleAnchor: true,
+    });
+
+    const before = engine.getState();
+    engine.setUnavailableReason('insufficient_ble_evidence');
+    const unavailable = engine.getState();
+
+    expect(unavailable.unavailableReason).toBe('insufficient_ble_evidence');
+    expect(unavailable.lat).toBeCloseTo(before.lat, 12);
+    expect(unavailable.lng).toBeCloseTo(before.lng, 12);
+    expect(unavailable.confidence).toBeCloseTo(before.confidence, 12);
+
+    engine.applyMotion(makeMotion(0, FUSION_UNKNOWN_AFTER_STEPS - 10));
+    const decayed = engine.getState();
+    expect(decayed.confidenceLevel).toBe('unknown');
+    expect(decayed.unavailableReason).toBe('insufficient_ble_evidence');
+  });
+
+  it('can represent a zero-AP floor without special-casing floor identifiers', () => {
+    const emptyFloorKey = '__test_empty_floor__';
+    expect(BLE_AP_FIXTURES.some((ap) => ap.floorKey === emptyFloorKey)).toBe(false);
+
+    const engine = new ParticleFusionEngine({ rngSeed: 42 });
+    primeSyntheticState(engine, 6, {
+      floorKey: emptyFloorKey,
+      hasBleAnchor: true,
+      lastBleConfidence: 0.75,
+      stepsSinceLastBle: 2,
+      motionContinuity: true,
+    });
+
+    engine.setUnavailableReason('no_ap_fixtures_for_floor');
+    const state = engine.getState();
+
+    expect(state.floorKey).toBe(emptyFloorKey);
+    expect(state.unavailableReason).toBe('no_ap_fixtures_for_floor');
+    expect(state.confidenceLevel).not.toBe('unknown');
   });
 
   it('clusters initial particles around the BLE observation center', () => {
