@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { interpolate, useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
+import { GlassSurface } from '../glass';
 import type { Floor, FloorElement } from '../../types/floorMap';
 
 type PlaceDetailBottomSheetProps = {
@@ -82,56 +83,58 @@ export function PlaceDetailBottomSheet({ floor, room }: PlaceDetailBottomSheetPr
   return (
     <GestureDetector gesture={gesture}>
       <Animated.View style={[styles.sheet, sheetStyle]}>
-        <View style={styles.handleBar} />
+        <GlassSurface variant="sheet" cornerRadius={24} style={styles.sheetGlass}>
+          <View style={styles.handleBar} />
 
-        <View style={styles.headerRow}>
-          <View style={styles.headerCopy}>
-            <Text style={styles.sheetTitle} numberOfLines={1}>
-              {title}
-            </Text>
-            <Text style={styles.summaryText} numberOfLines={2}>
-              {summaryText}
-            </Text>
+          <View style={styles.headerRow}>
+            <View style={styles.headerCopy}>
+              <Text style={styles.sheetTitle} numberOfLines={1}>
+                {title}
+              </Text>
+              <Text style={styles.summaryText} numberOfLines={2}>
+                {summaryText}
+              </Text>
+            </View>
+
+            {room ? (
+              <View style={styles.floorPill}>
+                <Text style={styles.floorPillText}>{floorLabel}</Text>
+              </View>
+            ) : null}
           </View>
 
-          {room ? (
-            <View style={styles.floorPill}>
-              <Text style={styles.floorPillText}>{floorLabel}</Text>
-            </View>
-          ) : null}
-        </View>
-
-        <Animated.View style={[styles.detailsSection, detailsStyle]}>
-          {room ? (
-            <View style={styles.detailsContainer}>
-              <View style={styles.detailRow}>
-                <Text style={styles.detailLabel}>층</Text>
-                <Text style={styles.detailValue}>{floorLabel}</Text>
-              </View>
-              {(room as any)._geojsonMeta ? (
-                <>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>종류</Text>
-                    <Text style={styles.detailValue}>{(room as any)._geojsonMeta.category}</Text>
-                  </View>
-                  <View style={styles.detailRow}>
-                    <Text style={styles.detailLabel}>좌표</Text>
-                    <Text style={styles.detailValue}>{(room as any)._geojsonMeta.centroid}</Text>
-                  </View>
-                </>
-              ) : (
+          <Animated.View style={[styles.detailsSection, detailsStyle]}>
+            {room ? (
+              <View style={styles.detailsContainer}>
                 <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>영역</Text>
-                  <Text style={styles.detailValue}>
-                    x {formatPercent(room.x)} · y {formatPercent(room.y)} · {formatPercent(room.width)} × {formatPercent(room.height)}
-                  </Text>
+                  <Text style={styles.detailLabel}>층</Text>
+                  <Text style={styles.detailValue}>{floorLabel}</Text>
                 </View>
-              )}
-            </View>
-          ) : (
-            <Text style={styles.emptyText}>교실을 선택하면 층 정보와 영역 좌표가 표시됩니다.</Text>
-          )}
-        </Animated.View>
+                {(room as any)._geojsonMeta ? (
+                  <>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>종류</Text>
+                      <Text style={styles.detailValue}>{(room as any)._geojsonMeta.category}</Text>
+                    </View>
+                    <View style={styles.detailRow}>
+                      <Text style={styles.detailLabel}>좌표</Text>
+                      <Text style={styles.detailValue}>{(room as any)._geojsonMeta.centroid}</Text>
+                    </View>
+                  </>
+                ) : (
+                  <View style={styles.detailRow}>
+                    <Text style={styles.detailLabel}>영역</Text>
+                    <Text style={styles.detailValue}>
+                      x {formatPercent(room.x)} · y {formatPercent(room.y)} · {formatPercent(room.width)} × {formatPercent(room.height)}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            ) : (
+              <Text style={styles.emptyText}>교실을 선택하면 층 정보와 영역 좌표가 표시됩니다.</Text>
+            )}
+          </Animated.View>
+        </GlassSurface>
       </Animated.View>
     </GestureDetector>
   );
@@ -139,21 +142,18 @@ export function PlaceDetailBottomSheet({ floor, room }: PlaceDetailBottomSheetPr
 
 const styles = StyleSheet.create({
   sheet: {
-    backgroundColor: '#ffffff',
-    borderColor: '#d8e2ef',
-    borderTopWidth: 1,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     gap: 12,
     height: SHEET_HEIGHT,
-    shadowColor: '#0f172a',
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: -4 },
-    elevation: 8,
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 18,
+    overflow: 'hidden',
+  },
+  sheetGlass: {
+    flex: 1,
+    gap: 12,
   },
   handleBar: {
     alignSelf: 'center',

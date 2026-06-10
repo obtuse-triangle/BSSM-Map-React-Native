@@ -445,53 +445,55 @@ export function MapScreen({ navigation }: MapScreenProps) {
 
       <Modal visible={settingsVisible} transparent animationType="fade" onRequestClose={() => setSettingsVisible(false)}>
         <Pressable style={styles.modalOverlay} onPress={() => setSettingsVisible(false)}>
-          <Pressable style={[styles.modalCard, { marginTop: insets.top + 60 }]} onPress={() => {}}>
-            <Text style={styles.modalTitle}>지도 설정</Text>
+          <GlassSurface variant="modal" cornerRadius={20} style={[styles.modalCard, { marginTop: insets.top + 60 }]}>
+            <Pressable onPress={() => {}}>
+              <Text style={styles.modalTitle}>지도 설정</Text>
 
-            <Text style={styles.modalSectionTitle}>배경 지도</Text>
-            <View style={styles.baseLayerRow}>
-              {BASE_LAYER_OPTIONS.map((opt) => {
-                const active = baseLayer === opt.key;
-                return (
-                  <Pressable
-                    key={opt.key}
-                    onPress={() => { setBaseLayer(opt.key); }}
-                    style={[styles.baseLayerButton, active && styles.baseLayerButtonActive]}
-                  >
-                    <Text style={styles.baseLayerIcon}>{opt.icon}</Text>
-                    <Text style={[styles.baseLayerLabel, active && styles.baseLayerLabelActive]}>{opt.label}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+              <Text style={styles.modalSectionTitle}>배경 지도</Text>
+              <View style={styles.baseLayerRow}>
+                {BASE_LAYER_OPTIONS.map((opt) => {
+                  const active = baseLayer === opt.key;
+                  return (
+                    <Pressable
+                      key={opt.key}
+                      onPress={() => { setBaseLayer(opt.key); }}
+                      style={[styles.baseLayerButton, active && styles.baseLayerButtonActive]}
+                    >
+                      <Text style={styles.baseLayerIcon}>{opt.icon}</Text>
+                      <Text style={[styles.baseLayerLabel, active && styles.baseLayerLabelActive]}>{opt.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
 
-            <Text style={styles.modalSectionTitle}>카테고리 표시</Text>
-            <View style={styles.categoryGrid}>
-              {allCategories().map((cat) => {
-                const hidden = hiddenCategories.has(cat);
-                return (
-                  <Pressable
-                    key={cat}
-                    hitSlop={HIT_SLOP}
-                    onPress={() => toggleCategory(cat)}
-                    style={[styles.categoryChip, { borderLeftColor: CATEGORY_COLORS[cat] }, hidden && styles.categoryChipHidden]}
-                  >
-                    <Text style={[styles.categoryChipText, hidden && styles.categoryChipTextHidden]}>
-                      {hidden ? '✕' : '✓'} {CATEGORY_LABELS[cat]}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+              <Text style={styles.modalSectionTitle}>카테고리 표시</Text>
+              <View style={styles.categoryGrid}>
+                {allCategories().map((cat) => {
+                  const hidden = hiddenCategories.has(cat);
+                  return (
+                    <Pressable
+                      key={cat}
+                      hitSlop={HIT_SLOP}
+                      onPress={() => toggleCategory(cat)}
+                      style={[styles.categoryChip, { borderLeftColor: CATEGORY_COLORS[cat] }, hidden && styles.categoryChipHidden]}
+                    >
+                      <Text style={[styles.categoryChipText, hidden && styles.categoryChipTextHidden]}>
+                        {hidden ? '✕' : '✓'} {CATEGORY_LABELS[cat]}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
 
-            <Pressable
-              hitSlop={HIT_SLOP}
-              onPress={() => setSettingsVisible(false)}
-              style={styles.modalCloseButton}
-            >
-              <Text style={styles.modalCloseText}>닫기</Text>
+              <Pressable
+                hitSlop={HIT_SLOP}
+                onPress={() => setSettingsVisible(false)}
+                style={styles.modalCloseButton}
+              >
+                <Text style={styles.modalCloseText}>닫기</Text>
+              </Pressable>
             </Pressable>
-          </Pressable>
+          </GlassSurface>
         </Pressable>
       </Modal>
     </View>
@@ -623,16 +625,10 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.35)',
   },
   modalCard: {
-    backgroundColor: BG_WHITE,
     borderRadius: 20,
     marginHorizontal: 20,
     padding: 20,
     gap: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 20,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 10,
   },
   modalTitle: {
     color: TEXT_DARK,
