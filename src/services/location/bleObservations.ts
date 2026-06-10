@@ -15,9 +15,9 @@
  *     stale and are pruned on the next access or explicitly via
  *     `pruneStale()`.
  *
- *  4. `bleIdentifier` is deliberately abstract — the real identity schema
- *     (MAC-based, iBeacon UUID+major+minor, Eddystone-UID) will be
- *     confirmed once the Aruba BLE payload field is understood.
+ *  4. `bleIdentifier` is the real BLE MAC address extracted from Aruba
+ *     manufacturer data bytes 3-8 (little-endian, reversed into lowercase
+ *     colon-separated format).
  *
  * @see BleAccessPoint5183  – the static AP catalogue this buffer feeds
  * @see iosBleProvider.ts   – the native bridge that produces these observations
@@ -35,9 +35,8 @@ export interface BleApObservation {
   /**
    * Stable AP identity used for deduplication.
    *
-   * For now a free-form string; will be replaced by a discriminated union
-   * once the Aruba BLE payload field is reverse-engineered:
-   *   `{ type: 'mac'; mac: string } | { type: 'ibeacon'; uuid: string; major: number; minor: number }`
+   * Real BLE MAC address extracted from Aruba manufacturer data bytes 3-8
+   * (little-endian, reversed into lowercase colon-separated format).
    *
    * @see BleAccessPoint5183.bleIdentifier
    */
@@ -52,8 +51,8 @@ export interface BleApObservation {
   /**
    * Raw advertisement payload in hexadecimal string.
    *
-   * Used for debugging and reverse-engineering the Aruba beacon identity
-   * field.  MAY be empty (`''`) if the native bridge does not expose the
+   * Used for debugging and verifying Aruba manufacturer-specific payload
+   * parsing. MAY be empty (`''`) if the native bridge does not expose the
    * full manufacturer-specific data.
    */
   payloadHex: string;
