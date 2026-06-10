@@ -68,14 +68,6 @@ public final class GlassSurfaceView: UIView {
     updateAppearance()
   }
 
-  // Keep effectView behind RN children
-  override public func didAddSubview(_ subview: UIView) {
-    super.didAddSubview(subview)
-    if subview !== effectView, subviews.first !== effectView {
-      sendSubviewToBack(effectView)
-    }
-  }
-
   deinit {
     NotificationCenter.default.removeObserver(self)
   }
