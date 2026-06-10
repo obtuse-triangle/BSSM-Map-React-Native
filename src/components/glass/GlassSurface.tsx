@@ -1,5 +1,5 @@
 import React, { type ReactNode } from 'react';
-import { Platform, View, type ViewProps, type ViewStyle } from 'react-native';
+import { Platform, View, type StyleProp, type ViewProps, type ViewStyle } from 'react-native';
 import { requireNativeView } from 'expo-modules-core';
 import type { GlassVariant } from '../../../modules/ios-glass-surface/src';
 
@@ -76,7 +76,7 @@ export function GlassSurface({
         interactive={interactive}
         fallbackOpacity={fallbackOpacity}
         reduceTransparencyFallbackColor={reduceTransparencyFallbackColor}
-        style={[resolvedStyle, style] as any}
+        style={[resolvedStyle, style] as StyleProp<ViewStyle>}
         pointerEvents={pointerEvents}
         {...rest}
       >

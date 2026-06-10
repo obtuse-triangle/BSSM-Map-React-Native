@@ -48,6 +48,13 @@ public final class GlassSurfaceView: UIView {
     clipsToBounds = true
     isUserInteractionEnabled = true
 
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(handleReduceTransparencyStatusDidChange(_:)),
+      name: UIAccessibility.reduceTransparencyStatusDidChangeNotification,
+      object: nil
+    )
+
     effectView.frame = bounds
     effectView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
     effectView.isUserInteractionEnabled = true
@@ -58,6 +65,10 @@ public final class GlassSurfaceView: UIView {
     addSubview(effectView)
     updateGeometry()
     updateAppearance()
+  }
+
+  deinit {
+    NotificationCenter.default.removeObserver(self)
   }
 
   private func updateGeometry() {
@@ -90,6 +101,10 @@ public final class GlassSurfaceView: UIView {
       effectView.effect = UIBlurEffect(style: .systemMaterial)
       effectView.alpha = fallbackOpacity
     }
+  }
+
+  @objc private func handleReduceTransparencyStatusDidChange(_ notification: Notification) {
+    updateAppearance()
   }
 
   private func resolvedTintColor() -> UIColor? {
