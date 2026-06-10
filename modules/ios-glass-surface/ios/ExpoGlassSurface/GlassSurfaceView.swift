@@ -93,7 +93,7 @@ public final class GlassSurfaceView: UIView {
 
     if #available(iOS 26.0, *) {
       let effect = UIGlassEffect(style: .regular)
-      effect.interactive = interactive
+      effect.isInteractive = interactive
       effect.tintColor = resolvedTintColor()
       effectView.effect = effect
       effectView.alpha = 1.0
