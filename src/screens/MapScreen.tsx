@@ -64,7 +64,10 @@ export function MapScreen({ navigation }: MapScreenProps) {
   const [topChromeHeight, setTopChromeHeight] = useState(0);
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [locationTrackingEnabled, setLocationTrackingEnabled] = useState(false);
+  const [bleCardVisible, setBleCardVisible] = useState(false);
   const campusMapRef = useRef<CampusMapHandle>(null);
+  const pendingFlyToBleRef = useRef(false);
+  const flyToBleUnsubRef = useRef<(() => void) | null>(null);
   const topObstructionHeight = topChromeHeight > 0 ? topChromeHeight + MAP_TOP_CHROME_GAP : insets.top + 12;
 
   const { searchQuery, setSearchQuery, searchResults, isSearchFocused, setIsSearchFocused } = useSearchBar();
@@ -92,8 +95,8 @@ export function MapScreen({ navigation }: MapScreenProps) {
     scanDurationMs,
     setScanDurationMs,
     debugObservations,
-    startBleWclScan,
     clearResult,
+    dismissCard,
     beaconStats,
     isContinuousScanning,
     startContinuousScan,
@@ -180,17 +183,68 @@ export function MapScreen({ navigation }: MapScreenProps) {
 
   const isLocateDisabled = positionStatus === 'loading' && locationTrackingEnabled;
 
+  const clearPendingBleFly = useCallback(() => {
+    pendingFlyToBleRef.current = false;
+    flyToBleUnsubRef.current?.();
+    flyToBleUnsubRef.current = null;
+  }, []);
+
+  const flyToBleResult = useCallback(
+    (result: typeof bleResult | null) => {
+      if (__DEV__) {
+        console.log('[MapScreen] BLE fly check:', {
+          pendingFlyToBle: pendingFlyToBleRef.current,
+          hasResult: result !== null,
+          coordinates: result ? [result.longitude, result.latitude] : null,
+        });
+      }
+
+      if (!result || !pendingFlyToBleRef.current) {
+        return false;
+      }
+
+      pendingFlyToBleRef.current = false;
+      flyToBleUnsubRef.current?.();
+      flyToBleUnsubRef.current = null;
+      campusMapRef.current?.flyToCoordinates([result.longitude, result.latitude]);
+      return true;
+    },
+    [],
+  );
+
   const handleBleScan = useCallback(() => {
-    const isCardVisible = bleStatus !== 'idle' || isContinuousScanning;
-    if (isCardVisible) {
-      clearResult();
+    if (bleCardVisible) {
+      setBleCardVisible(false);
+      clearPendingBleFly();
+      dismissCard();
       return;
     }
-    if (!selectedFloorKey) {
-      return;
+    setBleCardVisible(true);
+    pendingFlyToBleRef.current = true;
+
+    flyToBleUnsubRef.current?.();
+    flyToBleUnsubRef.current = useBleLocationStore.subscribe(() => {
+      flyToBleResult(useBleLocationStore.getState().result);
+    });
+
+    flyToBleResult(useBleLocationStore.getState().result);
+
+    if (!isContinuousScanning) {
+      startContinuousScan();
+      startMotionTracking();
     }
-    void startBleWclScan(selectedFloorKey);
-  }, [selectedFloorKey, startBleWclScan, bleStatus, isContinuousScanning, clearResult]);
+  }, [bleCardVisible, clearPendingBleFly, dismissCard, flyToBleResult, isContinuousScanning, startContinuousScan, startMotionTracking]);
+
+  useEffect(() => {
+    if (__DEV__) {
+      console.log('[MapScreen] BLE fly effect:', {
+        pendingFlyToBle: pendingFlyToBleRef.current,
+        bleResult,
+      });
+    }
+  }, [bleResult]);
+
+  useEffect(() => clearPendingBleFly, [clearPendingBleFly]);
 
   const handleLocate = useCallback(async () => {
     if (userCoordinates) {
@@ -282,15 +336,17 @@ export function MapScreen({ navigation }: MapScreenProps) {
             {Platform.OS === 'ios' ? (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel="BLE WCL 스캔"
+                accessibilityLabel={isContinuousScanning ? 'BLE WCL 실시간 스캔 중지' : 'BLE WCL 실시간 스캔 시작'}
                 onPress={handleBleScan}
                 style={({ pressed }) => [
                   styles.iconActionButton,
+                  bleCardVisible && styles.bleButtonActive,
                   pressed && styles.iconActionButtonPressed,
-                  bleStatus === 'scanning' && styles.iconActionButtonDisabled,
                 ]}
               >
-                <Text style={styles.bleButtonLabel}>BLE</Text>
+                <Text style={[styles.bleButtonLabel, bleCardVisible && styles.bleButtonLabelActive]}>
+                  BLE
+                </Text>
               </Pressable>
             ) : null}
 
@@ -341,12 +397,13 @@ export function MapScreen({ navigation }: MapScreenProps) {
                     : '현재 층에서 AP를 눌러 위치를 계산할 수 있습니다.'}
           </Text>
 
+          {bleCardVisible && (
           <BleWclStatusCard
             status={bleStatus}
             result={bleResult}
             error={bleError}
             onStartScan={handleBleScan}
-            onDismiss={clearResult}
+            onDismiss={() => { setBleCardVisible(false); dismissCard(); }}
             scanDurationMs={scanDurationMs}
             onSetScanDuration={setScanDurationMs}
             debugObservations={debugObservations}
@@ -361,6 +418,7 @@ export function MapScreen({ navigation }: MapScreenProps) {
             onStartMotionTracking={startMotionTracking}
             onStopMotionTracking={stopMotionTracking}
           />
+          )}
         </View>
       </View>
 
@@ -452,6 +510,7 @@ const styles = StyleSheet.create({
   searchAndActionsRow: {
     flexDirection: 'row',
     gap: 10,
+    zIndex: 20,
   },
   iconActionButton: {
     alignItems: 'center',
@@ -488,6 +547,13 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     letterSpacing: 0.5,
   },
+  bleButtonActive: {
+    backgroundColor: PRIMARY_BLUE,
+    borderColor: PRIMARY_BLUE,
+  },
+  bleButtonLabelActive: {
+    color: BG_WHITE,
+  },
   mapHelperText: {
     color: '#64748b',
     fontSize: 12,
@@ -509,6 +575,7 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
+    zIndex: 1,
   },
   levelSelectorLabel: {
     color: '#64748b',

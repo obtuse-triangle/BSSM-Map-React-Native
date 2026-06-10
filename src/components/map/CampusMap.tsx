@@ -12,6 +12,7 @@ import {
   type FilterSpecification,
   type MapRef,
   type CameraRef,
+  type ViewStateChangeEvent,
   useCurrentPosition,
 } from '@maplibre/maplibre-react-native';
 
@@ -40,6 +41,7 @@ const BASE_STYLE = {
 
 export type CampusMapHandle = {
   flyToUser: () => void;
+  flyToCoordinates: (coordinates: [number, number]) => void;
   flyToFeature: (featureId: string) => void;
   zoomIn: () => void;
   zoomOut: () => void;
@@ -172,6 +174,13 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false }: CampusM
     });
   }, []);
 
+  const flyToCoordinates = useCallback((coordinates: [number, number]) => {
+    cameraRef.current?.flyTo({
+      center: coordinates,
+      duration: 500,
+    });
+  }, []);
+
   const zoomIn = useCallback(() => {
     const nextZoom = Math.min(zoomLevel + 1, 19);
     setZoomLevel(nextZoom);
@@ -183,6 +192,10 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false }: CampusM
     setZoomLevel(nextZoom);
     cameraRef.current?.zoomTo(nextZoom, { duration: 200 });
   }, [zoomLevel]);
+
+  const handleRegionDidChange = useCallback((event: { nativeEvent: ViewStateChangeEvent }) => {
+    setZoomLevel(event.nativeEvent.zoom);
+  }, []);
 
   const resetView = useCallback(() => {
     setZoomLevel(17);
@@ -201,7 +214,7 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false }: CampusM
     [],
   );
 
-  useImperativeHandle(ref, () => ({ flyToUser, flyToFeature, zoomIn, zoomOut, resetView }), [flyToUser, flyToFeature, resetView, zoomIn, zoomOut]);
+  useImperativeHandle(ref, () => ({ flyToUser, flyToCoordinates, flyToFeature, zoomIn, zoomOut, resetView }), [flyToCoordinates, flyToFeature, flyToUser, resetView, zoomIn, zoomOut]);
 
   const levelFilter = useMemo(
     () => ['==', ['get', 'level'], selectedLevel] as unknown as FilterSpecification,
@@ -228,7 +241,7 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false }: CampusM
 
   return (
     <View style={styles.container}>
-      <Map ref={mapRef} mapStyle={BASE_STYLE} style={styles.map} onPress={handleMapPress}>
+      <Map ref={mapRef} mapStyle={BASE_STYLE} style={styles.map} onPress={handleMapPress} onRegionDidChange={handleRegionDidChange}>
         <Camera
           ref={cameraRef}
           initialViewState={{
