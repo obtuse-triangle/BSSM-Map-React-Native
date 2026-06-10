@@ -1,6 +1,6 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import type { LayoutChangeEvent, StyleProp, ViewStyle } from 'react-native'
-import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
+import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native'
 import type { EdgeInsets } from 'react-native-safe-area-context'
 
 import { BG_WHITE, BORDER_DEFAULT, BORDER_LIGHT, PRIMARY_BLUE, TEXT_DARK, TEXT_LIGHT } from '../../theme'
@@ -38,6 +38,7 @@ export function SearchBar({
 }: SearchBarProps) {
   const [fieldHeight, setFieldHeight] = useState(0)
   const inputRef = useRef<TextInput>(null)
+  const { width: windowWidth } = useWindowDimensions()
 
   const handleFieldLayout = (event: LayoutChangeEvent) => {
     setFieldHeight(event.nativeEvent.layout.height)
@@ -45,6 +46,10 @@ export function SearchBar({
 
   const showResults = searchResults.length > 0
   const showEmpty = searchQuery.trim().length > 0 && searchResults.length === 0
+  const dropdownWidth = useMemo(() => {
+    const edgeInset = insets.left + insets.right + 32
+    return Math.max(0, windowWidth - edgeInset)
+  }, [insets.left, insets.right, windowWidth])
 
   return (
     <View style={[styles.container, containerStyle]} pointerEvents="box-none">
@@ -83,7 +88,7 @@ export function SearchBar({
       </KeyboardAvoidingView>
 
       {showResults || showEmpty ? (
-        <View style={[styles.resultsCard, { top: fieldHeight + 8 }]}>
+        <View style={[styles.resultsCard, { top: fieldHeight + 8, width: dropdownWidth }]}>
           <Text style={styles.resultsTitle}>검색 결과</Text>
           {showResults ? (
             <ScrollView
@@ -181,7 +186,8 @@ const styles = StyleSheet.create({
     padding: 14,
     position: 'absolute',
     left: 0,
-    right: 0,
+    zIndex: 20,
+    elevation: 8,
   },
   resultsTitle: {
     color: TEXT_DARK,
