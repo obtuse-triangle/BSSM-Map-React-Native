@@ -37,12 +37,6 @@ public final class GlassSurfaceView: UIView {
     fatalError("init(coder:) has not been implemented")
   }
 
-  override public func layoutSubviews() {
-    super.layoutSubviews()
-    effectView.frame = bounds
-    updateGeometry()
-  }
-
   private func setupView() {
     backgroundColor = .clear
     clipsToBounds = true
@@ -56,19 +50,33 @@ public final class GlassSurfaceView: UIView {
     )
 
     effectView.frame = bounds
-    effectView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
     effectView.isUserInteractionEnabled = false
     effectView.backgroundColor = .clear
     effectView.clipsToBounds = true
     effectView.layer.cornerCurve = .continuous
 
-    // Glass effect must be at index 0 — behind all RN children
-    insertSubview(effectView, at: 0)
     updateGeometry()
     updateAppearance()
   }
 
+  override public func didMoveToSuperview() {
+    super.didMoveToSuperview()
+    if let superview = superview, effectView.superview !== superview {
+      effectView.removeFromSuperview()
+      superview.insertSubview(effectView, belowSubview: self)
+    } else if superview == nil {
+      effectView.removeFromSuperview()
+    }
+  }
+
+  override public func layoutSubviews() {
+    super.layoutSubviews()
+    effectView.frame = frame
+    updateGeometry()
+  }
+
   deinit {
+    effectView.removeFromSuperview()
     NotificationCenter.default.removeObserver(self)
   }
 
