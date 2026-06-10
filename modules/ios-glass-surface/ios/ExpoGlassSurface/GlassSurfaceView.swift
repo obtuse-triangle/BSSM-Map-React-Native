@@ -50,6 +50,10 @@ public final class GlassSurfaceView: UIView {
 
   // MARK: - Initialization
 
+  override public var intrinsicContentSize: CGSize {
+    CGSize(width: UIView.noIntrinsicMetric, height: UIView.noIntrinsicMetric)
+  }
+
   override public init(frame: CGRect) {
     self.effectView = UIVisualEffectView(effect: nil)
     super.init(frame: frame)
