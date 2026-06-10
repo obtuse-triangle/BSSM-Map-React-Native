@@ -9,18 +9,12 @@ import type { FloorKey } from './floorMap';
  * was delivered in that CRS.  Consumers convert to WGS84 lat/lng for
  * on-device use.
  *
- * ── Blocker for Wave 1 ──────────────────────────────────────────────
- *  1. The HPE Aruba BLE payload identity field is **unknown** at this
- *     stage.  Real Aruba APs broadcast a Beacon/WCL telemetry frame
- *     (manufacturer ID 0x011B) but the exact field mapping (major/minor,
- *     eddystone-uid, or custom ADV data) must be confirmed via:
- *       - Aruba WCL API docs (HPE Aruba Wi-Fi Location Client)
- *       - Live packet capture with a BLE scanner
- *  2. EPSG:5183 coordinates must come from the school's site-survey /
- *     architectural drawings — NOT invented.
- *  3. `bleIdentifier` is a placeholder shape; the real identity schema
- *     (MAC-based? iBeacon UUID+major+minor?) depends on how the Aruba
- *     Beacons are provisioned.
+ * The Aruba BLE identity is confirmed as the real BLE MAC address exposed
+ * in manufacturer data bytes 3-8 (little-endian, reversed into lowercase
+ * colon-separated format). Manufacturer ID remains 0x011B.
+ *
+ * EPSG:5183 coordinates must come from the school's site-survey /
+ * architectural drawings — NOT invented.
  *
  * @see https://www.arubanetworks.com/techdocs/ArubaDocs/8.7/Content/Aruba%20Location%20Services/WCL_Concept.htm
  */
@@ -29,10 +23,9 @@ export interface BleAccessPoint5183 {
   id: string;
 
   /**
-   * BLE identifier – for now a free-form string.
-   * TODO(wave-2): Replace with a union of known identity schemas once
-   * the Aruba payload field is confirmed:
-   *   `{ type: 'mac'; mac: string } | { type: 'ibeacon'; uuid: string; major: number; minor: number }`
+   * BLE identifier – the real BLE MAC address extracted from Aruba
+   * manufacturer data bytes 3-8 (little-endian, reversed into lowercase
+   * colon-separated format).
    */
   bleIdentifier: string;
 
@@ -55,9 +48,7 @@ export interface BleAccessPoint5183 {
 
   /**
    * Optional raw hex dump of the Aruba BLE advertisement payload.
-   * Used for debugging / reverse-engineering the identity field.
-   *
-   * TODO(wave-2): Remove once the payload schema is understood.
+   * Used for debugging / verifying the payload parsing.
    */
   payloadHexExample?: string;
 }

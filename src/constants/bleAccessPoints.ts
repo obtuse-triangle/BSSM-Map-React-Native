@@ -1,119 +1,587 @@
 import type { BleAccessPoint5183 } from '../types/bleAccessPoint';
 
 /**
- * ═══════════════════════════════════════════════════════════════════
- *  BLE AP FIXTURE DATA — NOT FOR PRODUCTION USE
- * ═══════════════════════════════════════════════════════════════════
+ * Real BLE AP location data from school site survey (EPSG:5183).
+ * BLE MAC addresses from network infrastructure records.
  *
- * !!! BLOCKER: REAL AP COORDINATES ARE UNKNOWN !!!
+ * Data sources:
+ * - EPSG:5183 coordinates: QGIS project GeoJSON (1FAP.geojson, 3FAP.geojson)
+ * - BLE MAC addresses: 교내무선맥.csv
  *
- * This array contains **synthetic fixture data** only.
- * It serves two purposes:
- *   1. Enable type-checking and unit-test authoring during Wave 1.
- *   2. Provide a visual template for the real data that will replace it.
- *
- * ── Must resolve before production ─────────────────────────────────
- *  1. EPSG:5183 COORDINATES  – Obtain from school site-survey
- *     drawings or an on-site GPS+TM measurement.  Do NOT guess or
- *     approximate from map-percent coordinates.
- *  2. BLE IDENTITY SCHEMA    – The `bleIdentifier` field shape below
- *     is **placeholder text**.  Real Aruba Beacon identity comes from
- *     the WCL advertisement payload; the exact field (MAC, iBeacon
- *     UUID+major+minor, or Eddystone-UID) is not yet known.
- *  3. HPE MANUFACTURER ID    – `0x011B` is the Bluetooth SIG-assigned
- *     Company Identifier for Hewlett Packard Enterprise.  Verify that
- *     the deployed beacons actually use this ID in their BLE ADV_IND
- *     packets.
- *
- * @see src/types/bleAccessPoint.ts  — full type documentation
- * @see docs/ble-wcl-wave-1-plan.md  — overall integration plan
+ * NOTE: 2F and 4F GeoJSON not yet available. Those floors have no coordinates.
  */
-
-// ── Fixture data ───────────────────────────────────────────────────
-// These entries are **NOT real**.
-// They are placeholders to validate the data pipeline.
-// Replace all entries once real AP coordinates and identities exist.
-
 export const BLE_AP_FIXTURES: BleAccessPoint5183[] = [
-  // =================================================================
-  //  BLOCKER: Floor 1 — No EPSG:5183 data available yet
-  //  Real x5183/y5183 values must come from school site survey docs.
-  // =================================================================
+  // ── Floor 1 (14 AP) ───────────────────────────────────────────
   {
-    id: 'ble-fixture-f1-ap01',
-    bleIdentifier: 'placeholder-ble-id-f1-ap01',
-    manufacturerId: 0x011B, // HPE / Aruba
-    floorKey: '1',
-    x5183: 0, // BLOCKER: Replace with EPSG:5183 Easting from survey
-    y5183: 0, // BLOCKER: Replace with EPSG:5183 Northing from survey
-    label: 'FIXTURE — 1층 북동쪽 (DO NOT USE IN PRODUCTION)',
-  },
-  {
-    id: 'ble-fixture-f1-ap02',
-    bleIdentifier: 'placeholder-ble-id-f1-ap02',
+    id: 'MA-1F-A06',
+    bleIdentifier: '28:de:65:c8:1b:20',
     manufacturerId: 0x011B,
     floorKey: '1',
-    x5183: 0, // BLOCKER: Replace with EPSG:5183 Easting from survey
-    y5183: 0, // BLOCKER: Replace with EPSG:5183 Northing from survey
-    label: 'FIXTURE — 1층 남서쪽 (DO NOT USE IN PRODUCTION)',
+    x5183: 191248.547235398116754,
+    y5183: 188085.014857686095638,
+    label: 'MA-1F-A06',
   },
-
-  // =================================================================
-  //  BLOCKER: Floor 2 — No EPSG:5183 data available yet
-  // =================================================================
   {
-    id: 'ble-fixture-f2-ap01',
-    bleIdentifier: 'placeholder-ble-id-f2-ap01',
+    id: 'MA-1F-A05',
+    bleIdentifier: '28:de:65:c8:18:15',
     manufacturerId: 0x011B,
-    floorKey: '2',
-    x5183: 0, // BLOCKER
-    y5183: 0, // BLOCKER
-    label: 'FIXTURE — 2층 (DO NOT USE IN PRODUCTION)',
+    floorKey: '1',
+    x5183: 191238.984037295420421,
+    y5183: 188084.810770588665036,
+    label: 'MA-1F-A05',
+  },
+  {
+    id: 'MA-1F-A04',
+    bleIdentifier: '28:de:65:c8:1a:69',
+    manufacturerId: 0x011B,
+    floorKey: '1',
+    x5183: 191225.717521025857423,
+    y5183: 188084.617381138668861,
+    label: 'MA-1F-A04',
+  },
+  {
+    id: 'MA-1F-A03',
+    bleIdentifier: '28:de:65:c8:18:ad',
+    manufacturerId: 0x011B,
+    floorKey: '1',
+    x5183: 191216.550861096155131,
+    y5183: 188084.462669578671921,
+    label: 'MA-1F-A03',
+  },
+  {
+    id: 'MA-1F-A02',
+    bleIdentifier: '20:4c:03:e9:00:55',
+    manufacturerId: 0x011B,
+    floorKey: '1',
+    x5183: 191211.251990166318137,
+    y5183: 188084.578703248669626,
+    label: 'MA-1F-A02',
+  },
+  {
+    id: 'MA-1F-A01',
+    bleIdentifier: '20:4c:03:e8:ff:ff',
+    manufacturerId: 0x011B,
+    floorKey: '1',
+    x5183: 191166.46299354772782,
+    y5183: 188083.263654988753842,
+    label: 'MA-1F-A01',
+  },
+  {
+    id: 'M-1F-A08',
+    bleIdentifier: '',
+    manufacturerId: 0x011B,
+    floorKey: '1',
+    x5183: 191167.515734596381662,
+    y5183: 188059.197350580710918,
+    label: 'M-1F-A08',
+  },
+  {
+    id: 'M-1F-A07',
+    bleIdentifier: '20:4c:03:e9:00:7a',
+    manufacturerId: 0x011B,
+    floorKey: '1',
+    x5183: 191165.744430249091238,
+    y5183: 188046.798220149677945,
+    label: 'M-1F-A07',
+  },
+  {
+    id: 'M-1F-A05',
+    bleIdentifier: '20:4c:03:e8:f9:7f',
+    manufacturerId: 0x011B,
+    floorKey: '1',
+    x5183: 191166.334557060356019,
+    y5183: 188024.898524633259512,
+    label: 'M-1F-A05',
+  },
+  {
+    id: 'M-1F-A03',
+    bleIdentifier: '20:4c:03:e9:00:4f',
+    manufacturerId: 0x011B,
+    floorKey: '1',
+    x5183: 191166.872279762057588,
+    y5183: 188002.67265296401456,
+    label: 'M-1F-A03',
+  },
+  {
+    id: 'M-1F-A01',
+    bleIdentifier: '20:4c:03:e9:00:a8',
+    manufacturerId: 0x011B,
+    floorKey: '1',
+    x5183: 191167.230761563172564,
+    y5183: 187984.65894245787058,
+    label: 'M-1F-A01',
+  },
+  {
+    id: 'D-1F-A03',
+    bleIdentifier: '28:de:65:03:fc:d2',
+    manufacturerId: 0x011B,
+    floorKey: '1',
+    x5183: 191240.518489730398869,
+    y5183: 188022.219886175182182,
+    label: 'D-1F-A03',
+  },
+  {
+    id: 'D-1F-A02',
+    bleIdentifier: '28:de:65:03:fc:62',
+    manufacturerId: 0x011B,
+    floorKey: '1',
+    x5183: 191240.685199290426681,
+    y5183: 188013.38602373318281,
+    label: 'D-1F-A02',
+  },
+  {
+    id: 'D-1F-A01',
+    bleIdentifier: '28:de:65:1b:94:80',
+    manufacturerId: 0x011B,
+    floorKey: '1',
+    x5183: 191240.848489265976241,
+    y5183: 188004.515976240654709,
+    label: 'D-1F-A01',
   },
 
-  // =================================================================
-  //  BLOCKER: Floor 3 — No EPSG:5183 data available yet
-  // =================================================================
+  // ── Floor 3 (48 AP) ───────────────────────────────────────────
   {
-    id: 'ble-fixture-f3-ap01',
-    bleIdentifier: 'placeholder-ble-id-f3-ap01',
+    id: 'M-3F-A06',
+    bleIdentifier: '20:4c:03:e9:00:4d',
     manufacturerId: 0x011B,
     floorKey: '3',
-    x5183: 0, // BLOCKER
-    y5183: 0, // BLOCKER
-    label: 'FIXTURE — 3층 (DO NOT USE IN PRODUCTION)',
+    x5183: 191166.513485008588759,
+    y5183: 188034.354408854298526,
+    label: 'M-3F-A06',
   },
-
-  // =================================================================
-  //  BLOCKER: Floor 4 — No EPSG:5183 data available yet
-  // =================================================================
   {
-    id: 'ble-fixture-f4-ap01',
-    bleIdentifier: 'placeholder-ble-id-f4-ap01',
+    id: 'M-3F-A05',
+    bleIdentifier: '20:4c:03:e9:00:57',
     manufacturerId: 0x011B,
-    floorKey: '4',
-    x5183: 0, // BLOCKER
-    y5183: 0, // BLOCKER
-    label: 'FIXTURE — 4층 (DO NOT USE IN PRODUCTION)',
+    floorKey: '3',
+    x5183: 191166.784827390889404,
+    y5183: 188024.926047646673396,
+    label: 'M-3F-A05',
   },
-] as const;
+  {
+    id: 'M-3F-A04',
+    bleIdentifier: '20:4c:03:e9:00:54',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191167.769959416793426,
+    y5183: 188013.913678198499838,
+    label: 'M-3F-A04',
+  },
+  {
+    id: 'M-3F-A02',
+    bleIdentifier: '20:4c:03:e8:ff:da',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191166.703472833964042,
+    y5183: 187996.816565167391673,
+    label: 'M-3F-A02',
+  },
+  {
+    id: 'M-3F-A03',
+    bleIdentifier: '20:4c:03:e9:00:0a',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191166.103574131120695,
+    y5183: 188007.048170821450185,
+    label: 'M-3F-A03',
+  },
+  {
+    id: 'M-3F-A01',
+    bleIdentifier: '20:4c:03:e9:00:21',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191166.994758092565462,
+    y5183: 187986.356875853118254,
+    label: 'M-3F-A01',
+  },
+  {
+    id: 'B-3F-A27',
+    bleIdentifier: '20:4c:03:d3:e9:8b',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191202.607886691490421,
+    y5183: 187980.909208109980682,
+    label: 'B-3F-A27',
+  },
+  {
+    id: 'B-3F-A28',
+    bleIdentifier: '20:4c:03:d3:ea:56',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191197.049644585233182,
+    y5183: 187980.832010302954586,
+    label: 'B-3F-A28',
+  },
+  {
+    id: 'B-3F-A29',
+    bleIdentifier: '20:4c:03:d3:ea:38',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191196.354864321940113,
+    y5183: 187980.793411399441538,
+    label: 'B-3F-A29',
+  },
+  {
+    id: 'B-3F-A30',
+    bleIdentifier: '20:4c:03:d3:ea:59',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191190.912418926222017,
+    y5183: 187980.677614688902395,
+    label: 'B-3F-A30',
+  },
+  {
+    id: 'B-3F-A31',
+    bleIdentifier: '20:4c:03:d3:e9:d1',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191190.333435373497196,
+    y5183: 187980.639015785389347,
+    label: 'B-3F-A31',
+  },
+  {
+    id: 'B-3F-A32',
+    bleIdentifier: '20:4c:03:d3:e9:e7',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191184.852391074266052,
+    y5183: 187980.600416881876299,
+    label: 'B-3F-A32',
+  },
+  {
+    id: 'B-3F-A33',
+    bleIdentifier: '20:4c:03:d3:e9:d8',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191184.119011907459935,
+    y5183: 187980.5232190748211,
+    label: 'B-3F-A33',
+  },
+  {
+    id: 'B-3F-A34',
+    bleIdentifier: '20:4c:03:d3:e9:de',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191178.792363222280983,
+    y5183: 187980.446021267795004,
+    label: 'B-3F-A34',
+  },
+  {
+    id: 'M-3F-A10',
+    bleIdentifier: '20:4c:03:e9:00:24',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191165.598267877445323,
+    y5183: 188066.155551099043805,
+    label: 'M-3F-A10',
+  },
+  {
+    id: 'M-3F-A09',
+    bleIdentifier: '20:4c:03:e9:00:41',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191165.79438583413139,
+    y5183: 188059.341020618012408,
+    label: 'M-3F-A09',
+  },
+  {
+    id: 'M-3F-A08',
+    bleIdentifier: '20:4c:03:e9:00:50',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191165.990503790759249,
+    y5183: 188052.526490136951907,
+    label: 'M-3F-A08',
+  },
+  {
+    id: 'M-3F-A07',
+    bleIdentifier: '20:4c:03:e9:00:2c',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191166.251994399703108,
+    y5183: 188043.440449495625217,
+    label: 'M-3F-A07',
+  },
+  {
+    id: 'B-3F-A26',
+    bleIdentifier: '20:4c:03:d3:ea:0b',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191207.719625579513377,
+    y5183: 187981.049321242899168,
+    label: 'B-3F-A26',
+  },
+  {
+    id: 'B-3F-A25',
+    bleIdentifier: '20:4c:03:d3:ea:41',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191210.793685847864253,
+    y5183: 187981.117633693327662,
+    label: 'B-3F-A25',
+  },
+  {
+    id: 'B-3F-A24',
+    bleIdentifier: '20:4c:03:d3:ea:5a',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191215.9512758537021,
+    y5183: 187981.254258594126441,
+    label: 'B-3F-A24',
+  },
+  {
+    id: 'B-3F-A23',
+    bleIdentifier: '20:4c:03:d3:ea:0e',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191216.873493934195722,
+    y5183: 187981.254258594126441,
+    label: 'B-3F-A23',
+  },
+  {
+    id: 'B-3F-A22',
+    bleIdentifier: '20:4c:03:d3:ea:5c',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191221.962771489605075,
+    y5183: 187981.425039720139466,
+    label: 'B-3F-A22',
+  },
+  {
+    id: 'B-3F-A21',
+    bleIdentifier: '20:4c:03:d3:ea:58',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191222.919145795342047,
+    y5183: 187981.425039720139466,
+    label: 'B-3F-A21',
+  },
+  {
+    id: 'B-3F-A20',
+    bleIdentifier: '20:4c:03:d3:ea:2a',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191236.10959053208353,
+    y5183: 187989.77411243255483,
+    label: 'B-3F-A20',
+  },
+  {
+    id: 'B-3F-A19',
+    bleIdentifier: '20:4c:03:d3:ea:37',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191236.260185240069404,
+    y5183: 187986.799866950022988,
+    label: 'B-3F-A19',
+  },
+  {
+    id: 'B-3F-A18',
+    bleIdentifier: '20:4c:03:d3:ea:30',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191236.297833917051321,
+    y5183: 187981.792592909827363,
+    label: 'B-3F-A18',
+  },
+  {
+    id: 'B-3F-A17',
+    bleIdentifier: '20:4c:03:d3:e9:f7',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191236.38308150798548,
+    y5183: 187980.798131375166122,
+    label: 'B-3F-A17',
+  },
+  {
+    id: 'B-3F-A16',
+    bleIdentifier: '20:4c:03:d3:ea:27',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191236.478545475722058,
+    y5183: 187975.789285892125918,
+    label: 'B-3F-A16',
+  },
+  {
+    id: 'B-3F-A15',
+    bleIdentifier: '20:4c:03:d3:ea:09',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191236.540639048442245,
+    y5183: 187972.713260507967789,
+    label: 'B-3F-A15',
+  },
+  {
+    id: 'B-3F-14',
+    bleIdentifier: '20:4c:03:d3:e9:cf',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191232.713566979131429,
+    y5183: 187963.5840920182236,
+    label: 'B-3F-14',
+  },
+  {
+    id: 'B-3F-13',
+    bleIdentifier: '20:4c:03:d3:e9:e5',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191228.256206188903889,
+    y5183: 187963.378683686867589,
+    label: 'B-3F-13',
+  },
+  {
+    id: 'B-3F-12',
+    bleIdentifier: '20:4c:03:d3:ea:25',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191223.01829373955843,
+    y5183: 187963.275979521189583,
+    label: 'B-3F-12',
+  },
+  {
+    id: 'B-3F-A11',
+    bleIdentifier: '20:4c:03:d3:e9:fa',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191222.278823746717535,
+    y5183: 187963.255438688065624,
+    label: 'B-3F-A11',
+  },
+  {
+    id: 'B-3F-A10',
+    bleIdentifier: '20:4c:03:d3:e9:cc',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191217.061452130496036,
+    y5183: 187963.111652856110595,
+    label: 'B-3F-A10',
+  },
+  {
+    id: 'B-3F-A09',
+    bleIdentifier: '20:4c:03:d3:ea:07',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191216.301441304531181,
+    y5183: 187963.091112022986636,
+    label: 'B-3F-A09',
+  },
+  {
+    id: 'B-3F-A08',
+    bleIdentifier: '20:4c:03:d3:ea:06',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191213.302479666861473,
+    y5183: 187963.008948690461693,
+    label: 'B-3F-A08',
+  },
+  {
+    id: 'B-3F-D002',
+    bleIdentifier: '20:4c:03:d3:e8:9d',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191175.57196496942197,
+    y5183: 187968.878492694959277,
+    label: 'B-3F-D002',
+  },
+  {
+    id: 'B-3F-D001',
+    bleIdentifier: '',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191175.747653147991514,
+    y5183: 187964.285501741193002,
+    label: 'B-3F-D001',
+  },
+  {
+    id: 'B-3F-A36',
+    bleIdentifier: '',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191170.720876917708665,
+    y5183: 187972.667915675207041,
+    label: 'B-3F-A36',
+  },
+  {
+    id: 'B-3F-A35',
+    bleIdentifier: '20:4c:03:e9:00:db',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191169.213402435241733,
+    y5183: 187966.10145903119701,
+    label: 'B-3F-A35',
+  },
+  {
+    id: 'B-3F-A07',
+    bleIdentifier: '20:4c:03:d3:ea:45',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191202.528744266310241,
+    y5183: 187962.695628839050187,
+    label: 'B-3F-A07',
+  },
+  {
+    id: 'B-3F-A06',
+    bleIdentifier: '20:4c:03:d3:ea:2c',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191197.460694288485684,
+    y5183: 187962.55582056377898,
+    label: 'B-3F-A06',
+  },
+  {
+    id: 'B-3F-A05',
+    bleIdentifier: '20:4c:03:d3:ea:51',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191196.62184463700396,
+    y5183: 187962.55582056377898,
+    label: 'B-3F-A05',
+  },
+  {
+    id: 'B-3F-A04',
+    bleIdentifier: '20:4c:03:d3:ea:4e',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191191.553794659179403,
+    y5183: 187962.450964357354678,
+    label: 'B-3F-A04',
+  },
+  {
+    id: 'B-3F-A03',
+    bleIdentifier: '20:4c:03:d3:ea:23',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191190.681362776784226,
+    y5183: 187962.32577620446682,
+    label: 'B-3F-A03',
+  },
+  {
+    id: 'B-3F-A02',
+    bleIdentifier: '20:4c:03:d3:ea:55',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191185.547032543690875,
+    y5183: 187962.277109567192383,
+    label: 'B-3F-A02',
+  },
+  {
+    id: 'B-3F-A01',
+    bleIdentifier: '20:4c:03:d3:e9:da',
+    manufacturerId: 0x011B,
+    floorKey: '3',
+    x5183: 191184.598033116722945,
+    y5183: 187962.252776248526061,
+    label: 'B-3F-A01',
+  },
+];
 
 /**
  * Resolved (production) BLE AP locations by floor.
  *
- * !!! BLOCKER: This will contain the real data once surveyed.
- * The `x5183` / `y5183` values **must** come from:
- *   - Architectural floor plans in EPSG:5183
- *   - Or on-site GPS + Korean TM reverse-projection (proj4 / proj4js)
- *
- *   Until then this array is empty and all consumers must fall back
- *   to WiFi RTT positioning.
+ * Floors 2 and 4 have no GeoJSON coordinates yet — their arrays are empty.
  */
 export const realBleAccessPointsByFloor: Record<string, BleAccessPoint5183[]> = {
-  // BLOCKER: Populate after EPSG:5183 site survey is complete.
-  // TODO(wave-2): import survey CSV → group by floorKey
-  '1': [],
+  '1': BLE_AP_FIXTURES.filter((ap) => ap.floorKey === '1'),
   '2': [],
-  '3': [],
+  '3': BLE_AP_FIXTURES.filter((ap) => ap.floorKey === '3'),
   '4': [],
 };
