@@ -1,11 +1,7 @@
 import React, { type ReactNode } from 'react';
 import { Platform, View, type StyleProp, type ViewProps, type ViewStyle } from 'react-native';
-import { requireNativeView } from 'expo-modules-core';
+import { requireNativeViewManager } from 'expo-modules-core';
 import type { GlassVariant } from '../../../modules/ios-glass-surface/src';
-
-declare module 'expo-modules-core' {
-  export function requireNativeView<P = object>(viewName: string): React.ComponentType<P>;
-}
 
 export type { GlassVariant } from '../../../modules/ios-glass-surface/src';
 
@@ -31,7 +27,7 @@ export interface GlassSurfaceProps extends ViewProps {
 
 const NativeGlassView =
   Platform.OS === 'ios'
-    ? requireNativeView<NativeGlassSurfaceViewProps>('ExpoGlassSurface')
+    ? requireNativeViewManager<NativeGlassSurfaceViewProps>('ExpoGlassSurface')
     : null;
 
 const FALLBACK_BG: Record<GlassVariant, string> = {
