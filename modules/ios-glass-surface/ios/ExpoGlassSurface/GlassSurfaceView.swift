@@ -1,7 +1,6 @@
 import UIKit
 
-public final class GlassSurfaceView: UIView {
-  private let effectView = UIVisualEffectView(effect: nil)
+public final class GlassSurfaceView: UIVisualEffectView {
 
   public var variant: String = "floating" {
     didSet { updateAppearance() }
@@ -28,7 +27,7 @@ public final class GlassSurfaceView: UIView {
   }
 
   override public init(frame: CGRect) {
-    super.init(frame: frame)
+    super.init(effect: nil)
     setupView()
   }
 
@@ -41,6 +40,8 @@ public final class GlassSurfaceView: UIView {
     backgroundColor = .clear
     clipsToBounds = true
     isUserInteractionEnabled = true
+    contentView.isUserInteractionEnabled = true
+    layer.cornerCurve = .continuous
 
     NotificationCenter.default.addObserver(
       self,
@@ -49,66 +50,43 @@ public final class GlassSurfaceView: UIView {
       object: nil
     )
 
-    effectView.frame = bounds
-    effectView.isUserInteractionEnabled = false
-    effectView.backgroundColor = .clear
-    effectView.clipsToBounds = true
-    effectView.layer.cornerCurve = .continuous
-
     updateGeometry()
     updateAppearance()
   }
 
-  override public func didMoveToSuperview() {
-    super.didMoveToSuperview()
-    if let superview = superview, effectView.superview !== superview {
-      effectView.removeFromSuperview()
-      superview.insertSubview(effectView, belowSubview: self)
-    } else if superview == nil {
-      effectView.removeFromSuperview()
-    }
-  }
-
   override public func layoutSubviews() {
     super.layoutSubviews()
-    effectView.frame = frame
     updateGeometry()
   }
 
   deinit {
-    effectView.removeFromSuperview()
     NotificationCenter.default.removeObserver(self)
   }
 
   private func updateGeometry() {
     layer.cornerRadius = cornerRadius
-    layer.cornerCurve = .continuous
     layer.masksToBounds = true
-
-    effectView.layer.cornerRadius = cornerRadius
-    effectView.layer.cornerCurve = .continuous
-    effectView.layer.masksToBounds = true
   }
 
   private func updateAppearance() {
     if UIAccessibility.isReduceTransparencyEnabled {
-      effectView.effect = nil
-      effectView.alpha = 1.0
-      effectView.backgroundColor = reduceTransparencyFallbackColor
+      effect = nil
+      alpha = 1.0
+      contentView.backgroundColor = reduceTransparencyFallbackColor
       return
     }
 
-    effectView.backgroundColor = .clear
+    contentView.backgroundColor = .clear
 
     if #available(iOS 26.0, *) {
-      let effect = UIGlassEffect(style: .regular)
-      effect.isInteractive = interactive
-      effect.tintColor = resolvedTintColor()
-      effectView.effect = effect
-      effectView.alpha = 1.0
+      let glassEffect = UIGlassEffect(style: .regular)
+      glassEffect.isInteractive = interactive
+      glassEffect.tintColor = resolvedTintColor()
+      effect = glassEffect
+      alpha = 1.0
     } else {
-      effectView.effect = UIBlurEffect(style: .systemMaterial)
-      effectView.alpha = fallbackOpacity
+      effect = UIBlurEffect(style: .systemMaterial)
+      alpha = fallbackOpacity
     }
   }
 
