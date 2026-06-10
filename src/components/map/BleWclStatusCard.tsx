@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { BLE_AP_FIXTURES } from '../../constants/bleAccessPoints';
 import { MAX_SAMPLE_AGE_MS } from '../../constants/bleConfig';
+import { GlassSurface } from '../glass';
 import type { BleWclResult, ArubaBleObservation } from '../../services/location/bleWclProvider';
 import type { BleWclScanStatus, BeaconStats } from '../../store/bleLocationStore';
 
@@ -198,7 +199,7 @@ export function BleWclStatusCard({
   }
 
   return (
-    <View style={styles.card}>
+    <GlassSurface variant="status" cornerRadius={24} style={styles.card}>
       {/* ── Header ─────────────────────────────── */}
       <View style={styles.headerRow}>
         <View style={styles.headerCopy}>
@@ -611,7 +612,7 @@ export function BleWclStatusCard({
           </Pressable>
         )}
       </View>
-    </View>
+    </GlassSurface>
   );
 }
 
@@ -620,10 +621,7 @@ const COL_GAP = 4;
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#ffffff',
-    borderColor: '#d8e2ef',
     borderRadius: 24,
-    borderWidth: 1,
     gap: 12,
     padding: PADDING,
   },

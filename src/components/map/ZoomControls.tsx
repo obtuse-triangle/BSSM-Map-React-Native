@@ -1,5 +1,6 @@
 import type { StyleProp, ViewStyle } from 'react-native';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text } from 'react-native';
+import { GlassSurface } from '../glass';
 
 type ZoomControlsProps = {
   onZoomIn: () => void;
@@ -10,7 +11,7 @@ type ZoomControlsProps = {
 
 export function ZoomControls({ onZoomIn, onZoomOut, onReset, style }: ZoomControlsProps) {
   return (
-    <View style={[styles.container, style]}>
+    <GlassSurface variant="control" cornerRadius={18} pointerEvents="box-none" style={[styles.container, style]}>
       <Pressable onPress={onZoomIn} style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}>
         <Text style={styles.buttonText}>+</Text>
       </Pressable>
@@ -20,22 +21,14 @@ export function ZoomControls({ onZoomIn, onZoomOut, onReset, style }: ZoomContro
       <Pressable onPress={onReset} style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}>
         <Text style={styles.resetText}>⌂</Text>
       </Pressable>
-    </View>
+    </GlassSurface>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     alignItems: 'stretch',
-    backgroundColor: '#ffffff',
-    borderColor: '#d8e2ef',
     borderRadius: 18,
-    borderWidth: 1,
-    shadowColor: '#0f172a',
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
     overflow: 'hidden',
     position: 'absolute',
     right: 16,

@@ -4,7 +4,7 @@ import { Keyboard, Modal, Platform, Pressable, StyleSheet, Text, View } from 're
 import type { LayoutChangeEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BG_NEAR_WHITE, BG_WHITE, BORDER_DEFAULT, BORDER_LIGHT, PRIMARY_BLUE, TEXT_DARK, TEXT_LIGHT } from '../theme';
+import { BG_NEAR_WHITE, BG_WHITE, BORDER_DEFAULT, PRIMARY_BLUE, TEXT_DARK, TEXT_LIGHT } from '../theme';
 
 import { bssmFloorMap } from '../constants/bssmFloorMap';
 import { MAP_STYLES } from '../constants/mapStyles';
@@ -27,6 +27,7 @@ import { useSearchBar } from '../hooks/useSearchBar';
 import { usePermissions } from '../hooks/usePermissions';
 import { useToast } from '../hooks/useToast';
 import { ToastCard } from '../components/feedback/ToastCard';
+import { GlassSurface } from '../components/glass';
 
 const campusData = campusDataUntyped as unknown as CampusGeoJSON;
 
@@ -318,52 +319,58 @@ export function MapScreen({ navigation }: MapScreenProps) {
               selectedFeatureId={selectedFeatureId}
             />
 
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={isLocateDisabled ? '현재 위치 찾기 불가' : '현재 위치 찾기'}
-              disabled={isLocateDisabled}
-              onPress={handleLocate}
-              style={({ pressed }) => [
-                styles.iconActionButton,
-                isLocateDisabled && styles.iconActionButtonDisabled,
-                !isLocateDisabled && styles.locateButton,
-                pressed && !isLocateDisabled && styles.iconActionButtonPressed,
-              ]}
-            >
-              <Text style={[styles.iconActionGlyph, isLocateDisabled && styles.iconActionGlyphDisabled]}>⌖</Text>
-            </Pressable>
-
-            {Platform.OS === 'ios' ? (
+            <GlassSurface variant="control" cornerRadius={18} pointerEvents="box-none" style={styles.actionButtonGlass}>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={isContinuousScanning ? 'BLE WCL 실시간 스캔 중지' : 'BLE WCL 실시간 스캔 시작'}
-                onPress={handleBleScan}
+                accessibilityLabel={isLocateDisabled ? '현재 위치 찾기 불가' : '현재 위치 찾기'}
+                disabled={isLocateDisabled}
+                onPress={handleLocate}
                 style={({ pressed }) => [
-                  styles.iconActionButton,
-                  bleCardVisible && styles.bleButtonActive,
+                  styles.iconActionButtonInner,
+                  isLocateDisabled && styles.iconActionButtonDisabled,
+                  !isLocateDisabled && styles.locateButton,
+                  pressed && !isLocateDisabled && styles.iconActionButtonPressed,
+                ]}
+              >
+                <Text style={[styles.iconActionGlyph, isLocateDisabled && styles.iconActionGlyphDisabled]}>⌖</Text>
+              </Pressable>
+            </GlassSurface>
+
+            {Platform.OS === 'ios' ? (
+              <GlassSurface variant="control" cornerRadius={18} pointerEvents="box-none" style={styles.actionButtonGlass}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={isContinuousScanning ? 'BLE WCL 실시간 스캔 중지' : 'BLE WCL 실시간 스캔 시작'}
+                  onPress={handleBleScan}
+                  style={({ pressed }) => [
+                    styles.iconActionButtonInner,
+                    bleCardVisible && styles.bleButtonActive,
+                    pressed && styles.iconActionButtonPressed,
+                  ]}
+                >
+                  <Text style={[styles.bleButtonLabel, bleCardVisible && styles.bleButtonLabelActive]}>
+                    BLE
+                  </Text>
+                </Pressable>
+              </GlassSurface>
+            ) : null}
+
+            <GlassSurface variant="control" cornerRadius={18} pointerEvents="box-none" style={styles.actionButtonGlass}>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="지도 설정"
+                onPress={() => setSettingsVisible(true)}
+                style={({ pressed }) => [
+                  styles.iconActionButtonInner,
                   pressed && styles.iconActionButtonPressed,
                 ]}
               >
-                <Text style={[styles.bleButtonLabel, bleCardVisible && styles.bleButtonLabelActive]}>
-                  BLE
-                </Text>
+                <Text style={styles.iconActionGlyph}>{baseLayerIcon}</Text>
               </Pressable>
-            ) : null}
-
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="지도 설정"
-              onPress={() => setSettingsVisible(true)}
-              style={({ pressed }) => [
-                styles.iconActionButton,
-                pressed && styles.iconActionButtonPressed,
-              ]}
-            >
-              <Text style={styles.iconActionGlyph}>{baseLayerIcon}</Text>
-            </Pressable>
+            </GlassSurface>
           </View>
 
-          <View style={styles.levelSelector}>
+          <GlassSurface variant="floating" cornerRadius={18} pointerEvents="box-none" style={styles.levelSelector}>
             <Text style={styles.levelSelectorLabel}>층</Text>
             <View style={styles.levelButtonsRow}>
               {levels.map((level) => {
@@ -382,7 +389,7 @@ export function MapScreen({ navigation }: MapScreenProps) {
                 );
               })}
             </View>
-          </View>
+          </GlassSurface>
 
 
           <Text style={styles.mapHelperText}>
@@ -512,21 +519,20 @@ const styles = StyleSheet.create({
     gap: 10,
     zIndex: 20,
   },
-  iconActionButton: {
-    alignItems: 'center',
-    backgroundColor: BG_WHITE,
-    borderColor: BORDER_LIGHT,
-    borderRadius: 18,
-    borderWidth: 1,
+  actionButtonGlass: {
     height: 52,
-    justifyContent: 'center',
     width: 52,
+  },
+  iconActionButtonInner: {
+    alignItems: 'center',
+    borderRadius: 18,
+    flex: 1,
+    justifyContent: 'center',
   },
   iconActionButtonPressed: {
     opacity: 0.86,
   },
   iconActionButtonDisabled: {
-    backgroundColor: BG_NEAR_WHITE,
     opacity: 0.55,
   },
   iconActionGlyph: {
@@ -538,8 +544,6 @@ const styles = StyleSheet.create({
     color: TEXT_LIGHT,
   },
   locateButton: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#bfdbfe',
   },
   bleButtonLabel: {
     color: PRIMARY_BLUE,
@@ -548,8 +552,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   bleButtonActive: {
-    backgroundColor: PRIMARY_BLUE,
-    borderColor: PRIMARY_BLUE,
   },
   bleButtonLabelActive: {
     color: BG_WHITE,
@@ -562,19 +564,11 @@ const styles = StyleSheet.create({
   levelSelector: {
     alignSelf: 'flex-start',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.96)',
-    borderColor: BORDER_LIGHT,
     borderRadius: 18,
-    borderWidth: 1,
     flexDirection: 'row',
     gap: 8,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    shadowColor: TEXT_DARK,
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
     zIndex: 1,
   },
   levelSelectorLabel: {

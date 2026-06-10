@@ -3,9 +3,10 @@ import type { LayoutChangeEvent, StyleProp, ViewStyle } from 'react-native'
 import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native'
 import type { EdgeInsets } from 'react-native-safe-area-context'
 
-import { BG_WHITE, BORDER_DEFAULT, BORDER_LIGHT, PRIMARY_BLUE, TEXT_DARK, TEXT_LIGHT } from '../../theme'
+import { BORDER_DEFAULT, PRIMARY_BLUE, TEXT_DARK, TEXT_LIGHT } from '../../theme'
 import type { CampusFeature } from '../../types/geojson'
 import { FeedbackStateCard } from '../feedback/FeedbackStateCard'
+import { GlassSurface } from '../glass'
 
 const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 }
 
@@ -54,41 +55,43 @@ export function SearchBar({
   return (
     <View style={[styles.container, containerStyle]} pointerEvents="box-none">
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.kavWrapper}>
-        <View onLayout={handleFieldLayout} style={styles.searchField}>
-          <Text style={styles.searchIcon}>⌕</Text>
-          <TextInput
-            autoCapitalize="none"
-            autoCorrect={false}
-            blurOnSubmit
-            clearButtonMode="never"
-            onBlur={onBlur}
-            onFocus={onFocus}
-            onSubmitEditing={() => Keyboard.dismiss()}
-            placeholder="강의실, 교무실, 기타 장소 검색"
-            placeholderTextColor={TEXT_LIGHT}
-            ref={inputRef}
-            returnKeyType="search"
-            selectionColor={PRIMARY_BLUE}
-            style={styles.searchInput}
-            value={searchQuery}
-            onChangeText={onSearchChange}
-          />
-        {searchQuery.length > 0 ? (
-          <Pressable
-            accessibilityLabel="검색어 지우기"
-            accessibilityRole="button"
-            hitSlop={HIT_SLOP}
-            onPress={onClear}
-            style={({ pressed }) => [styles.clearButton, pressed && styles.clearButtonPressed]}
-          >
-            <Text style={styles.clearButtonText}>×</Text>
-          </Pressable>
-        ) : null}
-      </View>
+        <GlassSurface variant="search" cornerRadius={18} style={styles.searchFieldGlass}>
+          <View onLayout={handleFieldLayout} style={styles.searchField}>
+            <Text style={styles.searchIcon}>⌕</Text>
+            <TextInput
+              autoCapitalize="none"
+              autoCorrect={false}
+              blurOnSubmit
+              clearButtonMode="never"
+              onBlur={onBlur}
+              onFocus={onFocus}
+              onSubmitEditing={() => Keyboard.dismiss()}
+              placeholder="강의실, 교무실, 기타 장소 검색"
+              placeholderTextColor={TEXT_LIGHT}
+              ref={inputRef}
+              returnKeyType="search"
+              selectionColor={PRIMARY_BLUE}
+              style={styles.searchInput}
+              value={searchQuery}
+              onChangeText={onSearchChange}
+            />
+          {searchQuery.length > 0 ? (
+            <Pressable
+              accessibilityLabel="검색어 지우기"
+              accessibilityRole="button"
+              hitSlop={HIT_SLOP}
+              onPress={onClear}
+              style={({ pressed }) => [styles.clearButton, pressed && styles.clearButtonPressed]}
+            >
+              <Text style={styles.clearButtonText}>×</Text>
+            </Pressable>
+          ) : null}
+        </View>
+        </GlassSurface>
       </KeyboardAvoidingView>
 
       {showResults || showEmpty ? (
-        <View style={[styles.resultsCard, { top: fieldHeight + 8, width: dropdownWidth }]}>
+        <GlassSurface variant="search" cornerRadius={20} style={[styles.resultsCard, { top: fieldHeight + 8, width: dropdownWidth }]}>
           <Text style={styles.resultsTitle}>검색 결과</Text>
           {showResults ? (
             <ScrollView
@@ -125,7 +128,7 @@ export function SearchBar({
           ) : (
             <FeedbackStateCard title="검색 결과" message="현재 층에서 일치하는 교실이 없습니다." variant="empty" />
           )}
-        </View>
+        </GlassSurface>
       ) : null}
     </View>
   )
@@ -133,12 +136,12 @@ export function SearchBar({
 
 const styles = StyleSheet.create({
   container: {},
+  searchFieldGlass: {
+    flex: 1,
+  },
   searchField: {
     alignItems: 'center',
-    backgroundColor: BG_WHITE,
-    borderColor: BORDER_LIGHT,
     borderRadius: 18,
-    borderWidth: 1,
     flexDirection: 'row',
     gap: 8,
     minHeight: 52,
@@ -177,10 +180,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   resultsCard: {
-    backgroundColor: 'rgba(255,255,255,0.98)',
-    borderColor: BORDER_LIGHT,
     borderRadius: 20,
-    borderWidth: 1,
     gap: 8,
     maxHeight: 188,
     padding: 14,
