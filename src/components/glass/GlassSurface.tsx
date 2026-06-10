@@ -61,6 +61,7 @@ export function GlassSurface({
   const resolvedStyle: ViewStyle = {
     borderRadius: cornerRadius,
     overflow: 'hidden',
+    alignSelf: 'stretch',
   };
 
   if (Platform.OS === 'ios' && NativeGlassView) {
