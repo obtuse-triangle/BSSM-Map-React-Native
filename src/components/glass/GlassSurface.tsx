@@ -43,6 +43,13 @@ const FALLBACK_BG: Record<GlassVariant, string> = {
   status: 'rgba(255,255,255,0.75)',
 };
 
+/**
+ * GlassSurface — native iOS Liquid Glass wrapper with cross-platform fallback.
+ *
+ * NO-DOUBLE-GLASS RULE: Only wrap the outermost persistent overlay surface.
+ * Nested/transient content inside a GlassSurface must NOT be wrapped again.
+ * Use plain View for inner content to prevent glass-on-glass stacking.
+ */
 export function GlassSurface({
   variant = 'floating',
   cornerRadius = 16,
