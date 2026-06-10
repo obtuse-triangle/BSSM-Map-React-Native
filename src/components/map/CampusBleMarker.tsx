@@ -26,6 +26,7 @@ import { GeoJSONSource, Layer } from '@maplibre/maplibre-react-native';
 import { useBleLocationStore } from '../../store/bleLocationStore';
 import { useMapStore } from '../../store/mapStore';
 import type { BleWclResult } from '../../services/location/bleWclProvider';
+import type { FusionConfidenceLevel, FusionState } from '../../types/fusion';
 
 // ── Types ────────────────────────────────────────────────────────────────
 
@@ -34,6 +35,10 @@ type MarkerData = {
   latitude: number;
   accuracyMeters: number;
   heading: number | null;
+  source: string;
+  confidence: number;
+  confidenceLevel: FusionConfidenceLevel;
+  inferredZoneName: string | null;
 };
 
 type MarkerFeatureKind = 'position' | 'heading';
@@ -41,6 +46,7 @@ type MarkerFeatureKind = 'position' | 'heading';
 type StoreSnapshot = {
   status: string;
   result: BleWclResult | null;
+  fusionState: FusionState | null;
   currentHeading: number | null;
 };
 
@@ -60,6 +66,10 @@ function makeMarkerGeoJson(
       kind: MarkerFeatureKind;
       accuracyMeters: number;
       heading: number | null;
+      source: string;
+      confidence: number;
+      confidenceLevel: FusionConfidenceLevel;
+      inferredZoneName: string | null;
     };
   }>;
 } {
@@ -71,6 +81,10 @@ function makeMarkerGeoJson(
       kind: MarkerFeatureKind;
       accuracyMeters: number;
       heading: number | null;
+      source: string;
+      confidence: number;
+      confidenceLevel: FusionConfidenceLevel;
+      inferredZoneName: string | null;
     };
   }> = [
     {
@@ -84,6 +98,10 @@ function makeMarkerGeoJson(
         kind: 'position',
         accuracyMeters: data.accuracyMeters,
         heading: data.heading,
+        source: data.source,
+        confidence: data.confidence,
+        confidenceLevel: data.confidenceLevel,
+        inferredZoneName: data.inferredZoneName,
       },
     },
   ];
@@ -104,6 +122,10 @@ function makeMarkerGeoJson(
         kind: 'heading',
         accuracyMeters: data.accuracyMeters,
         heading: data.heading,
+        source: data.source,
+        confidence: data.confidence,
+        confidenceLevel: data.confidenceLevel,
+        inferredZoneName: data.inferredZoneName,
       },
     });
   }
@@ -114,16 +136,35 @@ function makeMarkerGeoJson(
   };
 }
 
-/** Read current BLE result from store and return MarkerData (or null). */
 function snapshotToMarkerData(snapshot: StoreSnapshot): MarkerData | null {
-  if (!snapshot.result) {
+  const { fusionState, result, currentHeading } = snapshot;
+
+  if (fusionState && fusionState.confidenceLevel !== 'unknown') {
+    return {
+      longitude: fusionState.lng,
+      latitude: fusionState.lat,
+      accuracyMeters: fusionState.accuracyMeters,
+      heading: fusionState.headingDeg ?? currentHeading,
+      source: fusionState.source,
+      confidence: fusionState.confidence,
+      confidenceLevel: fusionState.confidenceLevel,
+      inferredZoneName: fusionState.inferredZone?.zoneName ?? fusionState.inferredZone?.zoneNameKo ?? null,
+    };
+  }
+
+  if (!result) {
     return null;
   }
+
   return {
-    longitude: snapshot.result.longitude,
-    latitude: snapshot.result.latitude,
-    accuracyMeters: snapshot.result.accuracyMeters,
-    heading: snapshot.currentHeading,
+    longitude: result.longitude,
+    latitude: result.latitude,
+    accuracyMeters: result.accuracyMeters,
+    heading: currentHeading,
+    source: result.source,
+    confidence: result.confidence,
+    confidenceLevel: 'unknown',
+    inferredZoneName: null,
   };
 }
 
@@ -137,6 +178,7 @@ function CampusBleMarker() {
   const lastSnapshotRef = useRef<StoreSnapshot>({
     status: useBleLocationStore.getState().status,
     result: useBleLocationStore.getState().result,
+    fusionState: useBleLocationStore.getState().fusionState,
     currentHeading: useBleLocationStore.getState().currentHeading,
   });
 
@@ -148,6 +190,7 @@ function CampusBleMarker() {
     const initialSnapshot: StoreSnapshot = {
       status: initial.status,
       result: initial.result,
+      fusionState: initial.fusionState,
       currentHeading: initial.currentHeading,
     };
     lastSnapshotRef.current = initialSnapshot;
@@ -161,26 +204,32 @@ function CampusBleMarker() {
      * Zustand v5 subscribe(listener) — does NOT cause React re-renders.
      * We call getState() inside the listener for the latest snapshot. */
     const unsubBle = useBleLocationStore.subscribe(() => {
-      const { status, result, currentHeading } = useBleLocationStore.getState();
-      lastSnapshotRef.current = { status, result, currentHeading };
+      const { status, result, fusionState, currentHeading } = useBleLocationStore.getState();
+      lastSnapshotRef.current = { status, result, fusionState, currentHeading };
 
       if (__DEV__) {
-        console.log('[BLE-MARKER] Subscribe triggered: status=', status, 'result=', result ? `${result.longitude.toFixed(6)},${result.latitude.toFixed(6)}` : null);
+        console.log(
+          '[BLE-MARKER] Subscribe triggered: status=',
+          status,
+          'fusion=',
+          fusionState && fusionState.confidenceLevel !== 'unknown'
+            ? `${fusionState.lng.toFixed(6)},${fusionState.lat.toFixed(6)}`
+            : null,
+          'result=',
+          result ? `${result.longitude.toFixed(6)},${result.latitude.toFixed(6)}` : null,
+        );
       }
 
-      if (result) {
+      const nextMarkerData = snapshotToMarkerData({ status, result, fusionState, currentHeading });
+
+      if (nextMarkerData) {
         /* Trigger a minimal React render to update the GeoJSON source.
          * This is the ONLY render the marker subtree performs per BLE
          * update — the parent CampusMap is NOT affected. */
         if (__DEV__) {
-          console.log('[BLE-MARKER] Setting markerData to:', result.longitude.toFixed(6), result.latitude.toFixed(6));
+          console.log('[BLE-MARKER] Setting markerData to:', nextMarkerData.longitude.toFixed(6), nextMarkerData.latitude.toFixed(6));
         }
-        setMarkerData({
-          longitude: result.longitude,
-          latitude: result.latitude,
-          accuracyMeters: result.accuracyMeters,
-          heading: currentHeading,
-        });
+        setMarkerData(nextMarkerData);
       } else {
         /* No valid position — hide the marker.
          * setMarkerData(null) triggers a render that returns null,
@@ -192,27 +241,14 @@ function CampusBleMarker() {
       }
     });
 
-    /* Also subscribe to mapStore.userCoordinates — the GPS path AND the
-     * BLE path both write here.  This catch‑all ensures the marker still
-     * appears correctly during the transition period while BLE results
-     * are being computed. */
     const unsubMap = useMapStore.subscribe(() => {
-      const coords = useMapStore.getState().userCoordinates;
-      /* Only react if we already have a BLE result (the accuracy circle
-       * needs bleResult.accuracyMeters, which is not available from
-       * mapStore alone).  Without this guard the marker would briefly
-       * show GPS position without accuracy data. */
       const snapshot = lastSnapshotRef.current;
-       if (!coords || !snapshot.result) {
+      const marker = snapshotToMarkerData(snapshot);
+      if (!marker) {
         return;
       }
 
-      setMarkerData({
-        longitude: coords.longitude,
-        latitude: coords.latitude,
-        accuracyMeters: snapshot.result.accuracyMeters,
-        heading: snapshot.currentHeading,
-      });
+      setMarkerData(marker);
     });
 
     return () => {
