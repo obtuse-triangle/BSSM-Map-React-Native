@@ -57,14 +57,23 @@ public final class GlassSurfaceView: UIView {
 
     effectView.frame = bounds
     effectView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-    effectView.isUserInteractionEnabled = true
+    effectView.isUserInteractionEnabled = false
     effectView.backgroundColor = .clear
     effectView.clipsToBounds = true
     effectView.layer.cornerCurve = .continuous
 
-    addSubview(effectView)
+    // Glass effect must be at index 0 — behind all RN children
+    insertSubview(effectView, at: 0)
     updateGeometry()
     updateAppearance()
+  }
+
+  // Keep effectView behind RN children
+  override public func didAddSubview(_ subview: UIView) {
+    super.didAddSubview(subview)
+    if subview !== effectView, subviews.first !== effectView {
+      sendSubviewToBack(effectView)
+    }
   }
 
   deinit {
