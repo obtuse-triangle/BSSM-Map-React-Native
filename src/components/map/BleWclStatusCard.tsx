@@ -1,6 +1,8 @@
 import { useMemo, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { BLE_AP_FIXTURES } from '../../constants/bleAccessPoints';
+import { MAX_SAMPLE_AGE_MS } from '../../constants/bleConfig';
 import type { BleWclResult, ArubaBleObservation } from '../../services/location/bleWclProvider';
 import type { BleWclScanStatus, BeaconStats } from '../../store/bleLocationStore';
 
@@ -38,10 +40,24 @@ const STATUS_LABELS: Record<BleWclScanStatus, string> = {
   error: '오류',
 };
 
-const STALE_THRESHOLD_MS = 120_000;
+const knownBleIdentifiers = new Set<string>();
+for (const ap of BLE_AP_FIXTURES) {
+  if (ap.bleIdentifier) knownBleIdentifiers.add(ap.bleIdentifier.toLowerCase());
+}
+
+const STALE_THRESHOLD_MS = MAX_SAMPLE_AGE_MS;
 const MIN_SCAN_DURATION_MS = 3_000;
 const MAX_SCAN_DURATION_MS = 30_000;
 const DURATION_STEP_MS = 1_000;
+
+const BLE_AP_LABEL_LOOKUP = new Map(
+  BLE_AP_FIXTURES.filter((ap) => ap.bleIdentifier).map((ap) => [
+    ap.bleIdentifier.toLowerCase(),
+    ap.label,
+  ] as const),
+);
+
+const BLE_WCL_BLUE = '#2979FF';
 
 function rssiColor(rssi: number): string {
   if (rssi > -60) return '#16a34a';
@@ -59,12 +75,6 @@ function formatAge(observedAt: number): string {
 function truncateIdentifier(id: string, maxLen = 24): string {
   if (id.length <= maxLen) return id;
   return id.slice(0, maxLen) + '…';
-}
-
-function formatIntervalMs(ms: number): string {
-  if (ms <= 0) return '-';
-  if (ms < 1000) return `${Math.round(ms)}ms`;
-  return `${(ms / 1000).toFixed(1)}s`;
 }
 
 /**
@@ -152,6 +162,14 @@ export function BleWclStatusCard({
   const scanDurationSeconds = Math.round(scanDurationMs / 1000);
   const canDecrease = scanDurationMs > MIN_SCAN_DURATION_MS;
   const canIncrease = scanDurationMs < MAX_SCAN_DURATION_MS;
+  const apContributionWeightLookup = useMemo(() => {
+    const lookup = new Map<string, number>();
+    for (const contribution of result?.apContributions ?? []) {
+      lookup.set(contribution.label.toLowerCase(), contribution.weightPercent);
+      lookup.set(contribution.id.toLowerCase(), contribution.weightPercent);
+    }
+    return lookup;
+  }, [result?.apContributions]);
 
   // ── Unified beacon display list ────────────────────────────────────
   const displayBeacons = useMemo(() => {
@@ -400,42 +418,71 @@ export function BleWclStatusCard({
             <Text style={[styles.statsHeaderCell, styles.colSmall]}>최소</Text>
             <Text style={[styles.statsHeaderCell, styles.colSmall]}>최대</Text>
             <Text style={[styles.statsHeaderCell, styles.colInterval]}>
-              간격
+              마지막
             </Text>
           </View>
 
           {/* Table rows */}
-          {displayBeacons.map((beacon) => (
-            <View key={beacon.bleIdentifier} style={styles.statsRow}>
-              <Text
-                style={[styles.statsCell, styles.colId]}
-                numberOfLines={1}
-              >
-                {truncateIdentifier(beacon.bleIdentifier, 22)}
-              </Text>
-              <Text
-                style={[
-                  styles.statsCell,
-                  styles.colRssi,
-                  { color: rssiColor(beacon.lastRssi) },
-                ]}
-              >
-                {beacon.lastRssi}
-              </Text>
-              <Text style={[styles.statsCell, styles.colSmall]}>
-                {beacon.rssiAvg.toFixed(0)}
-              </Text>
-              <Text style={[styles.statsCell, styles.colSmall]}>
-                {beacon.rssiMin}
-              </Text>
-              <Text style={[styles.statsCell, styles.colSmall]}>
-                {beacon.rssiMax}
-              </Text>
-              <Text style={[styles.statsCell, styles.colInterval]}>
-                {formatIntervalMs(beacon.avgIntervalMs)}
-              </Text>
-            </View>
-          ))}
+          {displayBeacons.map((beacon) => {
+            const normalizedIdentifier = beacon.bleIdentifier.toLowerCase();
+            const displayName =
+              BLE_AP_LABEL_LOOKUP.get(normalizedIdentifier) ??
+              truncateIdentifier(beacon.bleIdentifier, 22);
+            const weightPercent =
+              apContributionWeightLookup.get(displayName.toLowerCase()) ??
+              apContributionWeightLookup.get(normalizedIdentifier) ??
+              null;
+            const ageSeconds = Math.round((Date.now() - beacon.lastSeen) / 1000);
+            const isStale = ageSeconds > STALE_THRESHOLD_MS / 1000;
+            const isUnmapped = !knownBleIdentifiers.has(normalizedIdentifier);
+            const isDimmed = isStale || isUnmapped;
+            const cellStyle = isDimmed
+              ? [styles.statsCell, styles.statsCellDimmed]
+              : styles.statsCell;
+
+            return (
+              <View key={beacon.bleIdentifier} style={styles.statsRow}>
+                {weightPercent !== null ? (
+                  <View
+                    pointerEvents="none"
+                    style={[
+                      styles.weightBar,
+                      {
+                        width: `${weightPercent}%` as `${number}%`,
+                      },
+                    ]}
+                  />
+                ) : null}
+                <Text
+                  style={[cellStyle, styles.colId]}
+                  numberOfLines={1}
+                >
+                  {displayName}
+                </Text>
+                <Text
+                  style={[
+                    cellStyle,
+                    styles.colRssi,
+                    { color: rssiColor(beacon.lastRssi) },
+                  ]}
+                >
+                  {beacon.lastRssi}
+                </Text>
+                <Text style={[cellStyle, styles.colSmall]}>
+                  {beacon.rssiAvg.toFixed(0)}
+                </Text>
+                <Text style={[cellStyle, styles.colSmall]}>
+                  {beacon.rssiMin}
+                </Text>
+                <Text style={[cellStyle, styles.colSmall]}>
+                  {beacon.rssiMax}
+                </Text>
+                <Text style={[cellStyle, styles.colInterval]}>
+                  {ageSeconds}초 전
+                </Text>
+              </View>
+            );
+          })}
         </View>
       ) : null}
 
@@ -756,15 +803,20 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   statsRow: {
+    overflow: 'hidden',
     flexDirection: 'row',
     alignItems: 'center',
     gap: COL_GAP,
+    position: 'relative',
   },
   statsCell: {
     fontSize: 11,
     fontWeight: '600',
     fontFamily: 'monospace',
     color: '#334155',
+  },
+  statsCellDimmed: {
+    opacity: 0.35,
   },
   colId: {
     flex: 1,
@@ -781,6 +833,15 @@ const styles = StyleSheet.create({
   colInterval: {
     width: 44,
     textAlign: 'right',
+  },
+  weightBar: {
+    backgroundColor: BLE_WCL_BLUE,
+    borderRadius: 2,
+    bottom: 0,
+    left: 0,
+    opacity: 0.12,
+    position: 'absolute',
+    top: 0,
   },
   // ── Actions ──────────────────────────────────
   actionsRow: {

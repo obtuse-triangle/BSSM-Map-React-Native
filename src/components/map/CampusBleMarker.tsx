@@ -33,11 +33,15 @@ type MarkerData = {
   longitude: number;
   latitude: number;
   accuracyMeters: number;
+  heading: number | null;
 };
+
+type MarkerFeatureKind = 'position' | 'heading';
 
 type StoreSnapshot = {
   status: string;
   result: BleWclResult | null;
+  currentHeading: number | null;
 };
 
 // ── Constants ────────────────────────────────────────────────────────────
@@ -52,36 +56,74 @@ function makeMarkerGeoJson(
     type: 'Feature';
     id: string;
     geometry: { type: 'Point'; coordinates: [number, number] };
-    properties: { accuracyMeters: number };
+    properties: {
+      kind: MarkerFeatureKind;
+      accuracyMeters: number;
+      heading: number | null;
+    };
   }>;
 } {
+  const features: Array<{
+    type: 'Feature';
+    id: string;
+    geometry: { type: 'Point'; coordinates: [number, number] };
+    properties: {
+      kind: MarkerFeatureKind;
+      accuracyMeters: number;
+      heading: number | null;
+    };
+  }> = [
+    {
+      type: 'Feature',
+      id: 'ble-marker',
+      geometry: {
+        type: 'Point',
+        coordinates: [data.longitude, data.latitude],
+      },
+      properties: {
+        kind: 'position',
+        accuracyMeters: data.accuracyMeters,
+        heading: data.heading,
+      },
+    },
+  ];
+
+  if (data.heading != null) {
+    const headingRad = (data.heading * Math.PI) / 180;
+    const dx = Math.sin(headingRad) * 0.00005;
+    const dy = Math.cos(headingRad) * 0.00005;
+
+    features.push({
+      type: 'Feature',
+      id: 'ble-heading-indicator',
+      geometry: {
+        type: 'Point',
+        coordinates: [data.longitude + dx, data.latitude + dy],
+      },
+      properties: {
+        kind: 'heading',
+        accuracyMeters: data.accuracyMeters,
+        heading: data.heading,
+      },
+    });
+  }
+
   return {
     type: 'FeatureCollection',
-    features: [
-      {
-        type: 'Feature',
-        id: 'ble-marker',
-        geometry: {
-          type: 'Point',
-          coordinates: [data.longitude, data.latitude],
-        },
-        properties: {
-          accuracyMeters: data.accuracyMeters,
-        },
-      },
-    ],
+    features,
   };
 }
 
 /** Read current BLE result from store and return MarkerData (or null). */
 function snapshotToMarkerData(snapshot: StoreSnapshot): MarkerData | null {
-  if (snapshot.status !== 'success' || !snapshot.result) {
+  if (!snapshot.result) {
     return null;
   }
   return {
     longitude: snapshot.result.longitude,
     latitude: snapshot.result.latitude,
     accuracyMeters: snapshot.result.accuracyMeters,
+    heading: snapshot.currentHeading,
   };
 }
 
@@ -95,6 +137,7 @@ function CampusBleMarker() {
   const lastSnapshotRef = useRef<StoreSnapshot>({
     status: useBleLocationStore.getState().status,
     result: useBleLocationStore.getState().result,
+    currentHeading: useBleLocationStore.getState().currentHeading,
   });
 
   // ── Imperative store subscription (NO React re-render on every tick) ─
@@ -105,6 +148,7 @@ function CampusBleMarker() {
     const initialSnapshot: StoreSnapshot = {
       status: initial.status,
       result: initial.result,
+      currentHeading: initial.currentHeading,
     };
     lastSnapshotRef.current = initialSnapshot;
 
@@ -117,22 +161,33 @@ function CampusBleMarker() {
      * Zustand v5 subscribe(listener) — does NOT cause React re-renders.
      * We call getState() inside the listener for the latest snapshot. */
     const unsubBle = useBleLocationStore.subscribe(() => {
-      const { status, result } = useBleLocationStore.getState();
-      lastSnapshotRef.current = { status, result };
+      const { status, result, currentHeading } = useBleLocationStore.getState();
+      lastSnapshotRef.current = { status, result, currentHeading };
 
-      if (status === 'success' && result) {
+      if (__DEV__) {
+        console.log('[BLE-MARKER] Subscribe triggered: status=', status, 'result=', result ? `${result.longitude.toFixed(6)},${result.latitude.toFixed(6)}` : null);
+      }
+
+      if (result) {
         /* Trigger a minimal React render to update the GeoJSON source.
          * This is the ONLY render the marker subtree performs per BLE
          * update — the parent CampusMap is NOT affected. */
+        if (__DEV__) {
+          console.log('[BLE-MARKER] Setting markerData to:', result.longitude.toFixed(6), result.latitude.toFixed(6));
+        }
         setMarkerData({
           longitude: result.longitude,
           latitude: result.latitude,
           accuracyMeters: result.accuracyMeters,
+          heading: currentHeading,
         });
       } else {
         /* No valid position — hide the marker.
          * setMarkerData(null) triggers a render that returns null,
          * removing the GeoJSONSource + Layers from the tree. */
+        if (__DEV__) {
+          console.log('[BLE-MARKER] Clearing markerData (null)');
+        }
         setMarkerData(null);
       }
     });
@@ -148,7 +203,7 @@ function CampusBleMarker() {
        * mapStore alone).  Without this guard the marker would briefly
        * show GPS position without accuracy data. */
       const snapshot = lastSnapshotRef.current;
-      if (!coords || snapshot.status !== 'success' || !snapshot.result) {
+       if (!coords || !snapshot.result) {
         return;
       }
 
@@ -156,6 +211,7 @@ function CampusBleMarker() {
         longitude: coords.longitude,
         latitude: coords.latitude,
         accuracyMeters: snapshot.result.accuracyMeters,
+        heading: snapshot.currentHeading,
       });
     });
 
@@ -167,13 +223,24 @@ function CampusBleMarker() {
 
   // ── Memoised GeoJSON — only re-computes when markerData identity changes ─
   const geoJsonData = useMemo(() => {
-    if (!markerData) return null;
-    return makeMarkerGeoJson(markerData);
+    if (!markerData) {
+      if (__DEV__) console.log('[BLE-MARKER] geoJsonData: null (no markerData)');
+      return null;
+    }
+    const geoJson = makeMarkerGeoJson(markerData);
+    if (__DEV__) console.log('[BLE-MARKER] geoJsonData created:', JSON.stringify(geoJson.features[0].geometry.coordinates));
+    return geoJson;
   }, [markerData]);
 
   // ── Render ───────────────────────────────────────────────────────────────
   if (!geoJsonData) {
     return null;
+  }
+
+  const showHeadingArrow = markerData?.heading != null;
+
+  if (__DEV__) {
+    console.log('[BLE-MARKER] heading debug:', markerData?.heading, 'showHeadingArrow:', showHeadingArrow);
   }
 
   return (
@@ -182,8 +249,21 @@ function CampusBleMarker() {
       <Layer
         id="ble-accuracy-circle"
         type="circle"
+        filter={['==', ['get', 'kind'], 'position']}
         paint={{
-          'circle-radius': ['max', ['*', ['get', 'accuracyMeters'], 3], 24],
+          'circle-pitch-alignment': 'map',
+          'circle-pitch-scale': 'map',
+          'circle-radius': [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            14,
+            ['*', ['get', 'accuracyMeters'], 0.25],
+            18,
+            ['*', ['get', 'accuracyMeters'], 1],
+            22,
+            ['*', ['get', 'accuracyMeters'], 4],
+          ],
           'circle-color': '#2979FF',
           'circle-opacity': 0.15,
           'circle-stroke-color': '#2979FF',
@@ -195,7 +275,10 @@ function CampusBleMarker() {
       <Layer
         id="ble-dot"
         type="circle"
+        filter={['==', ['get', 'kind'], 'position']}
         paint={{
+          'circle-pitch-alignment': 'map',
+          'circle-pitch-scale': 'map',
           'circle-radius': 8,
           'circle-color': '#2979FF',
           'circle-opacity': 0.9,
@@ -203,6 +286,22 @@ function CampusBleMarker() {
           'circle-stroke-width': 2,
         }}
       />
+      {showHeadingArrow && (
+        <Layer
+          id="ble-heading-indicator"
+          type="circle"
+          filter={['==', ['get', 'kind'], 'heading']}
+          paint={{
+            'circle-pitch-alignment': 'map',
+            'circle-pitch-scale': 'map',
+            'circle-radius': 4.5,
+            'circle-color': '#FFFFFF',
+            'circle-stroke-color': '#2979FF',
+            'circle-stroke-width': 2,
+            'circle-opacity': 1,
+          }}
+        />
+      )}
     </GeoJSONSource>
   );
 }
