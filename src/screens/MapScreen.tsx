@@ -108,6 +108,8 @@ export function MapScreen({ navigation }: MapScreenProps) {
     startMotionTracking,
     stopMotionTracking,
     currentHeading,
+    fusionState,
+    fusionUnavailableReason,
   } = useBleLocationStore();
 
   const { requestLocationPermission, requestPreciseLocation } = usePermissions();
@@ -417,6 +419,8 @@ export function MapScreen({ navigation }: MapScreenProps) {
             drErrorMeters={drErrorMeters}
             onStartMotionTracking={startMotionTracking}
             onStopMotionTracking={stopMotionTracking}
+            fusionState={fusionState}
+            fusionUnavailableReason={fusionUnavailableReason}
           />
           )}
         </View>
