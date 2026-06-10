@@ -1,6 +1,22 @@
 import UIKit
 
-public final class GlassSurfaceView: UIVisualEffectView {
+/// A React Native Fabric-compatible glass surface view.
+///
+/// Subclasses `UIView` (NOT `UIVisualEffectView`) so that React Native Fabric
+/// can freely manage child subviews via `mountChildComponentView`.
+/// The internal `UIVisualEffectView` lives as a private child at index 0,
+/// and React children are mounted into its `contentView` via the overridden
+/// Fabric mount methods.
+///
+/// **CRITICAL**: Never subclass `UIVisualEffectView` as a Fabric host view.
+/// UIKit throws `NSInternalInconsistencyException` when `addSubview:` is called
+/// directly on a `UIVisualEffectView` — children must go to `contentView`.
+/// React Native Fabric calls `addSubview:` via `mountChildComponentView`, which
+/// triggers this UIKit assertion and crashes. The fix is to use a `UIView` wrapper
+/// and redirect Fabric child mounting into `effectView.contentView`.
+public final class GlassSurfaceView: UIView {
+
+  // MARK: - React Props
 
   public var variant: String = "floating" {
     didSet { updateAppearance() }
@@ -26,8 +42,17 @@ public final class GlassSurfaceView: UIVisualEffectView {
     didSet { updateAppearance() }
   }
 
-  override public init(effect: UIVisualEffect?) {
-    super.init(effect: effect)
+  // MARK: - Internal effect view
+
+  /// The visual effect view that renders the glass/blur effect.
+  /// React children are mounted into `effectView.contentView`, NOT into the wrapper.
+  private let effectView: UIVisualEffectView
+
+  // MARK: - Initialization
+
+  override public init(frame: CGRect) {
+    self.effectView = UIVisualEffectView(effect: nil)
+    super.init(frame: frame)
     setupView()
   }
 
@@ -40,8 +65,16 @@ public final class GlassSurfaceView: UIVisualEffectView {
     backgroundColor = .clear
     clipsToBounds = true
     isUserInteractionEnabled = true
-    contentView.isUserInteractionEnabled = true
     layer.cornerCurve = .continuous
+
+    effectView.frame = bounds
+    effectView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+    effectView.clipsToBounds = true
+    effectView.layer.cornerCurve = .continuous
+    effectView.layer.cornerRadius = cornerRadius
+    effectView.contentView.isUserInteractionEnabled = true
+
+    super.addSubview(effectView)
 
     NotificationCenter.default.addObserver(
       self,
@@ -54,6 +87,22 @@ public final class GlassSurfaceView: UIVisualEffectView {
     updateAppearance()
   }
 
+  // MARK: - Fabric child mounting
+
+  /// React Native Fabric calls this to mount child component views.
+  /// We redirect children into `effectView.contentView` so the glass effect
+  /// renders behind the children (the whole point of UIVisualEffectView).
+  @objc public func mountChildComponentView(_ childComponentView: UIView, index: Int) {
+    effectView.contentView.insertSubview(childComponentView, at: index)
+  }
+
+  /// React Native Fabric calls this to unmount child component views.
+  @objc public func unmountChildComponentView(_ childComponentView: UIView, index: Int) {
+    childComponentView.removeFromSuperview()
+  }
+
+  // MARK: - Layout
+
   override public func layoutSubviews() {
     super.layoutSubviews()
     updateGeometry()
@@ -63,30 +112,33 @@ public final class GlassSurfaceView: UIVisualEffectView {
     NotificationCenter.default.removeObserver(self)
   }
 
+  // MARK: - Updates
+
   private func updateGeometry() {
     layer.cornerRadius = cornerRadius
     layer.masksToBounds = true
+    effectView.layer.cornerRadius = cornerRadius
   }
 
   private func updateAppearance() {
     if UIAccessibility.isReduceTransparencyEnabled {
-      effect = nil
-      alpha = 1.0
-      contentView.backgroundColor = reduceTransparencyFallbackColor
+      effectView.effect = nil
+      effectView.alpha = 1.0
+      effectView.contentView.backgroundColor = reduceTransparencyFallbackColor
       return
     }
 
-    contentView.backgroundColor = .clear
+    effectView.contentView.backgroundColor = .clear
 
     if #available(iOS 26.0, *) {
       let glassEffect = UIGlassEffect(style: .regular)
       glassEffect.isInteractive = interactive
       glassEffect.tintColor = resolvedTintColor()
-      effect = glassEffect
-      alpha = 1.0
+      effectView.effect = glassEffect
+      effectView.alpha = 1.0
     } else {
-      effect = UIBlurEffect(style: .systemMaterial)
-      alpha = fallbackOpacity
+      effectView.effect = UIBlurEffect(style: .systemMaterial)
+      effectView.alpha = fallbackOpacity
     }
   }
 
