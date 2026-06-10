@@ -8,6 +8,8 @@ import {
   DR_ERROR_RATE_PER_STEP,
 } from '../../constants/bleConfig';
 
+export { STRIDE_LENGTH_M, MAX_DR_STEPS_WITHOUT_BLE };
+
 /**
  * Mean Earth radius in metres (WGS‑84).
  */
