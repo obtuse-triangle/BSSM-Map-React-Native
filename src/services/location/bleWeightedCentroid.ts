@@ -4,10 +4,15 @@ import { transformEpsg5183ToWgs84 } from '../../utils/coordinateTransform';
 import {
   MANUFACTURER_ID_ARUBA,
   MIN_AP_COUNT,
-  RSSI_THRESHOLD_DBM,
   MAX_SAMPLE_AGE_MS,
   DECAY_TAU_MS,
 } from '../../constants/bleConfig';
+
+const DEBUG_WCL = __DEV__;
+
+function wclLog(...args: unknown[]) {
+  if (DEBUG_WCL) console.log('[BLE-WCL]', ...args);
+}
 
 // ────────────────────────────────────────────────────────────────────────────
 // Input types
@@ -44,15 +49,9 @@ export interface BleWeightedCentroidOptions {
   expectedManufacturerId?: number;
 
   /**
-   * RSSI threshold in dBm.  Observations with RSSI **strictly below**
-   * this value are rejected before the minimum-count check.
-   * @default -90
-   */
-  rssiThreshold?: number;
-
-  /**
    * Maximum age of an observation **in seconds**.  Samples older than
-   * this are counted in `staleSampleCount` and rejected.
+   * this are counted in `staleSampleCount` but still participate with
+   * near-zero freshness weight.
    * @default 120
    */
   maxAgeSeconds?: number;
@@ -79,6 +78,15 @@ export interface BleWeightedCentroidOptions {
 // Result types (discriminated union)
 // ────────────────────────────────────────────────────────────────────────────
 
+export interface BleApContribution {
+  id: string;
+  label: string;
+  floorKey: string;
+  rssi: number;
+  weight: number;
+  weightPercent: number;
+}
+
 export interface BleWeightedCentroidSuccess {
   /** WGS84 longitude (decimal degrees). */
   longitude: number;
@@ -102,11 +110,15 @@ export interface BleWeightedCentroidSuccess {
   /** Number of AP/observation pairs that passed all filters. */
   usedApCount: number;
 
-  /** Number of observations rejected because they exceeded `maxAgeSeconds`. */
   staleSampleCount: number;
+
+  apContributions: BleApContribution[];
 
   /** Timestamp (epoch ms) when the result was computed. */
   computedAt: number;
+
+  /** Detected floor key inferred from matching AP fixtures, if any. */
+  detectedFloorKey?: FloorKey | null;
 }
 
 export interface BleWeightedCentroidFailure {
@@ -169,6 +181,58 @@ function indexApsByIdentifier(
   return map;
 }
 
+/**
+ * Detect the most likely floor from observation/AP matches.
+ *
+ * Primary sort: most matching APs per floor.
+ * Tie-breaker: highest total RSSI sum.
+ */
+export function detectFloorFromObservations(
+  accessPoints: readonly BleAccessPoint5183[],
+  observations: readonly BleObservation[],
+): FloorKey | null {
+  const apByIdentifier = indexApsByIdentifier(accessPoints);
+  const floorStats = new Map<FloorKey, { matchCount: number; totalRssi: number }>();
+
+  for (const obs of observations) {
+    const candidates = apByIdentifier.get(obs.bleIdentifier);
+    if (!candidates) continue;
+
+    for (const ap of candidates) {
+      if (ap.manufacturerId !== MANUFACTURER_ID_ARUBA) continue;
+
+      const current = floorStats.get(ap.floorKey) ?? { matchCount: 0, totalRssi: 0 };
+      current.matchCount += 1;
+      current.totalRssi += obs.rssi;
+      floorStats.set(ap.floorKey, current);
+    }
+  }
+
+  let detectedFloorKey: FloorKey | null = null;
+  let bestMatchCount = -1;
+  let bestTotalRssi = Number.NEGATIVE_INFINITY;
+
+  for (const [floorKey, stats] of floorStats) {
+    if (
+      stats.matchCount > bestMatchCount ||
+      (stats.matchCount === bestMatchCount && stats.totalRssi > bestTotalRssi)
+    ) {
+      detectedFloorKey = floorKey;
+      bestMatchCount = stats.matchCount;
+      bestTotalRssi = stats.totalRssi;
+    }
+  }
+
+  if (DEBUG_WCL) {
+    const statsSummary = Array.from(floorStats.entries())
+      .map(([floorKey, stats]) => `${floorKey}:count=${stats.matchCount},rssi=${stats.totalRssi.toFixed(1)}`)
+      .join('; ');
+    wclLog(`Floor detection: ${detectedFloorKey ?? 'null'}${statsSummary ? ` (${statsSummary})` : ''}`);
+  }
+
+  return detectedFloorKey;
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // Internal data
 // ────────────────────────────────────────────────────────────────────────────
@@ -190,14 +254,13 @@ interface ValidPair {
  *
  * ### Algorithm
  *
- * 1. **Filter** observations by:
- *    - Floor key match (`obs.floorKey === ap.floorKey`)
- *    - Identity match (`obs.bleIdentifier === ap.bleIdentifier`)
- *    - Manufacturer match (`ap.manufacturerId === expectedManufacturerId`)
- *    - RSSI >= `rssiThreshold` (default: -90 dBm)
- *    - Sample age <= `maxAgeSeconds` (default: 120 s)
- *
- * 2. **Reject** if fewer than `MIN_AP_COUNT` valid pairs remain → `INSUFFICIENT_APS`.
+  * 1. **Filter** observations by:
+  *    - Identity match (`obs.bleIdentifier === ap.bleIdentifier`)
+  *    - Manufacturer match (`ap.manufacturerId === expectedManufacturerId`)
+  *    - Sample age is tracked for `staleSampleCount` and freshness decay,
+  *      but observations are not hard-rejected by age or RSSI
+  *
+  * 2. **Reject** if fewer than `MIN_AP_COUNT` valid pairs remain → `INSUFFICIENT_APS`.
  *
  * 3. **Weight** each valid pair:
  *    ```
@@ -242,44 +305,64 @@ export function computeBleWeightedCentroid(
   // ── Resolve options (with defaults) ──────────────────────────────────
   const now = options?.now ?? Date.now();
   const maxAgeMs = options?.maxAgeSeconds != null ? options.maxAgeSeconds * 1000 : MAX_SAMPLE_AGE_MS;
-  const rssiThreshold = options?.rssiThreshold ?? RSSI_THRESHOLD_DBM;
   const expectedManufacturerId = options?.expectedManufacturerId ?? MANUFACTURER_ID_ARUBA;
   const enableFreshnessWeighting = options?.enableFreshnessWeighting ?? true;
 
   // ── Index APs for efficient look-up by bleIdentifier ─────────────────
   const apByIdentifier = indexApsByIdentifier(accessPoints);
+  wclLog(`AP catalogue: ${accessPoints.length} fixtures, ${apByIdentifier.size} unique identifiers`);
+  if (DEBUG_WCL) {
+    const ids = Array.from(apByIdentifier.keys());
+    wclLog('AP identifiers:', ids.slice(0, 10).join(', '), ids.length > 10 ? `...(+${ids.length - 10})` : '');
+  }
 
   // ── Filter observations and match to AP records ──────────────────────
-  const validPairs: ValidPair[] = [];
+  const eligibleObservations: BleObservation[] = [];
   let staleCount = 0;
 
   for (const obs of observations) {
-    // 1. Age check
     const ageMs = now - obs.observedAt;
+    wclLog(`Obs: id=${obs.bleIdentifier} rssi=${obs.rssi} age=${Math.round(ageMs / 1000)}s floor=${obs.floorKey}`);
+
     if (ageMs > maxAgeMs) {
       staleCount++;
-      continue;
+      wclLog(`  STALE: ${Math.round(ageMs / 1000)}s > ${Math.round(maxAgeMs / 1000)}s (kept with freshness decay)`);
     }
 
-    // 2. RSSI threshold
-    if (obs.rssi < rssiThreshold) {
-      continue;
-    }
+    eligibleObservations.push(obs);
+  }
+
+  const detectedFloorKey = detectFloorFromObservations(accessPoints, eligibleObservations);
+  wclLog(`Detected floor key: ${detectedFloorKey ?? 'null'}`);
+
+  const validPairs: ValidPair[] = [];
+
+  for (const obs of eligibleObservations) {
+    const ageMs = now - obs.observedAt;
 
     // 3. Find candidate APs by identity
     const candidates = apByIdentifier.get(obs.bleIdentifier);
-    if (!candidates) continue;
+    if (!candidates) {
+      wclLog(`  REJECTED: no AP fixture matching bleIdentifier="${obs.bleIdentifier}"`);
+      continue;
+    }
 
     for (const ap of candidates) {
-      // 4. Floor key and manufacturer match
-      if (ap.floorKey === obs.floorKey && ap.manufacturerId === expectedManufacturerId) {
+      if (ap.manufacturerId === expectedManufacturerId) {
         validPairs.push({ ap, rssi: obs.rssi, ageMs });
+        wclLog(
+          `  MATCHED: ap=${ap.id} (${ap.label}) floor=${ap.floorKey} at (${ap.x5183.toFixed(1)}, ${ap.y5183.toFixed(1)})`,
+        );
+      } else {
+        wclLog(`  REJECTED: manufacturer mismatch (ap.manufacturerId=${ap.manufacturerId} vs expected=${expectedManufacturerId})`);
       }
     }
   }
 
   // ── Minimum AP check ─────────────────────────────────────────────────
+  wclLog(`Filtering result: ${validPairs.length} valid pairs, ${staleCount} stale (min required: ${MIN_AP_COUNT})`);
   if (validPairs.length < MIN_AP_COUNT) {
+    wclLog(`INSUFFICIENT_APS: only ${validPairs.length} valid pairs (need ${MIN_AP_COUNT})`);
     return { reason: 'INSUFFICIENT_APS' };
   }
 
@@ -316,6 +399,17 @@ export function computeBleWeightedCentroid(
   }
   const accuracyMeters = Math.sqrt(sumWeightedDistSq / sumWeight);
 
+  const apContributions = validPairs
+    .map((pair, i) => ({
+      id: pair.ap.id,
+      label: pair.ap.label,
+      floorKey: pair.ap.floorKey,
+      rssi: pair.rssi,
+      weight: weights[i],
+      weightPercent: sumWeight > 0 ? (weights[i] / sumWeight) * 100 : 0,
+    }))
+    .sort((a, b) => b.weight - a.weight);
+
   // ── Confidence: 0–1 composite score ──────────────────────────────────
   //  Factor 1: AP count diversity (plateaus at 8 APs)
   const apCountQuality = Math.min(validPairs.length / 8, 1.0);
@@ -329,6 +423,10 @@ export function computeBleWeightedCentroid(
   // ── Convert to WGS84 ─────────────────────────────────────────────────
   const [longitude, latitude] = transformEpsg5183ToWgs84(centroidX, centroidY);
 
+  wclLog(
+    `SUCCESS: ${validPairs.length} APs, confidence=${confidence.toFixed(3)}, accuracy=${accuracyMeters.toFixed(1)}m, WGS84=(${longitude.toFixed(6)}, ${latitude.toFixed(6)})`,
+  );
+
   return {
     longitude,
     latitude,
@@ -336,6 +434,8 @@ export function computeBleWeightedCentroid(
     accuracyMeters,
     usedApCount: validPairs.length,
     staleSampleCount: staleCount,
+    apContributions,
     computedAt: now,
+    detectedFloorKey,
   };
 }

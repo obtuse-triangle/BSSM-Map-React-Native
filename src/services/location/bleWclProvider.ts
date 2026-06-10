@@ -13,10 +13,8 @@
  *    pruned by age (120 s default) on each access.
  *
  * 3. **BLE_AP_FIXTURES** is used as the AP location catalogue until real
- *    EPSG:5183 survey data is received.  All fixture coordinates are
- *    currently (0, 0) which means the campus-bounds guardrail will reject
- *    their WGS84 output.  Replace `BLE_AP_FIXTURES` with real data once
- *    available (see `src/constants/bleAccessPoints.ts`).
+ *    EPSG:5183 survey data is received.  Replace `BLE_AP_FIXTURES` with
+ *    real data once available (see `src/constants/bleAccessPoints.ts`).
  *
  * 4. Coordinate guardrails:
  *    - Reject NaN / Infinity / -Infinity
@@ -38,6 +36,13 @@ import { CAMPUS_BOUNDS } from '../../constants/campusBounds';
 import { MAX_SAMPLE_AGE_MS } from '../../constants/bleConfig';
 import type { FloorKey } from '../../types/floorMap';
 import type { BleAccessPoint5183 } from '../../types/bleAccessPoint';
+import type { BleApContribution } from './bleWeightedCentroid';
+
+const DEBUG_WCL = __DEV__;
+
+function wclLog(...args: unknown[]) {
+  if (DEBUG_WCL) console.log('[BLE-WCL]', ...args);
+}
 
 export type { ArubaBleObservation } from '../../../modules/ios-ble-positioning/src';
 
@@ -70,6 +75,8 @@ export interface BleWclResult {
   /** Number of AP/observation pairs that passed filtering. */
   usedApCount: number;
 
+  apContributions?: BleApContribution[];
+
   /**
    * Total stale observations:
    *   buffer pre-prune stale count + WCL-internal stale sample count
@@ -84,6 +91,9 @@ export interface BleWclResult {
 
   /** Epoch timestamp (ms) when the centroid was computed. */
   computedAt: number;
+
+  /** Detected floor key inferred from the current BLE buffer, if any. */
+  detectedFloorKey?: FloorKey | null;
 }
 
 /** Discriminated result of `performScan`. */
@@ -140,6 +150,12 @@ class BleWclProvider {
       const rawObservations: ArubaBleObservation[] =
         await IosBlePositioning.startArubaBleScan(durationMs);
 
+      wclLog(`Native scan complete: ${rawObservations.length} raw observations`);
+      if (DEBUG_WCL && rawObservations.length > 0) {
+        const ids = rawObservations.map((o) => o.bleIdentifier);
+        wclLog('Raw bleIdentifiers:', [...new Set(ids)].join(', '));
+      }
+
       if (rawObservations.length === 0) {
         return {
           status: 'error',
@@ -155,9 +171,11 @@ class BleWclProvider {
 
       // ── 3. Snapshot metadata BEFORE pruning ─────────────────────────
       const prePruneMeta = this.buffer.getMetadata();
+      wclLog(`Buffer: ${this.buffer.size} entries, pre-prune metadata:`, JSON.stringify(prePruneMeta));
 
       // ── 4. Get pruned observations & convert to WCL format ──────────
       const latestByAp = this.buffer.latestByAp();
+      wclLog(`Latest by AP: ${latestByAp.size} unique beacons`);
       if (latestByAp.size === 0) {
         return {
           status: 'error',
@@ -186,6 +204,7 @@ class BleWclProvider {
       }
 
       // ── 5. Compute WCL centroid ─────────────────────────────────────
+      wclLog(`Calling WCL with floorKey="${floorKey}", ${wclObservations.length} observations, ${BLE_AP_FIXTURES.length} fixtures`);
       const wclResult: BleWeightedCentroidResult = computeBleWeightedCentroid(
         BLE_AP_FIXTURES,
         wclObservations,
@@ -193,6 +212,7 @@ class BleWclProvider {
       );
 
       if ('reason' in wclResult) {
+        wclLog(`WCL returned INSUFFICIENT_APS`);
         return {
           status: 'error',
           error: `INSUFFICIENT_APS: Fewer than 3 valid AP/observation pairs after filtering`,
@@ -206,11 +226,17 @@ class BleWclProvider {
         wclResult.latitude,
       );
       if (validationError !== null) {
+        wclLog(`Coordinate validation failed: ${validationError}`);
         return { status: 'error', error: validationError, rawObservations };
       }
 
       // ── 7. Build & return success result ────────────────────────────
       const latestSampleAgeMs = Number.isFinite(minAgeMs) ? minAgeMs : 0;
+
+      wclLog(`Scan success: usedApCount=${wclResult.usedApCount}, confidence=${wclResult.confidence.toFixed(3)}, accuracy=${wclResult.accuracyMeters.toFixed(1)}m`);
+      if (wclResult.detectedFloorKey) {
+        wclLog(`Detected floor key: ${wclResult.detectedFloorKey}`);
+      }
 
       return {
         status: 'success',
@@ -221,9 +247,11 @@ class BleWclProvider {
           confidence: wclResult.confidence,
           accuracyMeters: wclResult.accuracyMeters,
           usedApCount: wclResult.usedApCount,
+          apContributions: wclResult.apContributions,
           staleSampleCount: prePruneMeta.staleCount + wclResult.staleSampleCount,
           latestSampleAgeMs,
           computedAt: wclResult.computedAt,
+          detectedFloorKey: wclResult.detectedFloorKey ?? null,
         },
         rawObservations,
       };
@@ -326,6 +354,7 @@ export function computePositionFromBuffer(
   buffer: BleObservationBuffer,
   apFixtures: readonly BleAccessPoint5183[],
 ): BleWclResult | null {
+  wclLog(`computePositionFromBuffer: floor="${floorKey}", buffer=${buffer.size}, fixtures=${apFixtures.length}`);
   // ── 1. Prune stale observations ──────────────────────────────────────
   const bufferStaleCount = buffer.pruneStale();
 
@@ -361,6 +390,13 @@ export function computePositionFromBuffer(
     { enableFreshnessWeighting: true },
   );
 
+  wclLog(
+    `computePositionFromBuffer WCL result:`,
+    'reason' in wclResult
+      ? wclResult.reason
+      : `usedApCount=${wclResult.usedApCount}, detectedFloorKey=${wclResult.detectedFloorKey ?? 'null'}`,
+  );
+
   if ('reason' in wclResult) {
     return null;
   }
@@ -386,8 +422,10 @@ export function computePositionFromBuffer(
     confidence: wclResult.confidence,
     accuracyMeters: wclResult.accuracyMeters,
     usedApCount: wclResult.usedApCount,
+    apContributions: wclResult.apContributions,
     staleSampleCount: bufferStaleCount + wclResult.staleSampleCount,
     latestSampleAgeMs: Number.isFinite(minAgeMs) ? minAgeMs : 0,
     computedAt: wclResult.computedAt,
+    detectedFloorKey: wclResult.detectedFloorKey ?? null,
   };
 }

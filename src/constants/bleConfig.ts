@@ -34,14 +34,14 @@ export const DECAY_TAU_MS = 6_000;
  * Minimum number of AP / observation pairs required for a WCL computation.
  * Fewer than this → `INSUFFICIENT_APS` failure.
  */
-export const MIN_AP_COUNT = 3;
+export const MIN_AP_COUNT = 2;
 
 /**
  * RSSI quality threshold in dBm.
- * Observations with RSSI **strictly below** this value are rejected before
- * the minimum-count check.
+ * Legacy extreme-noise floor; WCL weighting itself does not hard-reject
+ * observations based on RSSI.
  */
-export const RSSI_THRESHOLD_DBM = -90;
+export const RSSI_THRESHOLD_DBM = -120;
 
 /**
  * Stale threshold in ms.
@@ -52,8 +52,7 @@ export const STALE_THRESHOLD_MS = 60_000;
 
 /**
  * Maximum sample age in ms.
- * Observations older than this are discarded entirely by the observation
- * buffer and the WCL filter.
+ * Observations older than this are discarded by the observation buffer.
  */
 export const MAX_SAMPLE_AGE_MS = 120_000;
 
