@@ -456,10 +456,18 @@ private class BleScanDelegate: NSObject, CBCentralManagerDelegate {
  * Delegate for scanning Aruba/HPE BLE advertisements filtered by
  * manufacturer ID 0x011B.
  *
- * bleIdentifier is derived from peripheral UUID + first 4 bytes of the
- * manufacturer payload hex as a disambiguator.  This is a **documented
- * fallback** — once the real payload identity schema (e.g. MAC, serial,
- * iBeacon fields) is reverse-engineered, this derivation MUST be replaced.
+ * The BLE MAC address is extracted from manufacturer-specific data bytes
+ * [3...8] in little-endian order, then reversed to produce the standard
+ * colon-separated MAC string (e.g. "20:4c:03:e9:00:50").
+ *
+ * Payload format (confirmed from real Aruba AP packet capture):
+ *   [0-1] Company ID (0x011B LE)
+ *   [2]   Sub-type header byte
+ *   [3-8] BLE MAC address (6 bytes, little-endian)
+ *   [9+]  Other telemetry data
+ *
+ * If the payload is too short (< 9 bytes), falls back to the peripheral
+ * UUID + payload prefix for identification.
  */
 private class ArubaBleScanDelegate: NSObject, CBCentralManagerDelegate {
   var onDiscover: ((String, Int, Int, String, Double) -> Void)?
@@ -485,16 +493,22 @@ private class ArubaBleScanDelegate: NSObject, CBCentralManagerDelegate {
     // Filter for HPE / Aruba (0x011B)
     guard manufId == 0x011B else { return }
 
-    // Full manufacturer payload as hex string
+    // Full manufacturer payload as hex string (kept for debugging)
     let payloadHex = manufData.map { String(format: "%02x", $0) }.joined()
 
-    // Derive a stable-ish identifier: peripheral UUID + first 4 bytes of payload
-    // This is a DOCUMENTED FALLBACK — see struct doc above.
-    let suffix = payloadHex.prefix(8)
-    let identifier = "\(peripheral.identifier.uuidString)_\(suffix)"
+    // Extract BLE MAC from bytes [3...8] (little-endian)
+    // Aruba HPE payload: [0-1] Company ID LE, [2] subtype, [3-8] BLE MAC LE
+    let bleMac: String
+    if manufData.count >= 9 {
+      let macBytes = manufData[3...8].reversed()
+      bleMac = macBytes.map { String(format: "%02x", $0) }.joined(separator: ":")
+    } else {
+      // Fallback for truncated payloads
+      bleMac = "\(peripheral.identifier.uuidString)_\(payloadHex.prefix(8))"
+    }
 
     let timestamp = Date().timeIntervalSince1970 * 1000
-    onDiscover?(identifier, Int(manufId), RSSI.intValue, payloadHex, timestamp)
+    onDiscover?(bleMac, Int(manufId), RSSI.intValue, payloadHex, timestamp)
   }
 }
 

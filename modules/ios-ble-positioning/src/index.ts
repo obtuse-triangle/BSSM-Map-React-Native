@@ -17,15 +17,12 @@ interface LatLng {
  *
  * Compatible with {@link BleApObservation} from `src/services/location/bleObservations.ts`.
  *
- * `bleIdentifier` is currently derived as:
- *   `peripheralUUID_first8HexCharsOfManufacturerPayload`
- *
- * This is a **documented fallback** — once the real Aruba payload identity
- * schema (MAC, serial, iBeacon fields) is reverse-engineered, this
- * derivation MUST be replaced.
+ * `bleIdentifier` is the real BLE MAC address extracted from Aruba
+ * manufacturer-specific data bytes [3...8] in little-endian order,
+ * formatted as lowercase colon-separated hex (e.g. "20:4c:03:e9:00:50").
  */
 interface ArubaBleObservation {
-  /** Stable-ish identity: peripheral UUID + manufacturer data prefix. */
+  /** BLE MAC address extracted from Aruba manufacturer data (e.g. "20:4c:03:e9:00:50"). */
   bleIdentifier: string;
   /** Manufacturer ID (0x011B = 283 for HPE/Aruba). */
   manufacturerId: number;
