@@ -2,18 +2,10 @@ import UIKit
 
 /// A React Native Fabric-compatible glass surface view.
 ///
-/// Subclasses `UIView` (NOT `UIVisualEffectView`) so that React Native Fabric
-/// can freely manage child subviews via `mountChildComponentView`.
-/// The internal `UIVisualEffectView` lives as a private child at index 0,
-/// and React children are mounted into its `contentView` via the overridden
-/// Fabric mount methods.
-///
-/// **CRITICAL**: Never subclass `UIVisualEffectView` as a Fabric host view.
-/// UIKit throws `NSInternalInconsistencyException` when `addSubview:` is called
-/// directly on a `UIVisualEffectView` — children must go to `contentView`.
-/// React Native Fabric calls `addSubview:` via `mountChildComponentView`, which
-/// triggers this UIKit assertion and crashes. The fix is to use a `UIView` wrapper
-/// and redirect Fabric child mounting into `effectView.contentView`.
+/// Uses a `UIView` wrapper with an internal `UIVisualEffectView` child.
+/// React children are added directly to `self` (the wrapper), and the effect
+/// view is kept behind them via `sendSubviewToBack` in `layoutSubviews`.
+/// The effect view has `isUserInteractionEnabled = false` so touches pass through.
 public final class GlassSurfaceView: UIView {
 
   // MARK: - React Props
@@ -44,8 +36,6 @@ public final class GlassSurfaceView: UIView {
 
   // MARK: - Internal effect view
 
-  /// The visual effect view that renders the glass/blur effect.
-  /// React children are mounted into `effectView.contentView`, NOT into the wrapper.
   private let effectView: UIVisualEffectView
 
   // MARK: - Initialization
@@ -76,7 +66,7 @@ public final class GlassSurfaceView: UIView {
     effectView.clipsToBounds = true
     effectView.layer.cornerCurve = .continuous
     effectView.layer.cornerRadius = cornerRadius
-    effectView.contentView.isUserInteractionEnabled = true
+    effectView.isUserInteractionEnabled = false
 
     super.addSubview(effectView)
 
@@ -91,24 +81,11 @@ public final class GlassSurfaceView: UIView {
     updateAppearance()
   }
 
-  // MARK: - Fabric child mounting
-
-  /// React Native Fabric calls this to mount child component views.
-  /// We redirect children into `effectView.contentView` so the glass effect
-  /// renders behind the children (the whole point of UIVisualEffectView).
-  @objc public func mountChildComponentView(_ childComponentView: UIView, index: Int) {
-    effectView.contentView.insertSubview(childComponentView, at: index)
-  }
-
-  /// React Native Fabric calls this to unmount child component views.
-  @objc public func unmountChildComponentView(_ childComponentView: UIView, index: Int) {
-    childComponentView.removeFromSuperview()
-  }
-
   // MARK: - Layout
 
   override public func layoutSubviews() {
     super.layoutSubviews()
+    sendSubviewToBack(effectView)
     updateGeometry()
   }
 
