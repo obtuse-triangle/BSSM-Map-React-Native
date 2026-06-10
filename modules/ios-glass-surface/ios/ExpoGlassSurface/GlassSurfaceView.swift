@@ -26,8 +26,8 @@ public final class GlassSurfaceView: UIVisualEffectView {
     didSet { updateAppearance() }
   }
 
-  override public init(frame: CGRect) {
-    super.init(effect: nil)
+  override public init(effect: UIVisualEffect?) {
+    super.init(effect: effect)
     setupView()
   }
 
