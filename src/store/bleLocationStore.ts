@@ -6,28 +6,17 @@
  * coordinates directly — no map-percent conversion needed.
  *
  * ── Data flow ─────────────────────────────────────────────────────────
- *   `startBleWclScan(floorKey)`
+ *   continuous BLE scan → buffer → WCL → validate
  *       │
- *       ▼
- *   bleWclProvider.performScan(floorKey, durationMs)
- *       │  native scan → buffer → WCL → validate
- *       ▼
- *   Store state updated (status / result / error)
- *       │
- *       ├── If success & confidence > 0:
- *       │     → mapStore.setUserCoordinates({ longitude, latitude })
- *       │
- *       └── If error or low confidence:
- *             → mapStore.userCoordinates remains unchanged
+ *       └── If confidence > 0:
+ *             → store.result + mapStore.setUserCoordinates({ longitude, latitude })
  *
  * @see bleWclProvider – the provider that executes the scan pipeline
  * @see mapStore       – receives the GPS marker when confidence is usable
  */
 
 import { create } from 'zustand';
-import type { FloorKey } from '../types/floorMap';
-import { bleWclProvider } from '../services/location/bleWclProvider';
-import type { BleWclResult, BleWclScanResult, ArubaBleObservation } from '../services/location/bleWclProvider';
+import type { BleWclResult, ArubaBleObservation } from '../services/location/bleWclProvider';
 import type { EventSubscription } from 'expo-modules-core';
 import { Platform } from 'react-native';
 import { useMapStore } from './mapStore';
@@ -38,6 +27,12 @@ import { CONTINUOUS_RECOMPUTE_INTERVAL_MS } from '../constants/bleConfig';
 import { BLE_AP_FIXTURES } from '../constants/bleAccessPoints';
 
 type MotionUpdate = import('../../modules/ios-ble-positioning/src').MotionUpdate;
+
+const DEBUG_WCL = __DEV__;
+
+function wclLog(...args: unknown[]) {
+  if (DEBUG_WCL) console.log('[BLE-WCL]', ...args);
+}
 
 function getIosBlePositioning() {
   if (Platform.OS !== 'ios') return null;
@@ -97,7 +92,7 @@ type BleLocationStoreState = {
 
   /**
    * Scan duration in milliseconds.
-   * Configurable; clamps to max 30 s inside `startBleWclScan`.
+   * Configurable; clamps to max 30 s for scan operations.
    * @default 10000
    */
   scanDurationMs: number;
@@ -128,27 +123,12 @@ type BleLocationStoreState = {
   currentHeading: number | null;
 
   /**
-   * Initiate a BLE WCL scan on the given floor.
-   *
-   * Sets status → `'scanning'`, calls the provider, then updates state:
-   *   - On success: `'success'` + result
-   *   - On failure: `'error'` + error message
-   *
-   * When the result has `confidence > 0`, the GPS marker in `mapStore`
-   * is also updated.
-   *
-   * @param floorKey   – The floor to scan on.
-   * @param durationMs – Override scan duration (clamped to 30 s max).
-   */
-  startBleWclScan: (floorKey: FloorKey, durationMs?: number) => Promise<void>;
-
-  /**
    * Reset to idle state.
-   * Clears result, error, and sets status back to `'idle'`.
-   * Does **not** clear the provider's observation buffer
-   * (call `bleWclProvider.clearBuffer()` separately if needed).
+   * Clears result, error, and stops the continuous scan if needed.
    */
   clearResult: () => void;
+
+  dismissCard: () => void;
 
   /**
    * Update the default scan duration.
@@ -264,6 +244,16 @@ function updateBeaconStats(
   existing.avgIntervalMs = newAvgIntervalMs;
 }
 
+function syncDetectedFloorKey(detectedFloorKey: string | null | undefined): void {
+  if (!detectedFloorKey) return;
+
+  const mapStore = useMapStore.getState();
+  if (mapStore.selectedFloorKey !== detectedFloorKey) {
+    wclLog(`Syncing selected floor to detected floor: ${mapStore.selectedFloorKey ?? 'null'} -> ${detectedFloorKey}`);
+    mapStore.setSelectedFloorKey(detectedFloorKey);
+  }
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // Store implementation
 // ────────────────────────────────────────────────────────────────────────────
@@ -284,64 +274,12 @@ export const useBleLocationStore = create<BleLocationStoreState>()((set, get) =>
   drErrorMeters: 0,
   currentHeading: null,
 
-  startBleWclScan: async (floorKey, durationMs) => {
-    // Clamp to [1 000, 30 000] ms
-    const effectiveDuration = Math.min(
-      Math.max(durationMs ?? get().scanDurationMs, 1_000),
-      30_000,
-    );
-
-    // Mark as scanning before the async operation
-    set({ status: 'scanning', error: null, result: null, debugObservations: [] });
-
-    try {
-      const scanResult: BleWclScanResult = await bleWclProvider.performScan(
-        floorKey,
-        effectiveDuration,
-      );
-
-      if (scanResult.status === 'success') {
-        // Update BLE store state
-        set({
-          status: 'success',
-          result: scanResult.result,
-          error: null,
-          debugObservations: scanResult.rawObservations,
-        });
-
-        // Forward to mapStore GPS marker ONLY when confidence is usable
-        if (scanResult.result.confidence > 0) {
-          useMapStore.getState().setUserCoordinates({
-            longitude: scanResult.result.longitude,
-            latitude: scanResult.result.latitude,
-          });
-          // Auto-reset Dead Reckoning to BLE position
-          get().resetDrToBleAnchor(scanResult.result.latitude, scanResult.result.longitude);
-        }
-      } else {
-        // Error: preserve mapStore coordinates (DO NOT overwrite)
-        set({
-          status: 'error',
-          result: null,
-          error: scanResult.error,
-          debugObservations: scanResult.rawObservations ?? [],
-        });
-      }
-    } catch (err) {
-      // Unexpected exception during scan
-      const message =
-        err instanceof Error ? err.message : 'Unknown BLE WCL scan error';
-      set({
-        status: 'error',
-        result: null,
-        error: message,
-      });
-    }
+  clearResult: () => {
+    set({ status: 'idle', result: null, error: null, debugObservations: [] });
   },
 
-  clearResult: () => {
-    get().stopContinuousScan();
-    set({ status: 'idle', result: null, error: null, debugObservations: [] });
+  dismissCard: () => {
+    set({ status: 'idle' });
   },
 
   setScanDurationMs: (ms) => {
@@ -363,6 +301,7 @@ export const useBleLocationStore = create<BleLocationStoreState>()((set, get) =>
     continuousScanSubscription = IosBlePositioning.addListener(
       'onArubaBleObservation',
       (observation: ArubaBleObservation) => {
+        wclLog(`Continuous obs: id=${observation.bleIdentifier} rssi=${observation.rssi} manuf=${observation.manufacturerId}`);
         continuousBuffer.addObservation({
           bleIdentifier: observation.bleIdentifier,
           manufacturerId: observation.manufacturerId,
@@ -394,16 +333,24 @@ export const useBleLocationStore = create<BleLocationStoreState>()((set, get) =>
       const floorKey = useMapStore.getState().selectedFloorKey;
       if (!floorKey) return;
 
+      wclLog(`Continuous WCL: floor="${floorKey}", buffer=${continuousBuffer.size}, fixtures=${BLE_AP_FIXTURES.length}`);
       const wclResult = computePositionFromBuffer(floorKey, continuousBuffer, BLE_AP_FIXTURES);
       if (wclResult && wclResult.confidence > 0) {
+        wclLog(
+          `Continuous WCL success: usedApCount=${wclResult.usedApCount} conf=${wclResult.confidence.toFixed(3)} detectedFloor=${wclResult.detectedFloorKey ?? 'null'}`,
+        );
         set({ result: wclResult });
+        syncDetectedFloorKey(wclResult.detectedFloorKey);
         useMapStore.getState().setUserCoordinates({
           longitude: wclResult.longitude,
           latitude: wclResult.latitude,
         });
         if (get().isMotionActive) {
+          wclLog(`DR anchor reset to BLE position: (${wclResult.latitude.toFixed(6)}, ${wclResult.longitude.toFixed(6)})`);
           get().resetDrToBleAnchor(wclResult.latitude, wclResult.longitude);
         }
+      } else {
+        wclLog(`Continuous WCL: no result (insufficient APs or out of bounds)`);
       }
     }, CONTINUOUS_RECOMPUTE_INTERVAL_MS);
   },
@@ -499,6 +446,7 @@ export const useBleLocationStore = create<BleLocationStoreState>()((set, get) =>
     if (!drEngine) return;
     drEngine.reset(lat, lng);
     const pos = drEngine.getPosition();
+    wclLog(`DR anchor reset to BLE position: (${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)})`);
     set({
       drPosition: { lat: pos.lat, lng: pos.lng, confidence: pos.confidence },
       drStepsSinceLastBle: 0,
