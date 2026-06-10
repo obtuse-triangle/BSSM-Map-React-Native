@@ -494,6 +494,12 @@ export const useBleLocationStore = create<BleLocationStoreState>()((set, get) =>
             fusionEngine.applyMotion(fusionMotion);
             const fusionUpdate = fusionEngine.getState();
             set({ fusionState: fusionUpdate });
+            if (fusionUpdate.confidenceLevel !== 'unknown') {
+              useMapStore.getState().setUserCoordinates({
+                longitude: fusionUpdate.lng,
+                latitude: fusionUpdate.lat,
+              });
+            }
           }
           lastMotionCumulativeSteps = currentSteps;
         }

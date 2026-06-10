@@ -93,9 +93,11 @@ export class DeadReckoningEngine {
       (strideLengthM * Math.sin(headingRad)) /
       (EARTH_RADIUS_M * Math.cos(latRad));
 
-    // Convert displacement **from radians back to degrees**
-    this._lat += dLat * (180 / Math.PI);
-    this._lng += dLng * (180 / Math.PI);
+    const DEG_PER_RAD = 180 / Math.PI;
+    const newLat = this._lat + dLat * DEG_PER_RAD;
+    const newLng = this._lng + dLng * DEG_PER_RAD;
+    this._lat = Math.abs(newLat) < 1e-12 ? 0 : newLat;
+    this._lng = Math.abs(newLng) < 1e-12 ? 0 : newLng;
 
     this._stepsSinceLastBle++;
 
