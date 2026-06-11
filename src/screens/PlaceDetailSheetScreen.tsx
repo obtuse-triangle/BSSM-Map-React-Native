@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { GlassSurface } from '../components/glass';
+import { MAP_STYLES } from '../constants/mapStyles';
 import { adaptiveBadgeText, adaptiveDivider, adaptivePressed, adaptiveSelectionBg, adaptiveSelectionBorder, adaptiveText, adaptiveTextBody, adaptiveTextSecondary } from '../theme';
 import campusDataUntyped from '../data/campus-wgs84.json';
 import { useMapStore } from '../store/mapStore';
@@ -15,8 +16,9 @@ import { getFeatureById, getFeatureCentroid } from '../utils/geoJsonHelpers';
 const campusData = campusDataUntyped as unknown as CampusGeoJSON;
 
 export function PlaceDetailSheetScreen() {
-  const scheme = useColorScheme();
-  const { selectedFeatureId, setSelectedFeatureId } = useMapStore();
+  const { selectedFeatureId, setSelectedFeatureId, baseLayer } = useMapStore();
+  const isDarkMap = MAP_STYLES.find((s) => s.id === baseLayer)?.theme === 'dark';
+  const scheme = isDarkMap ? 'dark' : 'light';
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'PlaceDetailSheet'>>();
   const [currentDetentIndex, setCurrentDetentIndex] = useState(1);
 
@@ -106,7 +108,7 @@ export function PlaceDetailSheetScreen() {
           style={styles.closeButton}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <GlassSurface variant="control" cornerRadius={14} style={[styles.closeButtonInner, { backgroundColor: adaptivePressed(scheme) }]}>
+          <GlassSurface variant="control" cornerRadius={14} colorScheme={scheme} style={[styles.closeButtonInner, { backgroundColor: adaptivePressed(scheme) }]}>
             <Text style={[styles.closeButtonText, { color: adaptiveTextSecondary(scheme) }]}>✕</Text>
           </GlassSurface>
         </Pressable>
@@ -114,7 +116,7 @@ export function PlaceDetailSheetScreen() {
 
       {/* Detail card — visible at medium+ detents */}
       {isMediumOrFull && bottomSheetRoom && (
-        <GlassSurface variant="sheet" cornerRadius={20} style={[styles.detailCard, { borderColor: adaptiveDivider(scheme) }]}>
+        <GlassSurface variant="sheet" cornerRadius={20} colorScheme={scheme} style={[styles.detailCard, { borderColor: adaptiveDivider(scheme) }]}>
           <View style={[styles.detailRow, { backgroundColor: scheme === 'dark' ? 'rgba(255,255,255,0.08)' : 'rgba(255,255,255,0.2)', borderColor: adaptiveDivider(scheme) }]}>
             <Text style={[styles.detailLabel, { color: adaptiveTextSecondary(scheme) }]}>층</Text>
             <Text style={[styles.detailValue, { color: adaptiveText(scheme) }]}>{floorLabel ?? '알 수 없음'}</Text>

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo } from 'react';
+import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MAP_STYLES } from '../constants/mapStyles';
 import campusDataUntyped from '../data/campus-wgs84.json';
 import { BleWclStatusCard } from '../components/map/BleWclStatusCard';
@@ -99,7 +99,6 @@ export function MapSheetScreen() {
   } = useBleLocationStore();
 
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'MapSheet'>>();
-  const [currentDetentIndex, setCurrentDetentIndex] = useState(1);
 
   // Sync sheetAllowedDetents with BLE/settings visibility.
   // When BLE or settings is open, remove both collapsed detents (0.06, 0.12) so iOS
@@ -119,29 +118,7 @@ export function MapSheetScreen() {
     }
   }, [bleCardVisible, settingsVisible, navigation]);
 
-  // Track sheet detent position for search bar visibility and dynamic corner radius
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('sheetDetentChange', (e) => {
-      setCurrentDetentIndex(e.data.index);
-    });
-    return unsubscribe;
-  }, [navigation]);
-
-  const isFullDetent = useMemo(() => {
-    const maxDetent = bleCardVisible || settingsVisible ? 1 : 3;
-    return currentDetentIndex === maxDetent;
-  }, [currentDetentIndex, bleCardVisible, settingsVisible]);
-
-  const mergedBlockOpacity = useRef(new Animated.Value(1)).current;
-
-  // Fade mergedBlock in/out when transitioning to/from full detent
-  useEffect(() => {
-    Animated.timing(mergedBlockOpacity, {
-      toValue: isFullDetent ? 0 : 1,
-      duration: 250,
-      useNativeDriver: true,
-    }).start();
-  }, [isFullDetent, mergedBlockOpacity]);
+  const isDarkTheme = isDarkMap;
 
   const currentPosition = useMemo(() => {
     if (!selectedFloorKey || !position || position.floorKey !== selectedFloorKey) {
@@ -217,12 +194,12 @@ export function MapSheetScreen() {
           accessibilityLabel={isLocateDisabled ? '현재 위치 찾기 불가' : '현재 위치 찾기'}
           disabled={isLocateDisabled}
           onPress={handleLocate}
-          style={({ pressed }) => [styles.barButton, pressed && { backgroundColor: isDarkMap ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}
+          style={({ pressed }) => [styles.barButton, pressed && { backgroundColor: isDarkTheme ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}
         >
-          <Text style={[styles.barButtonGlyph, { color: isDarkMap ? '#f1f5f9' : '#0f172a' }, isLocateDisabled && { color: isDarkMap ? '#64748b' : '#94a3b8', opacity: 0.55 }]}>⌖</Text>
+          <Text style={[styles.barButtonGlyph, { color: isDarkTheme ? '#f1f5f9' : '#0f172a' }, isLocateDisabled && { color: isDarkTheme ? '#64748b' : '#94a3b8', opacity: 0.55 }]}>⌖</Text>
         </Pressable>
 
-        <View style={[styles.barDivider, { backgroundColor: isDarkMap ? 'rgba(255,255,255,0.12)' : '#e2e8f0' }]} />
+        <View style={[styles.barDivider, { backgroundColor: isDarkTheme ? 'rgba(255,255,255,0.12)' : '#e2e8f0' }]} />
 
         {Platform.OS === 'ios' ? (
           <>
@@ -232,13 +209,13 @@ export function MapSheetScreen() {
               onPress={handleBleScan}
               style={({ pressed }) => [
                 styles.barButton,
-                pressed && { backgroundColor: isDarkMap ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' },
+                pressed && { backgroundColor: isDarkTheme ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' },
                 bleCardVisible && styles.barButtonActive,
               ]}
             >
-              <Text style={[styles.barButtonBleLabel, { color: isDarkMap ? '#60a5fa' : '#1d4ed8' }]}>BLE</Text>
+              <Text style={[styles.barButtonBleLabel, { color: isDarkTheme ? '#60a5fa' : '#1d4ed8' }]}>BLE</Text>
             </Pressable>
-            <View style={[styles.barDivider, { backgroundColor: isDarkMap ? 'rgba(255,255,255,0.12)' : '#e2e8f0' }]} />
+            <View style={[styles.barDivider, { backgroundColor: isDarkTheme ? 'rgba(255,255,255,0.12)' : '#e2e8f0' }]} />
           </>
         ) : null}
 
@@ -248,14 +225,14 @@ export function MapSheetScreen() {
           onPress={handleToggleSettings}
           style={({ pressed }) => [
             styles.barButton,
-            pressed && { backgroundColor: isDarkMap ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' },
+            pressed && { backgroundColor: isDarkTheme ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' },
             settingsVisible && styles.barButtonActive,
           ]}
         >
-          <Text style={[styles.barButtonGlyph, { color: isDarkMap ? '#f1f5f9' : '#0f172a' }]}>{baseLayerIcon}</Text>
+          <Text style={[styles.barButtonGlyph, { color: isDarkTheme ? '#f1f5f9' : '#0f172a' }]}>{baseLayerIcon}</Text>
         </Pressable>
 
-        <View style={[styles.barDivider, { backgroundColor: isDarkMap ? 'rgba(255,255,255,0.12)' : '#e2e8f0' }]} />
+        <View style={[styles.barDivider, { backgroundColor: isDarkTheme ? 'rgba(255,255,255,0.12)' : '#e2e8f0' }]} />
 
         <View style={styles.levelRow}>
           {levels.map((level) => {
@@ -269,7 +246,7 @@ export function MapSheetScreen() {
                   onPress={() => setSelectedLevel(level)}
                   style={[styles.levelButton, selected && styles.levelButtonSelected]}
                 >
-                  <Text style={[styles.levelButtonText, { color: isDarkMap ? '#f1f5f9' : '#0f172a' }, selected && { color: isDarkMap ? '#60a5fa' : '#1d4ed8' }]}>
+                  <Text style={[styles.levelButtonText, { color: isDarkTheme ? '#f1f5f9' : '#0f172a' }, selected && { color: isDarkTheme ? '#60a5fa' : '#1d4ed8' }]}>
                     {level}F
                   </Text>
                 </Pressable>
@@ -277,24 +254,27 @@ export function MapSheetScreen() {
           })}
         </View>
 
-        <View style={[styles.barDivider, { backgroundColor: isDarkMap ? 'rgba(255,255,255,0.12)' : '#e2e8f0' }]} />
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="지도 정보"
-          onPress={() => requestShowAttribution()}
-          style={({ pressed }) => [
-            styles.barButton,
-            pressed && { backgroundColor: isDarkMap ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' },
-          ]}
-        >
-          <Text style={[styles.barButtonGlyph, { color: isDarkMap ? '#f1f5f9' : '#0f172a' }]}>ⓘ</Text>
-        </Pressable>
+        <View style={styles.infoGroup}>
+          <View style={[styles.barDivider, { backgroundColor: isDarkTheme ? 'rgba(255,255,255,0.12)' : '#e2e8f0' }]} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="지도 정보"
+            onPress={() => requestShowAttribution()}
+            style={({ pressed }) => [
+              styles.barButton,
+              pressed && { backgroundColor: isDarkTheme ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' },
+            ]}
+          >
+            <Text style={[styles.barButtonGlyph, { color: isDarkTheme ? '#f1f5f9' : '#0f172a' }]}>ⓘ</Text>
+          </Pressable>
+        </View>
       </View>
 
       {/* Row 2: Search bar */}
       <View style={styles.searchRow}>
-        <SearchBar
+          <SearchBar
             containerStyle={{ flex: 1 }}
+            glassColorScheme={isDarkMap ? 'dark' : 'light'}
             insets={{ top: 0, bottom: 0, left: 0, right: 0 }}
             isSearchFocused={isSearchFocused}
             onBlur={() => setIsSearchFocused(false)}
@@ -313,17 +293,9 @@ export function MapSheetScreen() {
   return (
     <View style={styles.container}>
       {/* Merged glass bar + search bar — one unified block at top of sheet */}
-      <Animated.View style={{ opacity: mergedBlockOpacity }}>
-        {isFullDetent ? (
-          <View style={styles.mergedBlock}>
-            {mergedBlockChildren}
-          </View>
-        ) : (
-          <GlassSurface variant="control" cornerRadius={0} style={styles.mergedBlock}>
-            {mergedBlockChildren}
-          </GlassSurface>
-        )}
-      </Animated.View>
+      <View style={styles.mergedBlock}>
+        {mergedBlockChildren}
+      </View>
 
       <ScrollView
         keyboardShouldPersistTaps="handled"
@@ -341,17 +313,17 @@ export function MapSheetScreen() {
                 : bleStatus === 'success' && bleResult
                   ? `BLE WCL 위치 확인됨 · ±${bleResult.accuracyMeters.toFixed(1)}m · 신뢰도 ${(bleResult.confidence * 100).toFixed(0)}%`
                   : null;
-          return msg ? <Text style={[styles.helperText, { color: isDarkMap ? '#94a3b8' : '#64748b' }]}>{msg}</Text> : null;
+          return msg ? <Text style={[styles.helperText, { color: isDarkTheme ? '#94a3b8' : '#64748b' }]}>{msg}</Text> : null;
         })()}
 
         {/* Empty state — shown when BLE and settings are both closed */}
         {!showBle && !showSettings && (
           <View style={styles.emptyState}>
-            <Text style={[styles.emptyStateTitle, { color: isDarkMap ? '#f1f5f9' : '#0f172a' }]}>BSSM 학교 지도</Text>
-            <Text style={[styles.emptyStateText, { color: isDarkMap ? '#cbd5e1' : '#475569' }]}>
+            <Text style={[styles.emptyStateTitle, { color: isDarkTheme ? '#f1f5f9' : '#0f172a' }]}>BSSM 학교 지도</Text>
+            <Text style={[styles.emptyStateText, { color: isDarkTheme ? '#cbd5e1' : '#475569' }]}>
               검색하거나 지도에서 교실을 탭하여 정보를 확인하세요.
             </Text>
-            <Text style={[styles.emptyStateHint, { color: isDarkMap ? '#64748b' : '#94a3b8' }]}>
+            <Text style={[styles.emptyStateHint, { color: isDarkTheme ? '#64748b' : '#94a3b8' }]}>
               ⌖ 현재 위치 찾기 · BLE 실내 측위 · 지도 스타일 변경
             </Text>
           </View>
@@ -359,10 +331,10 @@ export function MapSheetScreen() {
 
         {/* Settings Panel */}
         {showSettings && (
-          <GlassSurface variant="modal" cornerRadius={20} style={styles.settingsCard}>
-            <Text style={[styles.settingsTitle, { color: isDarkMap ? '#f1f5f9' : '#0f172a' }]}>지도 설정</Text>
+          <GlassSurface variant="modal" cornerRadius={20} colorScheme={isDarkTheme ? 'dark' : 'light'} style={styles.settingsCard}>
+            <Text style={[styles.settingsTitle, { color: isDarkTheme ? '#f1f5f9' : '#0f172a' }]}>지도 설정</Text>
 
-            <Text style={[styles.settingsSectionTitle, { color: isDarkMap ? '#94a3b8' : '#64748b' }]}>배경 지도</Text>
+            <Text style={[styles.settingsSectionTitle, { color: isDarkTheme ? '#94a3b8' : '#64748b' }]}>배경 지도</Text>
             <View style={styles.baseLayerRow}>
               {BASE_LAYER_OPTIONS.map((opt) => {
                 const active = baseLayer === opt.key;
@@ -372,18 +344,18 @@ export function MapSheetScreen() {
                     onPress={() => setBaseLayer(opt.key)}
                     style={[
                       styles.baseLayerButton,
-                      { backgroundColor: isDarkMap ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', borderColor: isDarkMap ? 'rgba(255,255,255,0.12)' : '#e2e8f0' },
-                      active && { backgroundColor: isDarkMap ? 'rgba(59,130,246,0.25)' : 'rgba(59,130,246,0.08)', borderColor: isDarkMap ? 'rgba(59,130,246,0.4)' : 'rgba(59,130,246,0.2)' },
+                      { backgroundColor: isDarkTheme ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', borderColor: isDarkTheme ? 'rgba(255,255,255,0.12)' : '#e2e8f0' },
+                      active && { backgroundColor: isDarkTheme ? 'rgba(59,130,246,0.25)' : 'rgba(59,130,246,0.08)', borderColor: isDarkTheme ? 'rgba(59,130,246,0.4)' : 'rgba(59,130,246,0.2)' },
                     ]}
                   >
                     <Text style={styles.baseLayerIcon}>{opt.icon}</Text>
-                    <Text style={[styles.baseLayerLabel, { color: isDarkMap ? '#94a3b8' : '#64748b' }, active && { color: isDarkMap ? '#60a5fa' : '#1d4ed8' }]}>{opt.label}</Text>
+                    <Text style={[styles.baseLayerLabel, { color: isDarkTheme ? '#94a3b8' : '#64748b' }, active && { color: isDarkTheme ? '#60a5fa' : '#1d4ed8' }]}>{opt.label}</Text>
                   </Pressable>
                 );
               })}
             </View>
 
-            <Text style={[styles.settingsSectionTitle, { color: isDarkMap ? '#94a3b8' : '#64748b' }]}>카테고리 표시</Text>
+            <Text style={[styles.settingsSectionTitle, { color: isDarkTheme ? '#94a3b8' : '#64748b' }]}>카테고리 표시</Text>
             <View style={styles.categoryGrid}>
               {allCategories().map((cat) => {
                 const hidden = hiddenCategories.has(cat);
@@ -394,11 +366,11 @@ export function MapSheetScreen() {
                     onPress={() => toggleCategory(cat)}
                     style={[
                       styles.categoryChip,
-                      { backgroundColor: isDarkMap ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', borderColor: isDarkMap ? 'rgba(255,255,255,0.12)' : '#e2e8f0', borderLeftColor: CATEGORY_COLORS[cat] },
-                      hidden && { backgroundColor: isDarkMap ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)', opacity: 0.55 },
+                      { backgroundColor: isDarkTheme ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', borderColor: isDarkTheme ? 'rgba(255,255,255,0.12)' : '#e2e8f0', borderLeftColor: CATEGORY_COLORS[cat] },
+                      hidden && { backgroundColor: isDarkTheme ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)', opacity: 0.55 },
                     ]}
                   >
-                    <Text style={[styles.categoryChipText, { color: isDarkMap ? '#f1f5f9' : '#0f172a' }, hidden && { color: isDarkMap ? '#64748b' : '#94a3b8' }]}>
+                    <Text style={[styles.categoryChipText, { color: isDarkTheme ? '#f1f5f9' : '#0f172a' }, hidden && { color: isDarkTheme ? '#64748b' : '#94a3b8' }]}>
                       {hidden ? '✕' : '✓'} {CATEGORY_LABELS[cat]}
                     </Text>
                   </Pressable>
@@ -457,6 +429,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     gap: 2,
+  },
+  infoGroup: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 2,
+    marginLeft: 'auto',
   },
   barButton: {
     alignItems: 'center',
