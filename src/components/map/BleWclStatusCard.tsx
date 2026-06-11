@@ -10,6 +10,7 @@ import type { BleWclScanStatus, BeaconStats } from '../../store/bleLocationStore
 const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
 
 type BleWclStatusCardProps = {
+  colorScheme: 'dark' | 'light';
   status: BleWclScanStatus;
   result: BleWclResult | null;
   error: string | null;
@@ -133,6 +134,7 @@ function computeStatsFromBatch(
 }
 
 export function BleWclStatusCard({
+  colorScheme,
   status,
   result,
   error,
@@ -199,7 +201,7 @@ export function BleWclStatusCard({
   }
 
   return (
-    <GlassSurface variant="status" cornerRadius={24} colorScheme="light" style={styles.card}>
+    <GlassSurface variant="status" cornerRadius={24} colorScheme={colorScheme} style={styles.card}>
       {/* ── Header ─────────────────────────────── */}
       <View style={styles.headerRow}>
         <View style={styles.headerCopy}>

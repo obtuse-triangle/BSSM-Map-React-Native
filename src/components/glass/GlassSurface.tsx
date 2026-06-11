@@ -4,11 +4,14 @@ import { GlassView, isGlassEffectAPIAvailable, type GlassColorScheme } from 'exp
 
 export type GlassVariant = 'floating' | 'control' | 'sheet' | 'search' | 'modal' | 'status';
 
+type StableGlassEffectStyle = 'clear' | 'none';
+
 export interface GlassSurfaceProps {
   variant?: GlassVariant;
   cornerRadius?: number;
   tintColor?: string;
   interactive?: boolean;
+  glassEffectStyle?: StableGlassEffectStyle;
   fallbackOpacity?: number;
   reduceTransparencyFallbackColor?: string;
   children?: ReactNode;
@@ -53,6 +56,7 @@ export function GlassSurface({
   cornerRadius = 16,
   tintColor,
   interactive,
+  glassEffectStyle = 'clear',
   children,
   style,
   pointerEvents = 'box-none',
@@ -70,7 +74,7 @@ export function GlassSurface({
   if (Platform.OS === 'ios' && isGlassEffectAPIAvailable()) {
     return (
       <GlassView
-        glassEffectStyle="regular"
+        glassEffectStyle={glassEffectStyle}
         isInteractive={isInteractive}
         tintColor={resolvedTint}
         colorScheme={colorScheme}

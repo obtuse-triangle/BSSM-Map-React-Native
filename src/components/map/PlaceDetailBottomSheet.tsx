@@ -9,6 +9,7 @@ import type { Floor, FloorElement } from '../../types/floorMap';
 type PlaceDetailBottomSheetProps = {
   floor: Floor | undefined;
   room: FloorElement | null;
+  colorScheme?: 'dark' | 'light';
 };
 
 export const SHEET_HEIGHT = 272;
@@ -33,7 +34,7 @@ const formatPercent = (value: number): string => {
   return Number.isInteger(value) ? `${value}%` : `${value.toFixed(1)}%`;
 };
 
-export function PlaceDetailBottomSheet({ floor, room }: PlaceDetailBottomSheetProps) {
+export function PlaceDetailBottomSheet({ floor, room, colorScheme = 'light' }: PlaceDetailBottomSheetProps) {
   const roomName = room?.name.trim();
   const floorLabel = floor?.label ?? '알 수 없음';
   const title = roomName || (floor ? `${floor.label} 정보` : '공간 정보');
@@ -83,7 +84,7 @@ export function PlaceDetailBottomSheet({ floor, room }: PlaceDetailBottomSheetPr
   return (
     <GestureDetector gesture={gesture}>
       <Animated.View style={[styles.sheet, sheetStyle]}>
-        <GlassSurface variant="sheet" cornerRadius={24} colorScheme="light" style={styles.sheetGlass}>
+        <GlassSurface variant="sheet" cornerRadius={24} colorScheme={colorScheme} style={styles.sheetGlass}>
           <View style={styles.handleBar} />
 
           <View style={styles.headerRow}>

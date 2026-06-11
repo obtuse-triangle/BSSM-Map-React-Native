@@ -384,6 +384,7 @@ export function MapSheetScreen() {
         {/* BLE Status Card */}
         {showBle && (
           <BleWclStatusCard
+            colorScheme={isDarkMap ? 'dark' : 'light'}
             status={bleStatus}
             result={bleResult}
             error={bleError}
