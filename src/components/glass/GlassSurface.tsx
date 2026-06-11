@@ -18,7 +18,7 @@ export interface GlassSurfaceProps {
 
 const FALLBACK_BG: Record<GlassVariant, string> = {
   floating: 'rgba(255,255,255,0.78)',
-  control: 'rgba(255,255,255,0.82)',
+  control: 'rgba(255,255,255,0.35)',
   sheet: 'rgba(255,255,255,0.88)',
   search: 'rgba(255,255,255,0.90)',
   modal: 'rgba(255,255,255,0.92)',
