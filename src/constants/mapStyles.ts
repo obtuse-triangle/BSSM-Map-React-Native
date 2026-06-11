@@ -12,6 +12,7 @@ export type MapStyleConfig = {
   id: MapStyleId;
   label: string;
   icon: string;
+  theme: 'dark' | 'light';
   source: {
     type: 'raster';
     tiles: string[];
@@ -36,6 +37,7 @@ export const MAP_STYLES: MapStyleConfig[] = [
     id: 'osm',
     label: '일반 지도',
     icon: '🗺',
+    theme: 'light',
     source: {
       type: 'raster',
       tiles: [
@@ -52,6 +54,7 @@ export const MAP_STYLES: MapStyleConfig[] = [
     id: 'osm-hot',
     label: '휴머니타리안',
     icon: '🌍',
+    theme: 'light',
     source: {
       type: 'raster',
       tiles: [
@@ -68,6 +71,7 @@ export const MAP_STYLES: MapStyleConfig[] = [
     id: 'positron',
     label: '밝은 (미니멀)',
     icon: '◐',
+    theme: 'light',
     source: {
       type: 'raster',
       tiles: [
@@ -82,6 +86,7 @@ export const MAP_STYLES: MapStyleConfig[] = [
     id: 'dark',
     label: '다크모드',
     icon: '🌙',
+    theme: 'dark',
     source: {
       type: 'raster',
       tiles: [
@@ -96,6 +101,7 @@ export const MAP_STYLES: MapStyleConfig[] = [
     id: 'voyager',
     label: '보이저',
     icon: '🎨',
+    theme: 'light',
     source: {
       type: 'raster',
       tiles: [
@@ -110,6 +116,7 @@ export const MAP_STYLES: MapStyleConfig[] = [
     id: 'topo',
     label: '지형도',
     icon: '⛰',
+    theme: 'light',
     source: {
       type: 'raster',
       tiles: [
@@ -126,6 +133,7 @@ export const MAP_STYLES: MapStyleConfig[] = [
     id: 'satellite',
     label: '위성',
     icon: '🛰',
+    theme: 'dark',
     source: {
       type: 'raster',
       tiles: [
@@ -140,6 +148,7 @@ export const MAP_STYLES: MapStyleConfig[] = [
     id: 'design',
     label: '설계도',
     icon: '▦',
+    theme: 'light',
     source: {
       type: 'raster',
       tiles: [],

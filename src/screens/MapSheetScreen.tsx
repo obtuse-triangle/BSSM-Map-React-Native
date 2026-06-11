@@ -1,10 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
-
-import {
-  adaptiveAccent, adaptiveChipBg, adaptiveChipHiddenBg, adaptiveDivider, adaptivePressed,
-  adaptiveSelectionBg, adaptiveSelectionBorder, adaptiveText, adaptiveTextBody, adaptiveTextSecondary, adaptiveTextTertiary,
-} from '../theme';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { MAP_STYLES } from '../constants/mapStyles';
 import campusDataUntyped from '../data/campus-wgs84.json';
 import { BleWclStatusCard } from '../components/map/BleWclStatusCard';
@@ -49,7 +44,6 @@ const CATEGORY_COLORS: Record<CampusFeatureCategory, string> = {
 const BASE_LAYER_OPTIONS = MAP_STYLES.map((s) => ({ key: s.id, label: s.label, icon: s.icon }));
 
 export function MapSheetScreen() {
-  const scheme = useColorScheme();
   const { searchQuery, setSearchQuery, searchResults, isSearchFocused, setIsSearchFocused } = useSearchBar();
 
   const {
@@ -75,6 +69,7 @@ export function MapSheetScreen() {
   const levels = useMemo(() => getLevelKeys(campusData), []);
   const isLocateDisabled = positionStatus === 'loading';
   const baseLayerIcon = MAP_STYLES.find((s) => s.id === baseLayer)?.icon ?? '⚙';
+  const isDarkMap = useMemo(() => MAP_STYLES.find((s) => s.id === baseLayer)?.theme === 'dark', [baseLayer]);
 
   const handleLocate = useCallback(() => {
     setPendingFlyToFeatureId('__locate__');
@@ -130,6 +125,22 @@ export function MapSheetScreen() {
     });
     return unsubscribe;
   }, [navigation]);
+
+  const isFullDetent = useMemo(() => {
+    const maxDetent = bleCardVisible || settingsVisible ? 1 : 3;
+    return currentDetentIndex === maxDetent;
+  }, [currentDetentIndex, bleCardVisible, settingsVisible]);
+
+  const mergedBlockOpacity = useRef(new Animated.Value(1)).current;
+
+  // Fade mergedBlock in/out when transitioning to/from full detent
+  useEffect(() => {
+    Animated.timing(mergedBlockOpacity, {
+      toValue: isFullDetent ? 0 : 1,
+      duration: 250,
+      useNativeDriver: true,
+    }).start();
+  }, [isFullDetent, mergedBlockOpacity]);
 
   const currentPosition = useMemo(() => {
     if (!selectedFloorKey || !position || position.floorKey !== selectedFloorKey) {
@@ -196,95 +207,109 @@ export function MapSheetScreen() {
   const showBle = bleCardVisible;
   const showSettings = settingsVisible;
 
+  const mergedBlockChildren = (
+    <>
+      {/* Row 1: Bar buttons */}
+      <View style={styles.barRow}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={isLocateDisabled ? '현재 위치 찾기 불가' : '현재 위치 찾기'}
+          disabled={isLocateDisabled}
+          onPress={handleLocate}
+          style={({ pressed }) => [styles.barButton, pressed && { backgroundColor: isDarkMap ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}
+        >
+          <Text style={[styles.barButtonGlyph, { color: isDarkMap ? '#f1f5f9' : '#0f172a' }, isLocateDisabled && { color: isDarkMap ? '#64748b' : '#94a3b8', opacity: 0.55 }]}>⌖</Text>
+        </Pressable>
+
+        <View style={[styles.barDivider, { backgroundColor: isDarkMap ? 'rgba(255,255,255,0.12)' : '#e2e8f0' }]} />
+
+        {Platform.OS === 'ios' ? (
+          <>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={isContinuousScanning ? 'BLE WCL 실시간 스캔 중지' : 'BLE WCL 실시간 스캔 시작'}
+              onPress={handleBleScan}
+              style={({ pressed }) => [
+                styles.barButton,
+                pressed && { backgroundColor: isDarkMap ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' },
+                bleCardVisible && styles.barButtonActive,
+              ]}
+            >
+              <Text style={[styles.barButtonBleLabel, { color: isDarkMap ? '#60a5fa' : '#1d4ed8' }]}>BLE</Text>
+            </Pressable>
+            <View style={[styles.barDivider, { backgroundColor: isDarkMap ? 'rgba(255,255,255,0.12)' : '#e2e8f0' }]} />
+          </>
+        ) : null}
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="지도 설정"
+          onPress={handleToggleSettings}
+          style={({ pressed }) => [
+            styles.barButton,
+            pressed && { backgroundColor: isDarkMap ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' },
+            settingsVisible && styles.barButtonActive,
+          ]}
+        >
+          <Text style={[styles.barButtonGlyph, { color: isDarkMap ? '#f1f5f9' : '#0f172a' }]}>{baseLayerIcon}</Text>
+        </Pressable>
+
+        <View style={[styles.barDivider, { backgroundColor: isDarkMap ? 'rgba(255,255,255,0.12)' : '#e2e8f0' }]} />
+
+        <View style={styles.levelRow}>
+          {levels.map((level) => {
+            const selected = level === selectedLevel;
+            return (
+                <Pressable
+                  key={level}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${level}층 선택`}
+                  hitSlop={HIT_SLOP}
+                  onPress={() => setSelectedLevel(level)}
+                  style={[styles.levelButton, selected && styles.levelButtonSelected]}
+                >
+                  <Text style={[styles.levelButtonText, { color: isDarkMap ? '#f1f5f9' : '#0f172a' }, selected && { color: isDarkMap ? '#60a5fa' : '#1d4ed8' }]}>
+                    {level}F
+                  </Text>
+                </Pressable>
+            );
+          })}
+        </View>
+      </View>
+
+      {/* Row 2: Search bar */}
+      <View style={styles.searchRow}>
+        <SearchBar
+            containerStyle={{ flex: 1 }}
+            insets={{ top: 0, bottom: 0, left: 0, right: 0 }}
+            isSearchFocused={isSearchFocused}
+            onBlur={() => setIsSearchFocused(false)}
+            onClear={() => setSearchQuery('')}
+            onFocus={() => setIsSearchFocused(true)}
+            onResultSelect={handleSelectSearchResult}
+            onSearchChange={setSearchQuery}
+            searchQuery={searchQuery}
+            searchResults={searchResults}
+            selectedFeatureId={selectedFeatureId}
+          />
+      </View>
+    </>
+  );
+
   return (
     <View style={styles.container}>
       {/* Merged glass bar + search bar — one unified block at top of sheet */}
-      <GlassSurface variant="control" cornerRadius={0} style={styles.mergedBlock}>
-        {/* Row 1: Bar buttons */}
-        <View style={styles.barRow}>
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={isLocateDisabled ? '현재 위치 찾기 불가' : '현재 위치 찾기'}
-            disabled={isLocateDisabled}
-            onPress={handleLocate}
-            style={({ pressed }) => [styles.barButton, pressed && { backgroundColor: adaptivePressed(scheme) }]}
-          >
-            <Text style={[styles.barButtonGlyph, { color: adaptiveText(scheme) }, isLocateDisabled && { color: adaptiveTextTertiary(scheme), opacity: 0.55 }]}>⌖</Text>
-          </Pressable>
-
-          <View style={[styles.barDivider, { backgroundColor: adaptiveDivider(scheme) }]} />
-
-          {Platform.OS === 'ios' ? (
-            <>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={isContinuousScanning ? 'BLE WCL 실시간 스캔 중지' : 'BLE WCL 실시간 스캔 시작'}
-                onPress={handleBleScan}
-                style={({ pressed }) => [
-                  styles.barButton,
-                  pressed && { backgroundColor: adaptivePressed(scheme) },
-                  bleCardVisible && styles.barButtonActive,
-                ]}
-              >
-                <Text style={[styles.barButtonBleLabel, { color: adaptiveAccent(scheme) }]}>BLE</Text>
-              </Pressable>
-              <View style={[styles.barDivider, { backgroundColor: adaptiveDivider(scheme) }]} />
-            </>
-          ) : null}
-
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="지도 설정"
-            onPress={handleToggleSettings}
-            style={({ pressed }) => [
-              styles.barButton,
-              pressed && { backgroundColor: adaptivePressed(scheme) },
-              settingsVisible && styles.barButtonActive,
-            ]}
-          >
-            <Text style={[styles.barButtonGlyph, { color: adaptiveText(scheme) }]}>{baseLayerIcon}</Text>
-          </Pressable>
-
-          <View style={[styles.barDivider, { backgroundColor: adaptiveDivider(scheme) }]} />
-
-          <View style={styles.levelRow}>
-            {levels.map((level) => {
-              const selected = level === selectedLevel;
-              return (
-                  <Pressable
-                    key={level}
-                    accessibilityRole="button"
-                    accessibilityLabel={`${level}층 선택`}
-                    hitSlop={HIT_SLOP}
-                    onPress={() => setSelectedLevel(level)}
-                    style={[styles.levelButton, selected && styles.levelButtonSelected]}
-                  >
-                    <Text style={[styles.levelButtonText, { color: adaptiveText(scheme) }, selected && { color: adaptiveAccent(scheme) }]}>
-                      {level}F
-                    </Text>
-                  </Pressable>
-              );
-            })}
+      <Animated.View style={{ opacity: mergedBlockOpacity }}>
+        {isFullDetent ? (
+          <View style={styles.mergedBlock}>
+            {mergedBlockChildren}
           </View>
-        </View>
-
-        {/* Row 2: Search bar */}
-        <View style={styles.searchRow}>
-          <SearchBar
-              containerStyle={{ flex: 1 }}
-              insets={{ top: 0, bottom: 0, left: 0, right: 0 }}
-              isSearchFocused={isSearchFocused}
-              onBlur={() => setIsSearchFocused(false)}
-              onClear={() => setSearchQuery('')}
-              onFocus={() => setIsSearchFocused(true)}
-              onResultSelect={handleSelectSearchResult}
-              onSearchChange={setSearchQuery}
-              searchQuery={searchQuery}
-              searchResults={searchResults}
-              selectedFeatureId={selectedFeatureId}
-            />
-        </View>
-      </GlassSurface>
+        ) : (
+          <GlassSurface variant="control" cornerRadius={0} style={styles.mergedBlock}>
+            {mergedBlockChildren}
+          </GlassSurface>
+        )}
+      </Animated.View>
 
       <ScrollView
         keyboardShouldPersistTaps="handled"
@@ -302,17 +327,17 @@ export function MapSheetScreen() {
                 : bleStatus === 'success' && bleResult
                   ? `BLE WCL 위치 확인됨 · ±${bleResult.accuracyMeters.toFixed(1)}m · 신뢰도 ${(bleResult.confidence * 100).toFixed(0)}%`
                   : null;
-          return msg ? <Text style={[styles.helperText, { color: adaptiveTextSecondary(scheme) }]}>{msg}</Text> : null;
+          return msg ? <Text style={[styles.helperText, { color: isDarkMap ? '#94a3b8' : '#64748b' }]}>{msg}</Text> : null;
         })()}
 
         {/* Empty state — shown when BLE and settings are both closed */}
         {!showBle && !showSettings && (
           <View style={styles.emptyState}>
-            <Text style={[styles.emptyStateTitle, { color: adaptiveText(scheme) }]}>BSSM 학교 지도</Text>
-            <Text style={[styles.emptyStateText, { color: adaptiveTextBody(scheme) }]}>
+            <Text style={[styles.emptyStateTitle, { color: isDarkMap ? '#f1f5f9' : '#0f172a' }]}>BSSM 학교 지도</Text>
+            <Text style={[styles.emptyStateText, { color: isDarkMap ? '#cbd5e1' : '#475569' }]}>
               검색하거나 지도에서 교실을 탭하여 정보를 확인하세요.
             </Text>
-            <Text style={[styles.emptyStateHint, { color: adaptiveTextTertiary(scheme) }]}>
+            <Text style={[styles.emptyStateHint, { color: isDarkMap ? '#64748b' : '#94a3b8' }]}>
               ⌖ 현재 위치 찾기 · BLE 실내 측위 · 지도 스타일 변경
             </Text>
           </View>
@@ -321,9 +346,9 @@ export function MapSheetScreen() {
         {/* Settings Panel */}
         {showSettings && (
           <GlassSurface variant="modal" cornerRadius={20} style={styles.settingsCard}>
-            <Text style={[styles.settingsTitle, { color: adaptiveText(scheme) }]}>지도 설정</Text>
+            <Text style={[styles.settingsTitle, { color: isDarkMap ? '#f1f5f9' : '#0f172a' }]}>지도 설정</Text>
 
-            <Text style={[styles.settingsSectionTitle, { color: adaptiveTextSecondary(scheme) }]}>배경 지도</Text>
+            <Text style={[styles.settingsSectionTitle, { color: isDarkMap ? '#94a3b8' : '#64748b' }]}>배경 지도</Text>
             <View style={styles.baseLayerRow}>
               {BASE_LAYER_OPTIONS.map((opt) => {
                 const active = baseLayer === opt.key;
@@ -333,18 +358,18 @@ export function MapSheetScreen() {
                     onPress={() => setBaseLayer(opt.key)}
                     style={[
                       styles.baseLayerButton,
-                      { backgroundColor: adaptiveChipBg(scheme), borderColor: adaptiveDivider(scheme) },
-                      active && { backgroundColor: adaptiveSelectionBg(scheme), borderColor: adaptiveSelectionBorder(scheme) },
+                      { backgroundColor: isDarkMap ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', borderColor: isDarkMap ? 'rgba(255,255,255,0.12)' : '#e2e8f0' },
+                      active && { backgroundColor: isDarkMap ? 'rgba(59,130,246,0.25)' : 'rgba(59,130,246,0.08)', borderColor: isDarkMap ? 'rgba(59,130,246,0.4)' : 'rgba(59,130,246,0.2)' },
                     ]}
                   >
                     <Text style={styles.baseLayerIcon}>{opt.icon}</Text>
-                    <Text style={[styles.baseLayerLabel, { color: adaptiveTextSecondary(scheme) }, active && { color: adaptiveAccent(scheme) }]}>{opt.label}</Text>
+                    <Text style={[styles.baseLayerLabel, { color: isDarkMap ? '#94a3b8' : '#64748b' }, active && { color: isDarkMap ? '#60a5fa' : '#1d4ed8' }]}>{opt.label}</Text>
                   </Pressable>
                 );
               })}
             </View>
 
-            <Text style={[styles.settingsSectionTitle, { color: adaptiveTextSecondary(scheme) }]}>카테고리 표시</Text>
+            <Text style={[styles.settingsSectionTitle, { color: isDarkMap ? '#94a3b8' : '#64748b' }]}>카테고리 표시</Text>
             <View style={styles.categoryGrid}>
               {allCategories().map((cat) => {
                 const hidden = hiddenCategories.has(cat);
@@ -355,11 +380,11 @@ export function MapSheetScreen() {
                     onPress={() => toggleCategory(cat)}
                     style={[
                       styles.categoryChip,
-                      { backgroundColor: adaptiveChipBg(scheme), borderColor: adaptiveDivider(scheme), borderLeftColor: CATEGORY_COLORS[cat] },
-                      hidden && { backgroundColor: adaptiveChipHiddenBg(scheme), opacity: 0.55 },
+                      { backgroundColor: isDarkMap ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', borderColor: isDarkMap ? 'rgba(255,255,255,0.12)' : '#e2e8f0', borderLeftColor: CATEGORY_COLORS[cat] },
+                      hidden && { backgroundColor: isDarkMap ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)', opacity: 0.55 },
                     ]}
                   >
-                    <Text style={[styles.categoryChipText, { color: adaptiveText(scheme) }, hidden && { color: adaptiveTextTertiary(scheme) }]}>
+                    <Text style={[styles.categoryChipText, { color: isDarkMap ? '#f1f5f9' : '#0f172a' }, hidden && { color: isDarkMap ? '#64748b' : '#94a3b8' }]}>
                       {hidden ? '✕' : '✓'} {CATEGORY_LABELS[cat]}
                     </Text>
                   </Pressable>
