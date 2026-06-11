@@ -248,6 +248,13 @@ export function MapScreen({ navigation }: MapScreenProps) {
 
   useEffect(() => clearPendingBleFly, [clearPendingBleFly]);
 
+  useEffect(() => {
+    if (!fusionState?.inferredZone?.isInsideKnownZone) return;
+    const zoneFloor = parseInt(fusionState.inferredZone.floorKey, 10);
+    if (isNaN(zoneFloor) || zoneFloor === selectedLevel) return;
+    setSelectedLevel(zoneFloor);
+  }, [fusionState, selectedLevel, setSelectedLevel]);
+
   const handleLocate = useCallback(async () => {
     if (userCoordinates) {
       campusMapRef.current?.flyToUser();
