@@ -1,12 +1,12 @@
 import { useMemo, useRef, useState } from 'react'
 import type { LayoutChangeEvent, StyleProp, ViewStyle } from 'react-native'
-import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native'
+import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, useColorScheme, useWindowDimensions, View } from 'react-native'
 import type { EdgeInsets } from 'react-native-safe-area-context'
 
-import { BORDER_DEFAULT, PRIMARY_BLUE, TEXT_DARK, TEXT_LIGHT } from '../../theme'
+import { adaptiveAccent, adaptiveDivider, adaptiveRowBg, adaptiveSelectionBg, adaptiveSelectionBorder, adaptiveText, adaptiveTextBody, adaptiveTextPlaceholder, adaptiveTextSecondary, adaptiveTextTertiary } from '../../theme'
 import type { CampusFeature } from '../../types/geojson'
 import { FeedbackStateCard } from '../feedback/FeedbackStateCard'
-import { GlassSurface } from '../glass'
+import { GlassSurface } from '../glass' // only for results dropdown (no-double-glass respected)
 
 const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 }
 
@@ -37,6 +37,7 @@ export function SearchBar({
   selectedFeatureId,
   containerStyle,
 }: SearchBarProps) {
+  const scheme = useColorScheme()
   const [fieldHeight, setFieldHeight] = useState(0)
   const inputRef = useRef<TextInput>(null)
   const { width: windowWidth } = useWindowDimensions()
@@ -55,44 +56,46 @@ export function SearchBar({
   return (
     <View style={[styles.container, containerStyle]} pointerEvents="box-none">
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.kavWrapper}>
-        <GlassSurface variant="search" cornerRadius={999} style={styles.searchFieldGlass}>
-          <View onLayout={handleFieldLayout} style={styles.searchField}>
-            <Text style={styles.searchIcon}>⌕</Text>
-            <TextInput
-              autoCapitalize="none"
-              autoCorrect={false}
-              blurOnSubmit
-              clearButtonMode="never"
-              onBlur={onBlur}
-              onFocus={onFocus}
-              onSubmitEditing={() => Keyboard.dismiss()}
-              placeholder="강의실, 교무실, 기타 장소 검색"
-              placeholderTextColor={TEXT_LIGHT}
-              ref={inputRef}
-              returnKeyType="search"
-              selectionColor={PRIMARY_BLUE}
-              style={styles.searchInput}
-              value={searchQuery}
-              onChangeText={onSearchChange}
-            />
+        <View onLayout={handleFieldLayout} style={styles.searchField}>
+          <Text style={[styles.searchIcon, { color: adaptiveTextTertiary(scheme) }]}>⌕</Text>
+          <TextInput
+            autoCapitalize="none"
+            autoCorrect={false}
+            blurOnSubmit
+            clearButtonMode="never"
+            onBlur={onBlur}
+            onFocus={onFocus}
+            onSubmitEditing={() => Keyboard.dismiss()}
+            placeholder="강의실, 교무실, 기타 장소 검색"
+            placeholderTextColor={adaptiveTextPlaceholder(scheme)}
+            ref={inputRef}
+            returnKeyType="search"
+            selectionColor={adaptiveAccent(scheme)}
+            style={[styles.searchInput, { color: adaptiveText(scheme) }]}
+            value={searchQuery}
+            onChangeText={onSearchChange}
+          />
           {searchQuery.length > 0 ? (
             <Pressable
               accessibilityLabel="검색어 지우기"
               accessibilityRole="button"
               hitSlop={HIT_SLOP}
               onPress={onClear}
-              style={({ pressed }) => [styles.clearButton, pressed && styles.clearButtonPressed]}
+              style={({ pressed }) => [
+                styles.clearButton,
+                { backgroundColor: scheme === 'dark' ? 'rgba(96, 165, 250, 0.25)' : 'rgba(147, 197, 253, 0.3)' },
+                pressed && styles.clearButtonPressed,
+              ]}
             >
-              <Text style={styles.clearButtonText}>×</Text>
+              <Text style={[styles.clearButtonText, { color: adaptiveAccent(scheme) }]}>×</Text>
             </Pressable>
           ) : null}
         </View>
-        </GlassSurface>
       </KeyboardAvoidingView>
 
       {showResults || showEmpty ? (
         <GlassSurface variant="search" cornerRadius={20} style={[styles.resultsCard, { top: fieldHeight + 8, width: dropdownWidth }]}>
-          <Text style={styles.resultsTitle}>검색 결과</Text>
+          <Text style={[styles.resultsTitle, { color: adaptiveText(scheme) }]}>검색 결과</Text>
           {showResults ? (
             <ScrollView
               keyboardShouldPersistTaps="handled"
@@ -111,14 +114,15 @@ export function SearchBar({
                     onPress={() => onResultSelect(featureKey)}
                     style={({ pressed }) => [
                       styles.resultRow,
-                      selected && styles.resultRowSelected,
+                      { backgroundColor: adaptiveRowBg(scheme), borderColor: adaptiveDivider(scheme) },
+                      selected && { backgroundColor: adaptiveSelectionBg(scheme), borderColor: adaptiveSelectionBorder(scheme) },
                       pressed && styles.resultRowPressed,
                     ]}
                   >
-                    <Text style={[styles.resultName, selected && styles.resultNameSelected]} numberOfLines={1}>
+                    <Text style={[styles.resultName, { color: adaptiveText(scheme) }, selected && { color: adaptiveAccent(scheme) }]} numberOfLines={1}>
                       {feature.properties.name_ko || feature.properties.name}
                     </Text>
-                    <Text style={[styles.resultMeta, selected && styles.resultMetaSelected]}>
+                    <Text style={[styles.resultMeta, { color: adaptiveTextSecondary(scheme) }, selected && { color: adaptiveAccent(scheme) }]}>
                       {selected ? '선택됨' : `L${feature.properties.level} · ${feature.properties.category}`}
                     </Text>
                   </Pressable>
@@ -136,24 +140,19 @@ export function SearchBar({
 
 const styles = StyleSheet.create({
   container: {},
-  searchFieldGlass: {
-    flex: 1,
-  },
   searchField: {
     alignItems: 'center',
     borderRadius: 999,
     flexDirection: 'row',
     gap: 8,
-    minHeight: 52,
-    paddingHorizontal: 14,
+    minHeight: 40,
+    paddingHorizontal: 10,
   },
   searchIcon: {
-    color: TEXT_LIGHT,
     fontSize: 16,
     fontWeight: '800',
   },
   searchInput: {
-    color: TEXT_DARK,
     flex: 1,
     fontSize: 15,
     fontWeight: '600',
@@ -161,7 +160,6 @@ const styles = StyleSheet.create({
   },
   clearButton: {
     alignItems: 'center',
-    backgroundColor: '#eff6ff',
     borderRadius: 12,
     height: 28,
     justifyContent: 'center',
@@ -171,14 +169,11 @@ const styles = StyleSheet.create({
     opacity: 0.86,
   },
   clearButtonText: {
-    color: PRIMARY_BLUE,
     fontSize: 18,
     fontWeight: '800',
     lineHeight: 18,
   },
-  kavWrapper: {
-    flex: 1,
-  },
+  kavWrapper: {},
   resultsCard: {
     borderRadius: 20,
     gap: 8,
@@ -190,7 +185,6 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   resultsTitle: {
-    color: TEXT_DARK,
     fontSize: 13,
     fontWeight: '800',
   },
@@ -198,8 +192,6 @@ const styles = StyleSheet.create({
     flexGrow: 0,
   },
   resultRow: {
-    backgroundColor: '#f8fbff',
-    borderColor: BORDER_DEFAULT,
     borderRadius: 14,
     borderWidth: 1,
     gap: 2,
@@ -207,27 +199,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 10,
   },
-  resultRowSelected: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#bfdbfe',
-  },
   resultRowPressed: {
     opacity: 0.88,
   },
   resultName: {
-    color: TEXT_DARK,
     fontSize: 14,
     fontWeight: '700',
   },
-  resultNameSelected: {
-    color: PRIMARY_BLUE,
-  },
   resultMeta: {
-    color: '#64748b',
     fontSize: 11,
     fontWeight: '600',
-  },
-  resultMetaSelected: {
-    color: PRIMARY_BLUE,
   },
 })

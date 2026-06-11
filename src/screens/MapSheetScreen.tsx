@@ -1,9 +1,11 @@
-import { useCallback, useMemo } from 'react';
-import { Keyboard, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
 
-import { BG_NEAR_WHITE, BORDER_DEFAULT, PRIMARY_BLUE, TEXT_DARK, TEXT_LIGHT } from '../theme';
+import {
+  adaptiveAccent, adaptiveChipBg, adaptiveChipHiddenBg, adaptiveDivider, adaptivePressed,
+  adaptiveSelectionBg, adaptiveSelectionBorder, adaptiveText, adaptiveTextBody, adaptiveTextSecondary, adaptiveTextTertiary,
+} from '../theme';
 import { MAP_STYLES } from '../constants/mapStyles';
-import { bssmFloorMap } from '../constants/bssmFloorMap';
 import campusDataUntyped from '../data/campus-wgs84.json';
 import { BleWclStatusCard } from '../components/map/BleWclStatusCard';
 import { GlassSurface } from '../components/glass';
@@ -13,9 +15,10 @@ import { useMapStore, type CampusFeatureCategory } from '../store/mapStore';
 import { usePositionStore } from '../store/positionStore';
 import { useBleLocationStore } from '../store/bleLocationStore';
 import type { CampusGeoJSON } from '../types/geojson';
-import type { Floor, FloorElement } from '../types/floorMap';
-import { getFeatureById, getFeatureCentroid } from '../utils/geoJsonHelpers';
-import { getSelectedFloor } from '../utils/floorMap';
+import { getFeatureById, getLevelKeys } from '../utils/geoJsonHelpers';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { RootStackParamList } from '../navigation/types';
 
 const campusData = campusDataUntyped as unknown as CampusGeoJSON;
 
@@ -46,6 +49,7 @@ const CATEGORY_COLORS: Record<CampusFeatureCategory, string> = {
 const BASE_LAYER_OPTIONS = MAP_STYLES.map((s) => ({ key: s.id, label: s.label, icon: s.icon }));
 
 export function MapSheetScreen() {
+  const scheme = useColorScheme();
   const { searchQuery, setSearchQuery, searchResults, isSearchFocused, setIsSearchFocused } = useSearchBar();
 
   const {
@@ -67,6 +71,14 @@ export function MapSheetScreen() {
 
   const allCategories = useMapStore((s) => s.allCategories);
   const { position, status: positionStatus, error: positionError } = usePositionStore();
+
+  const levels = useMemo(() => getLevelKeys(campusData), []);
+  const isLocateDisabled = positionStatus === 'loading';
+  const baseLayerIcon = MAP_STYLES.find((s) => s.id === baseLayer)?.icon ?? '⚙';
+
+  const handleLocate = useCallback(() => {
+    setPendingFlyToFeatureId('__locate__');
+  }, [setPendingFlyToFeatureId]);
 
   const {
     status: bleStatus,
@@ -90,10 +102,34 @@ export function MapSheetScreen() {
     currentHeading,
   } = useBleLocationStore();
 
-  const selectedFloor = useMemo(
-    () => getSelectedFloor(bssmFloorMap, selectedFloorKey),
-    [selectedFloorKey],
-  );
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'MapSheet'>>();
+  const [currentDetentIndex, setCurrentDetentIndex] = useState(1);
+
+  // Sync sheetAllowedDetents with BLE/settings visibility.
+  // When BLE or settings is open, remove both collapsed detents (0.06, 0.12) so iOS
+  // auto-snaps to medium (0.5). Restore all detents when both are hidden.
+  // Always set sheetLargestUndimmedDetentIndex to the last index to prevent out-of-bounds crash.
+  useEffect(() => {
+    if (bleCardVisible || settingsVisible) {
+      navigation.setOptions({
+        sheetAllowedDetents: [0.5, 1.0],
+        sheetLargestUndimmedDetentIndex: 1,
+      });
+    } else {
+      navigation.setOptions({
+        sheetAllowedDetents: [0.06, 0.12, 0.5, 1.0],
+        sheetLargestUndimmedDetentIndex: 3,
+      });
+    }
+  }, [bleCardVisible, settingsVisible, navigation]);
+
+  // Track sheet detent position for search bar visibility and dynamic corner radius
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('sheetDetentChange', (e) => {
+      setCurrentDetentIndex(e.data.index);
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   const currentPosition = useMemo(() => {
     if (!selectedFloorKey || !position || position.floorKey !== selectedFloorKey) {
@@ -103,35 +139,6 @@ export function MapSheetScreen() {
   }, [position, selectedFloorKey]);
 
   const statusForSelectedFloor = currentPosition !== null || positionStatus !== 'success' ? positionStatus : 'idle';
-
-  const selectedFeature = useMemo(() => {
-    if (!selectedFeatureId) return null;
-    return getFeatureById(campusData, selectedFeatureId) ?? null;
-  }, [selectedFeatureId]);
-
-  const bottomSheetFloor = useMemo<Floor | undefined>(() => {
-    if (!selectedFeature) return undefined;
-    return {
-      key: String(selectedFeature.properties.level),
-      label: `${selectedFeature.properties.level}F`,
-      elements: [],
-    } as Floor;
-  }, [selectedFeature]);
-
-  const bottomSheetRoom = useMemo<FloorElement | null>(() => {
-    if (!selectedFeature) return null;
-    const centroid = getFeatureCentroid(selectedFeature);
-    return {
-      id: Number(selectedFeature.id) || 0,
-      name: selectedFeature.properties.name_ko || selectedFeature.properties.name,
-      x: 0, y: 0, width: 0, height: 0,
-      interactive: selectedFeature.properties.interactive,
-      _geojsonMeta: {
-        category: selectedFeature.properties.category,
-        centroid: `[${centroid[0].toFixed(5)}, ${centroid[1].toFixed(5)}]`,
-      },
-    } as FloorElement & { _geojsonMeta?: { category: string; centroid: string } };
-  }, [selectedFeature]);
 
   const handleSelectSearchResult = useCallback(
     (featureId: string) => {
@@ -154,46 +161,136 @@ export function MapSheetScreen() {
       dismissCard();
       return;
     }
+    // Mutual exclusion: close settings when opening BLE
+    setSettingsVisible(false);
     setBleCardVisible(true);
 
     if (!isContinuousScanning) {
       startContinuousScan();
       startMotionTracking();
     }
-  }, [bleCardVisible, setBleCardVisible, dismissCard, isContinuousScanning, startContinuousScan, startMotionTracking]);
+  }, [bleCardVisible, setBleCardVisible, dismissCard, isContinuousScanning, startContinuousScan, startMotionTracking, setSettingsVisible]);
 
-  const handleDismissSettings = useCallback(() => {
-    setSettingsVisible(false);
-  }, [setSettingsVisible]);
+  const handleToggleSettings = useCallback(() => {
+    if (settingsVisible) {
+      setSettingsVisible(false);
+    } else {
+      // Mutual exclusion: close BLE when opening settings
+      setBleCardVisible(false);
+      setSettingsVisible(true);
+    }
+  }, [settingsVisible, setSettingsVisible, setBleCardVisible]);
 
-  const showPlaceDetail = selectedFeatureId !== null && selectedFeature !== null;
+  const isFocused = useIsFocused();
+
+  // Navigate to PlaceDetailSheet when a feature is selected
+  useEffect(() => {
+    if (selectedFeatureId && isFocused) {
+      // Close BLE/settings when showing place detail
+      setBleCardVisible(false);
+      setSettingsVisible(false);
+      navigation.navigate('PlaceDetailSheet');
+    }
+  }, [selectedFeatureId, isFocused, navigation, setBleCardVisible, setSettingsVisible]);
+
   const showBle = bleCardVisible;
   const showSettings = settingsVisible;
 
   return (
     <View style={styles.container}>
+      {/* Merged glass bar + search bar — one unified block at top of sheet */}
+      <GlassSurface variant="control" cornerRadius={0} style={styles.mergedBlock}>
+        {/* Row 1: Bar buttons */}
+        <View style={styles.barRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={isLocateDisabled ? '현재 위치 찾기 불가' : '현재 위치 찾기'}
+            disabled={isLocateDisabled}
+            onPress={handleLocate}
+            style={({ pressed }) => [styles.barButton, pressed && { backgroundColor: adaptivePressed(scheme) }]}
+          >
+            <Text style={[styles.barButtonGlyph, { color: adaptiveText(scheme) }, isLocateDisabled && { color: adaptiveTextTertiary(scheme), opacity: 0.55 }]}>⌖</Text>
+          </Pressable>
+
+          <View style={[styles.barDivider, { backgroundColor: adaptiveDivider(scheme) }]} />
+
+          {Platform.OS === 'ios' ? (
+            <>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={isContinuousScanning ? 'BLE WCL 실시간 스캔 중지' : 'BLE WCL 실시간 스캔 시작'}
+                onPress={handleBleScan}
+                style={({ pressed }) => [
+                  styles.barButton,
+                  pressed && { backgroundColor: adaptivePressed(scheme) },
+                  bleCardVisible && styles.barButtonActive,
+                ]}
+              >
+                <Text style={[styles.barButtonBleLabel, { color: adaptiveAccent(scheme) }]}>BLE</Text>
+              </Pressable>
+              <View style={[styles.barDivider, { backgroundColor: adaptiveDivider(scheme) }]} />
+            </>
+          ) : null}
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="지도 설정"
+            onPress={handleToggleSettings}
+            style={({ pressed }) => [
+              styles.barButton,
+              pressed && { backgroundColor: adaptivePressed(scheme) },
+              settingsVisible && styles.barButtonActive,
+            ]}
+          >
+            <Text style={[styles.barButtonGlyph, { color: adaptiveText(scheme) }]}>{baseLayerIcon}</Text>
+          </Pressable>
+
+          <View style={[styles.barDivider, { backgroundColor: adaptiveDivider(scheme) }]} />
+
+          <View style={styles.levelRow}>
+            {levels.map((level) => {
+              const selected = level === selectedLevel;
+              return (
+                  <Pressable
+                    key={level}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${level}층 선택`}
+                    hitSlop={HIT_SLOP}
+                    onPress={() => setSelectedLevel(level)}
+                    style={[styles.levelButton, selected && styles.levelButtonSelected]}
+                  >
+                    <Text style={[styles.levelButtonText, { color: adaptiveText(scheme) }, selected && { color: adaptiveAccent(scheme) }]}>
+                      {level}F
+                    </Text>
+                  </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* Row 2: Search bar */}
+        <View style={styles.searchRow}>
+          <SearchBar
+              containerStyle={{ flex: 1 }}
+              insets={{ top: 0, bottom: 0, left: 0, right: 0 }}
+              isSearchFocused={isSearchFocused}
+              onBlur={() => setIsSearchFocused(false)}
+              onClear={() => setSearchQuery('')}
+              onFocus={() => setIsSearchFocused(true)}
+              onResultSelect={handleSelectSearchResult}
+              onSearchChange={setSearchQuery}
+              searchQuery={searchQuery}
+              searchResults={searchResults}
+              selectedFeatureId={selectedFeatureId}
+            />
+        </View>
+      </GlassSurface>
+
       <ScrollView
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Search Bar */}
-        <View style={styles.searchRow}>
-          <SearchBar
-            containerStyle={{ flex: 1 }}
-            insets={{ top: 0, bottom: 0, left: 0, right: 0 }}
-            isSearchFocused={isSearchFocused}
-            onBlur={() => setIsSearchFocused(false)}
-            onClear={() => setSearchQuery('')}
-            onFocus={() => setIsSearchFocused(true)}
-            onResultSelect={handleSelectSearchResult}
-            onSearchChange={setSearchQuery}
-            searchQuery={searchQuery}
-            searchResults={searchResults}
-            selectedFeatureId={selectedFeatureId}
-          />
-        </View>
-
         {/* Position status helper text */}
         {(() => {
           const msg = statusForSelectedFloor === 'loading'
@@ -205,15 +302,28 @@ export function MapSheetScreen() {
                 : bleStatus === 'success' && bleResult
                   ? `BLE WCL 위치 확인됨 · ±${bleResult.accuracyMeters.toFixed(1)}m · 신뢰도 ${(bleResult.confidence * 100).toFixed(0)}%`
                   : null;
-          return msg ? <Text style={styles.helperText}>{msg}</Text> : null;
+          return msg ? <Text style={[styles.helperText, { color: adaptiveTextSecondary(scheme) }]}>{msg}</Text> : null;
         })()}
+
+        {/* Empty state — shown when BLE and settings are both closed */}
+        {!showBle && !showSettings && (
+          <View style={styles.emptyState}>
+            <Text style={[styles.emptyStateTitle, { color: adaptiveText(scheme) }]}>BSSM 학교 지도</Text>
+            <Text style={[styles.emptyStateText, { color: adaptiveTextBody(scheme) }]}>
+              검색하거나 지도에서 교실을 탭하여 정보를 확인하세요.
+            </Text>
+            <Text style={[styles.emptyStateHint, { color: adaptiveTextTertiary(scheme) }]}>
+              ⌖ 현재 위치 찾기 · BLE 실내 측위 · 지도 스타일 변경
+            </Text>
+          </View>
+        )}
 
         {/* Settings Panel */}
         {showSettings && (
           <GlassSurface variant="modal" cornerRadius={20} style={styles.settingsCard}>
-            <Text style={styles.settingsTitle}>지도 설정</Text>
+            <Text style={[styles.settingsTitle, { color: adaptiveText(scheme) }]}>지도 설정</Text>
 
-            <Text style={styles.settingsSectionTitle}>배경 지도</Text>
+            <Text style={[styles.settingsSectionTitle, { color: adaptiveTextSecondary(scheme) }]}>배경 지도</Text>
             <View style={styles.baseLayerRow}>
               {BASE_LAYER_OPTIONS.map((opt) => {
                 const active = baseLayer === opt.key;
@@ -221,16 +331,20 @@ export function MapSheetScreen() {
                   <Pressable
                     key={opt.key}
                     onPress={() => setBaseLayer(opt.key)}
-                    style={[styles.baseLayerButton, active && styles.baseLayerButtonActive]}
+                    style={[
+                      styles.baseLayerButton,
+                      { backgroundColor: adaptiveChipBg(scheme), borderColor: adaptiveDivider(scheme) },
+                      active && { backgroundColor: adaptiveSelectionBg(scheme), borderColor: adaptiveSelectionBorder(scheme) },
+                    ]}
                   >
                     <Text style={styles.baseLayerIcon}>{opt.icon}</Text>
-                    <Text style={[styles.baseLayerLabel, active && styles.baseLayerLabelActive]}>{opt.label}</Text>
+                    <Text style={[styles.baseLayerLabel, { color: adaptiveTextSecondary(scheme) }, active && { color: adaptiveAccent(scheme) }]}>{opt.label}</Text>
                   </Pressable>
                 );
               })}
             </View>
 
-            <Text style={styles.settingsSectionTitle}>카테고리 표시</Text>
+            <Text style={[styles.settingsSectionTitle, { color: adaptiveTextSecondary(scheme) }]}>카테고리 표시</Text>
             <View style={styles.categoryGrid}>
               {allCategories().map((cat) => {
                 const hidden = hiddenCategories.has(cat);
@@ -239,9 +353,13 @@ export function MapSheetScreen() {
                     key={cat}
                     hitSlop={HIT_SLOP}
                     onPress={() => toggleCategory(cat)}
-                    style={[styles.categoryChip, { borderLeftColor: CATEGORY_COLORS[cat] }, hidden && styles.categoryChipHidden]}
+                    style={[
+                      styles.categoryChip,
+                      { backgroundColor: adaptiveChipBg(scheme), borderColor: adaptiveDivider(scheme), borderLeftColor: CATEGORY_COLORS[cat] },
+                      hidden && { backgroundColor: adaptiveChipHiddenBg(scheme), opacity: 0.55 },
+                    ]}
                   >
-                    <Text style={[styles.categoryChipText, hidden && styles.categoryChipTextHidden]}>
+                    <Text style={[styles.categoryChipText, { color: adaptiveText(scheme) }, hidden && { color: adaptiveTextTertiary(scheme) }]}>
                       {hidden ? '✕' : '✓'} {CATEGORY_LABELS[cat]}
                     </Text>
                   </Pressable>
@@ -249,61 +367,6 @@ export function MapSheetScreen() {
               })}
             </View>
 
-            <Pressable
-              hitSlop={HIT_SLOP}
-              onPress={handleDismissSettings}
-              style={styles.settingsCloseButton}
-            >
-              <Text style={styles.settingsCloseText}>닫기</Text>
-            </Pressable>
-          </GlassSurface>
-        )}
-
-        {/* Place Detail Card */}
-        {showPlaceDetail && !showSettings && (
-          <GlassSurface variant="sheet" cornerRadius={20} style={styles.placeDetailCard}>
-            <View style={styles.placeDetailHeader}>
-              <View style={styles.placeDetailCopy}>
-                <Text style={styles.placeDetailTitle} numberOfLines={1}>
-                  {bottomSheetRoom?.name?.trim() || (bottomSheetFloor ? `${bottomSheetFloor.label} 정보` : '공간 정보')}
-                </Text>
-                <Text style={styles.placeDetailSummary} numberOfLines={2}>
-                  {bottomSheetRoom
-                    ? `층 ${bottomSheetFloor?.label ?? '알 수 없음'} · 영역과 좌표를 아래에서 확인할 수 있습니다.`
-                    : '교실을 탭하면 공간 정보가 아래에 표시됩니다.'}
-                </Text>
-              </View>
-              {bottomSheetRoom && bottomSheetFloor && (
-                <View style={styles.floorPill}>
-                  <Text style={styles.floorPillText}>{bottomSheetFloor.label}</Text>
-                </View>
-              )}
-            </View>
-
-            {bottomSheetRoom && (
-              <View style={styles.placeDetailSection}>
-                <View style={styles.detailRow}>
-                  <Text style={styles.detailLabel}>층</Text>
-                  <Text style={styles.detailValue}>{bottomSheetFloor?.label ?? '알 수 없음'}</Text>
-                </View>
-                {(bottomSheetRoom as any)._geojsonMeta && (
-                  <>
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>종류</Text>
-                      <Text style={styles.detailValue}>{(bottomSheetRoom as any)._geojsonMeta.category}</Text>
-                    </View>
-                    <View style={styles.detailRow}>
-                      <Text style={styles.detailLabel}>좌표</Text>
-                      <Text style={styles.detailValue}>{(bottomSheetRoom as any)._geojsonMeta.centroid}</Text>
-                    </View>
-                  </>
-                )}
-              </View>
-            )}
-
-            {!bottomSheetRoom && (
-              <Text style={styles.emptyText}>교실을 선택하면 층 정보와 영역 좌표가 표시됩니다.</Text>
-            )}
           </GlassSurface>
         )}
 
@@ -331,18 +394,6 @@ export function MapSheetScreen() {
           />
         )}
 
-        {/* Empty state when nothing active */}
-        {!showPlaceDetail && !showBle && !showSettings && (
-          <View style={styles.emptyState}>
-            <Text style={styles.emptyStateTitle}>BSSM 학교 지도</Text>
-            <Text style={styles.emptyStateText}>
-              검색하거나 지도에서 교실을 탭하여 정보를 확인하세요.
-            </Text>
-            <Text style={styles.emptyStateHint}>
-              ⌖ 현재 위치 찾기 · BLE 실내 측위 · 지도 스타일 변경
-            </Text>
-          </View>
-        )}
       </ScrollView>
     </View>
   );
@@ -352,6 +403,65 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'transparent',
+    overflow: 'hidden',
+  },
+  mergedBlock: {
+    overflow: 'hidden',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    marginTop: 0,
+    marginBottom: 8,
+    gap: 4,
+    borderCurve: 'continuous',
+  },
+  barRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 2,
+  },
+  barButton: {
+    alignItems: 'center',
+    borderRadius: 16,
+    height: 40,
+    justifyContent: 'center',
+    minWidth: 40,
+    paddingHorizontal: 6,
+  },
+  barButtonActive: {
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+  },
+  barButtonGlyph: {
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  barButtonBleLabel: {
+    fontSize: 12,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+  },
+  barDivider: {
+    height: 24,
+    width: 1,
+  },
+  levelRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 2,
+  },
+  levelButton: {
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    borderRadius: 999,
+    minWidth: 36,
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+  },
+  levelButtonSelected: {
+    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+  },
+  levelButtonText: {
+    fontSize: 12,
+    fontWeight: '800',
   },
   scrollContent: {
     gap: 12,
@@ -360,11 +470,13 @@ const styles = StyleSheet.create({
   searchRow: {
     flexDirection: 'row',
     zIndex: 20,
-    paddingHorizontal: 4,
-    paddingTop: 4,
+  },
+  searchRowCollapsed: {
+    height: 0,
+    overflow: 'hidden',
+    opacity: 0,
   },
   helperText: {
-    color: '#64748b',
     fontSize: 12,
     lineHeight: 16,
     paddingHorizontal: 4,
@@ -375,12 +487,10 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   settingsTitle: {
-    color: TEXT_DARK,
     fontSize: 18,
     fontWeight: '800',
   },
   settingsSectionTitle: {
-    color: '#64748b',
     fontSize: 12,
     fontWeight: '700',
     letterSpacing: 0.3,
@@ -391,9 +501,6 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   baseLayerButton: {
-    alignItems: 'center',
-    backgroundColor: BG_NEAR_WHITE,
-    borderColor: BORDER_DEFAULT,
     borderRadius: 14,
     borderWidth: 1,
     gap: 4,
@@ -401,20 +508,12 @@ const styles = StyleSheet.create({
     minWidth: 80,
     paddingHorizontal: 10,
   },
-  baseLayerButtonActive: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#93c5fd',
-  },
   baseLayerIcon: {
     fontSize: 22,
   },
   baseLayerLabel: {
-    color: '#64748b',
     fontSize: 12,
     fontWeight: '700',
-  },
-  baseLayerLabelActive: {
-    color: PRIMARY_BLUE,
   },
   categoryGrid: {
     flexDirection: 'row',
@@ -422,124 +521,32 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   categoryChip: {
-    backgroundColor: BG_NEAR_WHITE,
     borderLeftWidth: 3,
-    borderColor: BORDER_DEFAULT,
     borderRadius: 10,
     borderWidth: 1,
     paddingHorizontal: 10,
     paddingVertical: 7,
   },
-  categoryChipHidden: {
-    backgroundColor: '#f1f5f9',
-    opacity: 0.55,
-  },
   categoryChipText: {
-    color: TEXT_DARK,
     fontSize: 12,
     fontWeight: '600',
   },
-  categoryChipTextHidden: {
-    color: TEXT_LIGHT,
-  },
-  settingsCloseButton: {
-    alignItems: 'center',
-    backgroundColor: PRIMARY_BLUE,
-    borderRadius: 14,
-    paddingVertical: 12,
-  },
-  settingsCloseText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  // ── Place Detail ────────────────────────────────
-  placeDetailCard: {
-    gap: 12,
-    padding: 18,
-  },
-  placeDetailHeader: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    gap: 12,
-  },
-  placeDetailCopy: {
-    flex: 1,
-    gap: 10,
-  },
-  placeDetailTitle: {
-    color: '#0f172a',
-    fontSize: 17,
-    fontWeight: '800',
-  },
-  placeDetailSummary: {
-    color: '#475569',
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  floorPill: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#eff6ff',
-    borderColor: '#bfdbfe',
-    borderRadius: 999,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  floorPillText: {
-    color: '#1d4ed8',
-    fontSize: 11,
-    fontWeight: '800',
-  },
-  placeDetailSection: {
-    gap: 8,
-  },
-  detailRow: {
-    backgroundColor: '#f8fbff',
-    borderColor: '#e2e8f0',
-    borderRadius: 16,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  detailLabel: {
-    color: '#64748b',
-    fontSize: 13,
-    fontWeight: '700',
-    minWidth: 38,
-  },
-  detailValue: {
-    color: '#0f172a',
-    flex: 1,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  emptyText: {
-    color: '#475569',
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  // ── Empty State ─────────────────────────────────
+  // ── Empty state ───────────────────────────────────
   emptyState: {
     alignItems: 'center',
     gap: 8,
     paddingVertical: 20,
   },
   emptyStateTitle: {
-    color: TEXT_DARK,
     fontSize: 16,
     fontWeight: '800',
   },
   emptyStateText: {
-    color: '#475569',
     fontSize: 13,
     lineHeight: 18,
     textAlign: 'center',
   },
   emptyStateHint: {
-    color: TEXT_LIGHT,
     fontSize: 11,
     lineHeight: 16,
     textAlign: 'center',
