@@ -31,7 +31,7 @@ export function RootNavigator() {
           sheetInitialDetentIndex: 0,
           sheetGrabberVisible: true,
           gestureEnabled: false,
-          sheetLargestUndimmedDetentIndex: 0,
+          sheetLargestUndimmedDetentIndex: 2,
           headerShown: false,
         }}
       />
