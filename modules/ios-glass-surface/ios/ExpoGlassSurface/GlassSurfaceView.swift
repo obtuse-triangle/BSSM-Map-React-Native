@@ -1,14 +1,15 @@
 import UIKit
 
-/// A React Native Fabric-compatible glass surface view.
+/// React Native Fabric-compatible glass surface view.
 ///
-/// Uses a `UIView` wrapper with an internal `UIVisualEffectView` child.
-/// React children are added directly to `self` (the wrapper), and the effect
-/// view is kept behind them via `sendSubviewToBack` in `layoutSubviews`.
-/// The effect view has `isUserInteractionEnabled = false` so touches pass through.
+/// `UIView` wrapper with an internal `UIVisualEffectView`. React children are
+/// mounted into `effectView.contentView` via `mountChildComponentView` override
+/// so the wrapper's `subviews` array stays empty (Fabric owns it exclusively).
+/// The effect view is added as a private subview that Fabric never sees.
+///
+/// **CRITICAL**: The wrapper's subviews must contain ONLY views Fabric mounted.
+/// Never add private subviews to `self` — Fabric tracks subview indices strictly.
 public final class GlassSurfaceView: UIView {
-
-  // MARK: - React Props
 
   public var variant: String = "floating" {
     didSet { updateAppearance() }
@@ -34,11 +35,7 @@ public final class GlassSurfaceView: UIView {
     didSet { updateAppearance() }
   }
 
-  // MARK: - Internal effect view
-
   private let effectView: UIVisualEffectView
-
-  // MARK: - Initialization
 
   override public var intrinsicContentSize: CGSize {
     CGSize(width: UIView.noIntrinsicMetric, height: UIView.noIntrinsicMetric)
@@ -61,14 +58,16 @@ public final class GlassSurfaceView: UIView {
     isUserInteractionEnabled = true
     layer.cornerCurve = .continuous
 
-    effectView.frame = bounds
     effectView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
     effectView.clipsToBounds = true
     effectView.layer.cornerCurve = .continuous
     effectView.layer.cornerRadius = cornerRadius
+    effectView.contentView.isUserInteractionEnabled = true
     effectView.isUserInteractionEnabled = false
 
-    super.addSubview(effectView)
+    // effectView lives in the layer tree, NOT in self.subviews.
+    // Adding it to self.layer avoids Fabric's subview index tracking.
+    layer.addSublayer(effectView.layer)
 
     NotificationCenter.default.addObserver(
       self,
@@ -81,11 +80,21 @@ public final class GlassSurfaceView: UIView {
     updateAppearance()
   }
 
+  // MARK: - Fabric child mounting
+
+  @objc public func mountChildComponentView(_ childComponentView: UIView, index: Int) {
+    effectView.contentView.insertSubview(childComponentView, at: index)
+  }
+
+  @objc public func unmountChildComponentView(_ childComponentView: UIView, index: Int) {
+    childComponentView.removeFromSuperview()
+  }
+
   // MARK: - Layout
 
   override public func layoutSubviews() {
     super.layoutSubviews()
-    sendSubviewToBack(effectView)
+    effectView.frame = bounds
     updateGeometry()
   }
 
