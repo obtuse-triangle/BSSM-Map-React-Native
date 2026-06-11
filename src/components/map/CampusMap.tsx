@@ -23,7 +23,8 @@ import { useMapStore, type CampusFeatureCategory, type MapBaseLayer } from '../.
 import CampusBleMarker from './CampusBleMarker';
 import { getDetectedBuildingId } from '../../utils/buildingDetection';
 import type { CampusGeoJSON } from '../../types/geojson';
-import { getFeatureById, getFeatureCentroid } from '../../utils/geoJsonHelpers';
+import { getFeatureById } from '../../utils/geoJsonHelpers';
+import { getCoordinateFlyToOptions, getFeatureCameraTarget } from '../../utils/cameraTarget';
 
 const campusData = campusDataUntyped as unknown as CampusGeoJSON;
 const outlineData = outlineDataUntyped as any;
@@ -170,15 +171,13 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false }: CampusM
     }
 
     cameraRef.current?.flyTo({
-      center: [coords.longitude, coords.latitude],
-      duration: 500,
+      ...getCoordinateFlyToOptions([coords.longitude, coords.latitude]),
     });
   }, []);
 
   const flyToCoordinates = useCallback((coordinates: [number, number]) => {
     cameraRef.current?.flyTo({
-      center: coordinates,
-      duration: 500,
+      ...getCoordinateFlyToOptions(coordinates),
     });
   }, []);
 
@@ -209,8 +208,16 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false }: CampusM
       if (!feature) {
         return;
       }
-      const centroid = getFeatureCentroid(feature);
-      cameraRef.current?.flyTo({ center: centroid, duration: 500 });
+      const target = getFeatureCameraTarget(feature);
+      if (!target) {
+        return;
+      }
+
+      if (target.type === 'bounds') {
+        cameraRef.current?.fitBounds(target.bounds, { padding: target.padding, duration: target.duration });
+      } else {
+        cameraRef.current?.flyTo({ center: target.center, zoom: target.zoom, duration: target.duration });
+      }
     },
     [],
   );
@@ -277,8 +284,6 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false }: CampusM
 
         {locationTrackingEnabled && <NativeUserLocation mode="heading" />}
 
-        <CampusBleMarker />
-
         <GeoJSONSource id="campus-polygons" data={campusData as any}>
           <Layer
             id="campus-fill"
@@ -336,6 +341,8 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false }: CampusM
             minzoom={16}
           />
         </GeoJSONSource>
+
+        <CampusBleMarker />
       </Map>
     </View>
   );

@@ -1,0 +1,67 @@
+{
+  "traceId": "room-entry-floor1",
+  "floorKey": "1",
+  "initialBle": {
+    "lat": 35.18869076767942,
+    "lng": 128.90279757060227,
+    "confidence": 0.76,
+    "accuracyMeters": 6.5,
+    "timestamp": 2000,
+    "apCount": 3,
+    "floorKey": "1"
+  },
+  "events": [
+    {
+      "type": "groundTruth",
+      "lat": 35.18869076767942,
+      "lng": 128.90279757060227,
+      "timestamp": 2100,
+      "label": "start-corridor-outside-room"
+    },
+    {
+      "type": "motion",
+      "steps": 3,
+      "heading": 90,
+      "userAccelerationMagnitude": 1,
+      "timestamp": 2200
+    },
+    {
+      "type": "ble",
+      "lat": 35.18869076767942,
+      "lng": 128.90286772796424,
+      "confidence": 0.84,
+      "accuracyMeters": 4.8,
+      "timestamp": 2300,
+      "apCount": 3,
+      "floorKey": "1"
+    },
+    {
+      "type": "groundTruth",
+      "lat": 35.18869076767942,
+      "lng": 128.90286772796424,
+      "timestamp": 2400,
+      "label": "room-entry-center"
+    },
+    {
+      "type": "motion",
+      "steps": 6,
+      "heading": 0,
+      "userAccelerationMagnitude": 0.9,
+      "timestamp": 2500
+    },
+    {
+      "type": "groundTruth",
+      "lat": 35.18869076767942,
+      "lng": 128.90286772796424,
+      "timestamp": 2600,
+      "label": "room-settled"
+    }
+  ],
+  "expectations": {
+    "maxAlongAxisErrorMeters": 6,
+    "maxCrossAxisErrorMeters": 4,
+    "finalConfidence": 0.55,
+    "zoneTransitionDetected": true,
+    "zoneTransitionWithinSteps": 5
+  }
+}

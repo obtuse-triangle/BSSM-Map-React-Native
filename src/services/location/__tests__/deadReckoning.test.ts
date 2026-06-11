@@ -121,8 +121,10 @@ describe('DeadReckoningEngine', () => {
       posDefault.updateStep(0); // default 0.65 m
 
       // Ratio of displacements should match ratio of stride lengths
-      const ratio = posDefault.getPosition().lat / customStride;
-      expect(ratio).toBeCloseTo(0.65, 2);
+      const customDisp = Math.abs(dr.getPosition().lat);
+      const defaultDisp = Math.abs(posDefault.getPosition().lat);
+      const ratio = customDisp / defaultDisp;
+      expect(ratio).toBeCloseTo(customStride / STRIDE_LENGTH_M, 2);
     });
   });
 

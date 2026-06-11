@@ -25,6 +25,8 @@ import { BleObservationBuffer } from '../services/location/bleObservations';
 import { computePositionFromBuffer } from '../services/location/bleWclProvider';
 import { CONTINUOUS_RECOMPUTE_INTERVAL_MS } from '../constants/bleConfig';
 import { BLE_AP_FIXTURES } from '../constants/bleAccessPoints';
+import { ParticleFusionEngine } from '../services/location/particleFusionEngine';
+import type { FusionState, FusionBleObservation, FusionMotionEvent } from '../types/fusion';
 
 type MotionUpdate = import('../../modules/ios-ble-positioning/src').MotionUpdate;
 
@@ -37,7 +39,7 @@ function wclLog(...args: unknown[]) {
 function getIosBlePositioning() {
   if (Platform.OS !== 'ios') return null;
   try {
-    return require('../../modules/ios-ble-positioning/src').IosBlePositioning as any;
+    return require('../../modules/ios-ble-positioning/src').IosBlePositioning;
   } catch {
     return null;
   }
@@ -122,6 +124,12 @@ type BleLocationStoreState = {
   /** Current heading in degrees (0° = North, 90° = East), from CoreMotion. */
   currentHeading: number | null;
 
+  /** Current fusion state (null if fusion not active). */
+  fusionState: FusionState | null;
+
+  /** Reason fusion is unavailable (null when fusion is active). */
+  fusionUnavailableReason: string | null;
+
   /**
    * Reset to idle state.
    * Clears result, error, and stops the continuous scan if needed.
@@ -187,6 +195,8 @@ let continuousWclInterval: ReturnType<typeof setInterval> | null = null;
 const continuousBuffer = new BleObservationBuffer();
 let motionSubscription: EventSubscription | null = null;
 let drEngine: DeadReckoningEngine | null = null;
+let fusionEngine: ParticleFusionEngine | null = null;
+let lastMotionCumulativeSteps = 0;
 
 // ────────────────────────────────────────────────────────────────────────────
 // Store implementation
@@ -254,6 +264,24 @@ function syncDetectedFloorKey(detectedFloorKey: string | null | undefined): void
   }
 }
 
+function setFusionUnavailableReason(
+  reason: string,
+  fusionEngineInstance: ParticleFusionEngine | null,
+  setState: (partial: Partial<BleLocationStoreState> | ((state: BleLocationStoreState) => Partial<BleLocationStoreState>)) => void,
+): void {
+  if (fusionEngineInstance) {
+    fusionEngineInstance.setUnavailableReason(reason);
+    const fusionUpdate = fusionEngineInstance.getState();
+    setState({ fusionState: fusionUpdate, fusionUnavailableReason: fusionUpdate.unavailableReason });
+    return;
+  }
+
+  setState((state) => ({
+    fusionUnavailableReason: reason,
+    fusionState: state.fusionState ? { ...state.fusionState, unavailableReason: reason } : state.fusionState,
+  }));
+}
+
 // ────────────────────────────────────────────────────────────────────────────
 // Store implementation
 // ────────────────────────────────────────────────────────────────────────────
@@ -273,9 +301,13 @@ export const useBleLocationStore = create<BleLocationStoreState>()((set, get) =>
   isMotionActive: false,
   drErrorMeters: 0,
   currentHeading: null,
+  fusionState: null,
+  fusionUnavailableReason: null,
 
   clearResult: () => {
-    set({ status: 'idle', result: null, error: null, debugObservations: [] });
+    set({ status: 'idle', result: null, error: null, debugObservations: [], fusionState: null, fusionUnavailableReason: null });
+    fusionEngine = null;
+    lastMotionCumulativeSteps = 0;
   },
 
   dismissCard: () => {
@@ -334,6 +366,7 @@ export const useBleLocationStore = create<BleLocationStoreState>()((set, get) =>
       if (!floorKey) return;
 
       wclLog(`Continuous WCL: floor="${floorKey}", buffer=${continuousBuffer.size}, fixtures=${BLE_AP_FIXTURES.length}`);
+      const floorFixtures = BLE_AP_FIXTURES.filter((ap) => ap.floorKey === floorKey);
       const wclResult = computePositionFromBuffer(floorKey, continuousBuffer, BLE_AP_FIXTURES);
       if (wclResult && wclResult.confidence > 0) {
         wclLog(
@@ -341,16 +374,42 @@ export const useBleLocationStore = create<BleLocationStoreState>()((set, get) =>
         );
         set({ result: wclResult });
         syncDetectedFloorKey(wclResult.detectedFloorKey);
-        useMapStore.getState().setUserCoordinates({
-          longitude: wclResult.longitude,
-          latitude: wclResult.latitude,
-        });
+        if (!fusionEngine) {
+          fusionEngine = new ParticleFusionEngine({ rngSeed: 42 });
+        }
+        const fusionBleObs: FusionBleObservation = {
+          lat: wclResult.latitude,
+          lng: wclResult.longitude,
+          confidence: wclResult.confidence,
+          floorKey: wclResult.detectedFloorKey ?? floorKey,
+          accuracyMeters: wclResult.accuracyMeters,
+          timestamp: Date.now(),
+          apCount: wclResult.usedApCount,
+        };
+        if (fusionEngine.getState().confidenceLevel === 'unknown' && fusionEngine.getState().particleCount === 0) {
+          fusionEngine.resetFromBle(fusionBleObs);
+        } else {
+          fusionEngine.applyBleCorrection(fusionBleObs);
+        }
+        const fusionUpdate = fusionEngine.getState();
+        set({ fusionState: fusionUpdate, fusionUnavailableReason: fusionUpdate.unavailableReason });
+
+        if (fusionUpdate.confidenceLevel !== 'unknown') {
+          useMapStore.getState().setUserCoordinates({
+            longitude: fusionUpdate.lng,
+            latitude: fusionUpdate.lat,
+          });
+        }
         if (get().isMotionActive) {
           wclLog(`DR anchor reset to BLE position: (${wclResult.latitude.toFixed(6)}, ${wclResult.longitude.toFixed(6)})`);
           get().resetDrToBleAnchor(wclResult.latitude, wclResult.longitude);
         }
       } else {
-        wclLog(`Continuous WCL: no result (insufficient APs or out of bounds)`);
+        const unavailableReason = floorFixtures.length === 0
+          ? 'no_ap_fixtures_for_floor'
+          : 'insufficient_ble_evidence';
+        wclLog(`Continuous WCL: no result (${unavailableReason})`);
+        setFusionUnavailableReason(unavailableReason, fusionEngine, set);
       }
     }, CONTINUOUS_RECOMPUTE_INTERVAL_MS);
   },
@@ -396,6 +455,7 @@ export const useBleLocationStore = create<BleLocationStoreState>()((set, get) =>
     if (!IosBlePositioning) return;
 
     drEngine = new DeadReckoningEngine();
+    lastMotionCumulativeSteps = 0;
 
     motionSubscription = IosBlePositioning.addListener(
       'onMotionUpdate',
@@ -416,6 +476,33 @@ export const useBleLocationStore = create<BleLocationStoreState>()((set, get) =>
           drStepsSinceLastBle: newPos.stepsSinceLastBle,
           drErrorMeters: drEngine.cumulativeErrorMeters,
         });
+
+        if (fusionEngine) {
+          if (lastMotionCumulativeSteps === 0) {
+            lastMotionCumulativeSteps = update.steps;
+            return;
+          }
+          const currentSteps = update.steps;
+          const stepDelta = currentSteps - lastMotionCumulativeSteps;
+          if (stepDelta > 0) {
+            const fusionMotion: FusionMotionEvent = {
+              steps: stepDelta,
+              heading: update.heading,
+              userAccelerationMagnitude: update.userAccelerationMagnitude,
+              timestamp: update.timestamp,
+            };
+            fusionEngine.applyMotion(fusionMotion);
+            const fusionUpdate = fusionEngine.getState();
+            set({ fusionState: fusionUpdate });
+            if (fusionUpdate.confidenceLevel !== 'unknown') {
+              useMapStore.getState().setUserCoordinates({
+                longitude: fusionUpdate.lng,
+                latitude: fusionUpdate.lat,
+              });
+            }
+          }
+          lastMotionCumulativeSteps = currentSteps;
+        }
       },
     );
 
@@ -439,6 +526,8 @@ export const useBleLocationStore = create<BleLocationStoreState>()((set, get) =>
       }
     }
     drEngine = null;
+    fusionEngine = null;
+    lastMotionCumulativeSteps = 0;
     set({ isMotionActive: false, drPosition: null, drStepsSinceLastBle: 0, drErrorMeters: 0, currentHeading: null });
   },
 

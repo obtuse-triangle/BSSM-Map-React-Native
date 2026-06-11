@@ -96,6 +96,8 @@ export function MapSheetScreen() {
     startMotionTracking,
     stopMotionTracking,
     currentHeading,
+    fusionState,
+    fusionUnavailableReason,
   } = useBleLocationStore();
 
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'MapSheet'>>();
@@ -403,6 +405,8 @@ export function MapSheetScreen() {
             drErrorMeters={drErrorMeters}
             onStartMotionTracking={startMotionTracking}
             onStopMotionTracking={stopMotionTracking}
+            fusionState={fusionState}
+            fusionUnavailableReason={fusionUnavailableReason}
           />
         )}
 

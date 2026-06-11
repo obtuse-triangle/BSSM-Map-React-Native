@@ -72,6 +72,8 @@ export function MapScreen({ navigation }: MapScreenProps) {
     startMotionTracking,
     stopMotionTracking,
     currentHeading,
+    fusionState,
+    fusionUnavailableReason,
   } = useBleLocationStore();
 
   const { requestLocationPermission, requestPreciseLocation } = usePermissions();
@@ -155,14 +157,26 @@ export function MapScreen({ navigation }: MapScreenProps) {
 
   const flyToBleResult = useCallback(
     (result: typeof bleResult | null) => {
-      if (!result || !pendingFlyToBleRef.current) return false;
+      if (!result || !pendingFlyToBleRef.current) {
+        return false;
+      }
+
       pendingFlyToBleRef.current = false;
       flyToBleUnsubRef.current?.();
       flyToBleUnsubRef.current = null;
+
+      const fusion = useBleLocationStore.getState().fusionState;
+      const zoneFloor = fusion?.inferredZone?.isInsideKnownZone
+        ? parseInt(fusion.inferredZone.floorKey, 10)
+        : NaN;
+      if (!isNaN(zoneFloor) && zoneFloor !== selectedLevel) {
+        setSelectedLevel(zoneFloor);
+      }
+
       campusMapRef.current?.flyToCoordinates([result.longitude, result.latitude]);
       return true;
     },
-    [],
+    [selectedLevel, setSelectedLevel],
   );
 
   const handleBleScan = useCallback(() => {

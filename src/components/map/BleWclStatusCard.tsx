@@ -6,6 +6,7 @@ import { MAX_SAMPLE_AGE_MS } from '../../constants/bleConfig';
 import { GlassSurface } from '../glass';
 import type { BleWclResult, ArubaBleObservation } from '../../services/location/bleWclProvider';
 import type { BleWclScanStatus, BeaconStats } from '../../store/bleLocationStore';
+import type { FusionState } from '../../types/fusion';
 
 const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
 
@@ -33,6 +34,9 @@ type BleWclStatusCardProps = {
   drErrorMeters: number;
   onStartMotionTracking: () => void;
   onStopMotionTracking: () => void;
+
+  fusionState: FusionState | null;
+  fusionUnavailableReason: string | null;
 };
 
 const STATUS_LABELS: Record<BleWclScanStatus, string> = {
@@ -153,6 +157,8 @@ export function BleWclStatusCard({
   drErrorMeters,
   onStartMotionTracking,
   onStopMotionTracking,
+  fusionState,
+  fusionUnavailableReason,
 }: BleWclStatusCardProps) {
   if (status === 'idle' && !isContinuousScanning) {
     return null;
@@ -533,6 +539,56 @@ export function BleWclStatusCard({
         </View>
       ) : null}
 
+      {fusionState !== null || fusionUnavailableReason !== null ? (
+        <View style={styles.fusionSection}>
+          <Text style={styles.fusionTitle}>융합 상태</Text>
+
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>소스</Text>
+            <Text style={styles.detailValue}>
+              {fusionState?.source ? fusionState.source.toUpperCase() : 'UNAVAILABLE'}
+            </Text>
+          </View>
+
+          {fusionState !== null ? (
+            <>
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>신뢰도</Text>
+                <Text style={styles.detailValue}>
+                  {fusionState.confidence.toFixed(2)} ({fusionState.confidenceLevel})
+                </Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>파티클 수</Text>
+                <Text style={styles.detailValue}>{fusionState.particleCount}</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>정확도</Text>
+                <Text style={styles.detailValue}>{fusionState.accuracyMeters.toFixed(1)}m</Text>
+              </View>
+
+              <View style={styles.detailRow}>
+                <Text style={styles.detailLabel}>추정 영역</Text>
+                <Text style={styles.detailValue}>
+                  {fusionState.inferredZone?.zoneNameKo ?? fusionState.inferredZone?.zoneName ?? '알 수 없음'}
+                  {' '}
+                  ({fusionState.inferredZone?.category ?? 'unknown'})
+                </Text>
+              </View>
+            </>
+          ) : null}
+
+          {fusionUnavailableReason !== null ? (
+            <View style={styles.detailRow}>
+              <Text style={styles.detailLabel}>사용 불가</Text>
+              <Text style={styles.detailValue}>{fusionUnavailableReason}</Text>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
       {/* ── Actions ─────────────────────────────── */}
       <View style={styles.actionsRow}>
         {!isContinuousScanning ? (
@@ -710,6 +766,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     lineHeight: 20,
+    flexShrink: 1,
   },
   staleWarning: {
     color: '#d97706',
@@ -899,7 +956,18 @@ const styles = StyleSheet.create({
     padding: 12,
     gap: 6,
   },
+  fusionSection: {
+    backgroundColor: '#eff6ff',
+    borderRadius: 14,
+    padding: 12,
+    gap: 6,
+  },
   drTitle: {
+    color: '#0f172a',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  fusionTitle: {
     color: '#0f172a',
     fontSize: 12,
     fontWeight: '700',
