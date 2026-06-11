@@ -1,6 +1,6 @@
 import React, { type ReactNode } from 'react';
 import { Platform, View, type StyleProp, type ViewStyle } from 'react-native';
-import { GlassView, isGlassEffectAPIAvailable } from 'expo-glass-effect';
+import { GlassView, isGlassEffectAPIAvailable, type GlassColorScheme } from 'expo-glass-effect';
 
 export type GlassVariant = 'floating' | 'control' | 'sheet' | 'search' | 'modal' | 'status';
 
@@ -14,6 +14,7 @@ export interface GlassSurfaceProps {
   children?: ReactNode;
   style?: StyleProp<ViewStyle>;
   pointerEvents?: 'box-none' | 'none' | 'box-only' | 'auto';
+  colorScheme?: GlassColorScheme;
 }
 
 const FALLBACK_BG: Record<GlassVariant, string> = {
@@ -55,6 +56,7 @@ export function GlassSurface({
   children,
   style,
   pointerEvents = 'box-none',
+  colorScheme = 'light',
 }: GlassSurfaceProps) {
   const resolvedStyle: ViewStyle = {
     borderRadius: cornerRadius,
@@ -71,6 +73,7 @@ export function GlassSurface({
         glassEffectStyle="regular"
         isInteractive={isInteractive}
         tintColor={resolvedTint}
+        colorScheme={colorScheme}
         style={[resolvedStyle, style] as StyleProp<ViewStyle>}
         pointerEvents={pointerEvents}
       >
