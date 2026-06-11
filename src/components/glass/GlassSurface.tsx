@@ -1,21 +1,10 @@
 import React, { type ReactNode } from 'react';
-import { Platform, View, type StyleProp, type ViewProps, type ViewStyle } from 'react-native';
-import { requireNativeViewManager } from 'expo-modules-core';
-import type { GlassVariant } from '../../../modules/ios-glass-surface/src';
+import { Platform, View, type StyleProp, type ViewStyle } from 'react-native';
+import { GlassView, isGlassEffectAPIAvailable } from 'expo-glass-effect';
 
-export type { GlassVariant } from '../../../modules/ios-glass-surface/src';
+export type GlassVariant = 'floating' | 'control' | 'sheet' | 'search' | 'modal' | 'status';
 
-type NativeGlassSurfaceViewProps = ViewProps & {
-  variant?: string;
-  cornerRadius?: number;
-  tintColor?: string;
-  interactive?: boolean;
-  fallbackOpacity?: number;
-  reduceTransparencyFallbackColor?: string;
-  children?: ReactNode;
-};
-
-export interface GlassSurfaceProps extends ViewProps {
+export interface GlassSurfaceProps {
   variant?: GlassVariant;
   cornerRadius?: number;
   tintColor?: string;
@@ -23,12 +12,9 @@ export interface GlassSurfaceProps extends ViewProps {
   fallbackOpacity?: number;
   reduceTransparencyFallbackColor?: string;
   children?: ReactNode;
+  style?: StyleProp<ViewStyle>;
+  pointerEvents?: 'box-none' | 'none' | 'box-only' | 'auto';
 }
-
-const NativeGlassView =
-  Platform.OS === 'ios'
-    ? requireNativeViewManager<NativeGlassSurfaceViewProps>('ExpoGlassSurface')
-    : null;
 
 const FALLBACK_BG: Record<GlassVariant, string> = {
   floating: 'rgba(255,255,255,0.78)',
@@ -39,24 +25,36 @@ const FALLBACK_BG: Record<GlassVariant, string> = {
   status: 'rgba(255,255,255,0.75)',
 };
 
+const VARIANT_TINT: Record<GlassVariant, string | undefined> = {
+  floating: 'rgba(255,255,255,0.16)',
+  control: 'rgba(255,255,255,0.22)',
+  sheet: 'rgba(255,255,255,0.28)',
+  search: 'rgba(255,255,255,0.34)',
+  modal: 'rgba(255,255,255,0.42)',
+  status: 'rgba(255,255,255,0.12)',
+};
+
+const VARIANT_INTERACTIVE: Record<GlassVariant, boolean> = {
+  floating: false,
+  control: true,
+  sheet: false,
+  search: true,
+  modal: false,
+  status: false,
+};
+
 /**
- * GlassSurface — native iOS Liquid Glass wrapper with cross-platform fallback.
- *
  * NO-DOUBLE-GLASS RULE: Only wrap the outermost persistent overlay surface.
  * Nested/transient content inside a GlassSurface must NOT be wrapped again.
- * Use plain View for inner content to prevent glass-on-glass stacking.
  */
 export function GlassSurface({
   variant = 'floating',
   cornerRadius = 16,
   tintColor,
-  interactive = false,
-  fallbackOpacity = 0.85,
-  reduceTransparencyFallbackColor = 'rgba(255,255,255,0.85)',
+  interactive,
   children,
   style,
   pointerEvents = 'box-none',
-  ...rest
 }: GlassSurfaceProps) {
   const resolvedStyle: ViewStyle = {
     borderRadius: cornerRadius,
@@ -64,21 +62,20 @@ export function GlassSurface({
     alignSelf: 'stretch',
   };
 
-  if (Platform.OS === 'ios' && NativeGlassView) {
+  const isInteractive = interactive ?? VARIANT_INTERACTIVE[variant];
+  const resolvedTint = tintColor ?? VARIANT_TINT[variant];
+
+  if (Platform.OS === 'ios' && isGlassEffectAPIAvailable()) {
     return (
-      <NativeGlassView
-        variant={variant}
-        cornerRadius={cornerRadius}
-        tintColor={tintColor}
-        interactive={interactive}
-        fallbackOpacity={fallbackOpacity}
-        reduceTransparencyFallbackColor={reduceTransparencyFallbackColor}
+      <GlassView
+        glassEffectStyle="regular"
+        isInteractive={isInteractive}
+        tintColor={resolvedTint}
         style={[resolvedStyle, style] as StyleProp<ViewStyle>}
         pointerEvents={pointerEvents}
-        {...rest}
       >
         {children}
-      </NativeGlassView>
+      </GlassView>
     );
   }
 
@@ -86,7 +83,6 @@ export function GlassSurface({
     <View
       style={[resolvedStyle, { backgroundColor: FALLBACK_BG[variant] }, style]}
       pointerEvents={pointerEvents}
-      {...rest}
     >
       {children}
     </View>

@@ -1,1 +1,1 @@
-export { GlassSurface, type GlassSurfaceProps, type GlassVariant } from './GlassSurface';
+export { GlassSurface, type GlassVariant } from './GlassSurface';
