@@ -4,6 +4,7 @@ import { HomeScreen } from '../screens/HomeScreen';
 import { DebugRttScreen } from '../screens/DebugRttScreen';
 import { MapScreen } from '../screens/MapScreen';
 import { MapSheetScreen } from '../screens/MapSheetScreen';
+import { PlaceDetailSheetScreen } from '../screens/PlaceDetailSheetScreen';
 import type { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -27,11 +28,24 @@ export function RootNavigator() {
         options={{
           presentation: 'formSheet',
           contentStyle: { backgroundColor: 'transparent' },
-          sheetAllowedDetents: [0.12, 0.5, 1.0],
-          sheetInitialDetentIndex: 0,
+          sheetAllowedDetents: [0.06, 0.12, 0.5, 1.0],
+          sheetInitialDetentIndex: 1,
           sheetGrabberVisible: true,
           gestureEnabled: false,
-          sheetLargestUndimmedDetentIndex: 2,
+          sheetLargestUndimmedDetentIndex: 3,
+          headerShown: false,
+        }}
+      />
+      <Stack.Screen
+        name="PlaceDetailSheet"
+        component={PlaceDetailSheetScreen}
+        options={{
+          presentation: 'formSheet',
+          contentStyle: { backgroundColor: 'transparent' },
+          sheetAllowedDetents: [0.09, 0.3, 0.55, 1.0],
+          sheetInitialDetentIndex: 1,
+          sheetGrabberVisible: true,
+          sheetLargestUndimmedDetentIndex: 3,
           headerShown: false,
         }}
       />
