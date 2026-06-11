@@ -193,14 +193,6 @@ export function MapScreen({ navigation }: MapScreenProps) {
 
   const flyToBleResult = useCallback(
     (result: typeof bleResult | null) => {
-      if (__DEV__) {
-        console.log('[MapScreen] BLE fly check:', {
-          pendingFlyToBle: pendingFlyToBleRef.current,
-          hasResult: result !== null,
-          coordinates: result ? [result.longitude, result.latitude] : null,
-        });
-      }
-
       if (!result || !pendingFlyToBleRef.current) {
         return false;
       }
@@ -208,10 +200,19 @@ export function MapScreen({ navigation }: MapScreenProps) {
       pendingFlyToBleRef.current = false;
       flyToBleUnsubRef.current?.();
       flyToBleUnsubRef.current = null;
+
+      const fusion = useBleLocationStore.getState().fusionState;
+      const zoneFloor = fusion?.inferredZone?.isInsideKnownZone
+        ? parseInt(fusion.inferredZone.floorKey, 10)
+        : NaN;
+      if (!isNaN(zoneFloor) && zoneFloor !== selectedLevel) {
+        setSelectedLevel(zoneFloor);
+      }
+
       campusMapRef.current?.flyToCoordinates([result.longitude, result.latitude]);
       return true;
     },
-    [],
+    [selectedLevel, setSelectedLevel],
   );
 
   const handleBleScan = useCallback(() => {
@@ -247,13 +248,6 @@ export function MapScreen({ navigation }: MapScreenProps) {
   }, [bleResult]);
 
   useEffect(() => clearPendingBleFly, [clearPendingBleFly]);
-
-  useEffect(() => {
-    if (!fusionState?.inferredZone?.isInsideKnownZone) return;
-    const zoneFloor = parseInt(fusionState.inferredZone.floorKey, 10);
-    if (isNaN(zoneFloor) || zoneFloor === selectedLevel) return;
-    setSelectedLevel(zoneFloor);
-  }, [fusionState, selectedLevel, setSelectedLevel]);
 
   const handleLocate = useCallback(async () => {
     if (userCoordinates) {

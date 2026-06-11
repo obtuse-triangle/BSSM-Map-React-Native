@@ -41,6 +41,7 @@ type MarkerData = {
   confidence: number;
   confidenceLevel: FusionConfidenceLevel;
   inferredZoneName: string | null;
+  floorKey: string | null;
 };
 
 type MarkerFeatureKind = 'position' | 'heading';
@@ -151,6 +152,7 @@ function snapshotToMarkerData(snapshot: StoreSnapshot): MarkerData | null {
       confidence: fusionState.confidence,
       confidenceLevel: fusionState.confidenceLevel,
       inferredZoneName: fusionState.inferredZone?.zoneName ?? fusionState.inferredZone?.zoneNameKo ?? null,
+      floorKey: fusionState.floorKey ?? null,
     };
   }
 
@@ -167,6 +169,7 @@ function snapshotToMarkerData(snapshot: StoreSnapshot): MarkerData | null {
     confidence: result.confidence,
     confidenceLevel: 'unknown',
     inferredZoneName: null,
+    floorKey: null,
   };
 }
 
@@ -269,6 +272,12 @@ function CampusBleMarker() {
   if (!geoJsonData) return null;
 
   const showHeadingArrow = markerData?.heading != null;
+  const selectedLevel = useMapStore.getState().selectedLevel;
+  const markerFloor = markerData?.floorKey ? parseInt(markerData.floorKey, 10) : NaN;
+  const onDifferentFloor = !isNaN(markerFloor) && markerFloor !== selectedLevel;
+  const markerOpacity = onDifferentFloor ? 0.35 : 0.9;
+  const accuracyOpacity = onDifferentFloor ? 0.08 : 0.15;
+  const accuracyStrokeOpacity = onDifferentFloor ? 0.2 : 0.4;
 
   return (
     <GeoJSONSource id="ble-marker" data={geoJsonData}>
@@ -292,10 +301,10 @@ function CampusBleMarker() {
             ['*', ['get', 'accuracyMeters'], 8.44],
           ],
           'circle-color': '#2979FF',
-          'circle-opacity': 0.15,
+          'circle-opacity': accuracyOpacity,
           'circle-stroke-color': '#2979FF',
           'circle-stroke-width': 1,
-          'circle-stroke-opacity': 0.4,
+          'circle-stroke-opacity': accuracyStrokeOpacity,
         }}
       />
       {/* Centre dot — solid blue with white stroke */}
@@ -308,7 +317,7 @@ function CampusBleMarker() {
           'circle-pitch-scale': 'map',
           'circle-radius': 8,
           'circle-color': '#2979FF',
-          'circle-opacity': 0.9,
+          'circle-opacity': markerOpacity,
           'circle-stroke-color': '#FFFFFF',
           'circle-stroke-width': 2,
         }}

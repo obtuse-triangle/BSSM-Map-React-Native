@@ -276,8 +276,6 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false }: CampusM
 
         {locationTrackingEnabled && <NativeUserLocation mode="heading" />}
 
-        <CampusBleMarker />
-
         <GeoJSONSource id="campus-polygons" data={campusData as any}>
           <Layer
             id="campus-fill"
@@ -335,6 +333,8 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false }: CampusM
             minzoom={16}
           />
         </GeoJSONSource>
+
+        <CampusBleMarker />
       </Map>
     </View>
   );
