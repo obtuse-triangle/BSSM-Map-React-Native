@@ -262,7 +262,7 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false }: CampusM
 
         {tileStyles.map((style) => (
           <RasterSource key={style.id} id={style.id} {...style.source}>
-            <Layer id={`${style.id}-tiles`} type="raster" layout={{ visibility: baseLayer === style.id ? 'visible' : 'none' }} />
+            <Layer id={`${style.id}-tiles`} type="raster" layout={{ visibility: baseLayer === style.id ? 'visible' : 'none' }} paint={style.paint} />
           </RasterSource>
         ))}
         <RasterSource id="design-tiles" tileSize={256} tiles={mbtilesPath ? [`mbtiles://${mbtilesPath}`] : []}>

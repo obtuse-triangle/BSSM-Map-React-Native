@@ -8,6 +8,15 @@ export type MapStyleId =
   | 'satellite'
   | 'design';
 
+export type RasterPaint = {
+  'raster-opacity'?: number;
+  'raster-contrast'?: number;
+  'raster-saturation'?: number;
+  'raster-brightness-min'?: number;
+  'raster-brightness-max'?: number;
+  'raster-hue-rotate'?: number;
+};
+
 export type MapStyleConfig = {
   id: MapStyleId;
   label: string;
@@ -20,6 +29,7 @@ export type MapStyleConfig = {
     maxzoom: number;
     attribution: string;
   };
+  paint?: RasterPaint;
 };
 
 /**
@@ -142,6 +152,11 @@ export const MAP_STYLES: MapStyleConfig[] = [
       tileSize: 256,
       maxzoom: 19,
       attribution: '© Esri',
+    },
+    paint: {
+      'raster-contrast': -0.5,
+      'raster-brightness-min': 0.05,
+      'raster-saturation': 0,
     },
   },
   {

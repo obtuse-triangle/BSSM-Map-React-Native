@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo } from 'react';
-import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { MAP_STYLES } from '../constants/mapStyles';
 import campusDataUntyped from '../data/campus-wgs84.json';
+import { FeedbackStateCard } from '../components/feedback/FeedbackStateCard';
 import { BleWclStatusCard } from '../components/map/BleWclStatusCard';
 import { GlassSurface } from '../components/glass';
 import { SearchBar } from '../components/map/SearchBar';
@@ -9,7 +10,17 @@ import { useSearchBar } from '../hooks/useSearchBar';
 import { useMapStore, type CampusFeatureCategory } from '../store/mapStore';
 import { usePositionStore } from '../store/positionStore';
 import { useBleLocationStore } from '../store/bleLocationStore';
-import type { CampusGeoJSON } from '../types/geojson';
+import {
+  sheetAccent,
+  sheetLabel,
+  sheetSecondaryLabel,
+  sheetSecondarySystemFill,
+  sheetSeparator,
+  sheetSystemFill,
+  sheetTertiaryLabel,
+  sheetSelectionBg,
+} from '../theme/sheetSemanticColors';
+import type { CampusFeature, CampusGeoJSON } from '../types/geojson';
 import { getFeatureById, getLevelKeys } from '../utils/geoJsonHelpers';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -44,7 +55,8 @@ const CATEGORY_COLORS: Record<CampusFeatureCategory, string> = {
 const BASE_LAYER_OPTIONS = MAP_STYLES.map((s) => ({ key: s.id, label: s.label, icon: s.icon }));
 
 export function MapSheetScreen() {
-  const { searchQuery, setSearchQuery, searchResults, isSearchFocused, setIsSearchFocused } = useSearchBar();
+  const sheetScheme = useColorScheme();
+  const { searchQuery, setSearchQuery, searchResults } = useSearchBar();
 
   const {
     selectedFloorKey,
@@ -70,7 +82,6 @@ export function MapSheetScreen() {
   const levels = useMemo(() => getLevelKeys(campusData), []);
   const isLocateDisabled = positionStatus === 'loading';
   const baseLayerIcon = MAP_STYLES.find((s) => s.id === baseLayer)?.icon ?? '⚙';
-  const isDarkMap = useMemo(() => MAP_STYLES.find((s) => s.id === baseLayer)?.theme === 'dark', [baseLayer]);
 
   const handleLocate = useCallback(() => {
     setPendingFlyToFeatureId('__locate__');
@@ -119,8 +130,6 @@ export function MapSheetScreen() {
       });
     }
   }, [bleCardVisible, settingsVisible, navigation]);
-
-  const isDarkTheme = isDarkMap;
 
   const currentPosition = useMemo(() => {
     if (!selectedFloorKey || !position || position.floorKey !== selectedFloorKey) {
@@ -196,12 +205,12 @@ export function MapSheetScreen() {
           accessibilityLabel={isLocateDisabled ? '현재 위치 찾기 불가' : '현재 위치 찾기'}
           disabled={isLocateDisabled}
           onPress={handleLocate}
-          style={({ pressed }) => [styles.barButton, pressed && { backgroundColor: isDarkTheme ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' }]}
+          style={({ pressed }) => [styles.barButton, pressed && { backgroundColor: sheetSystemFill }]}
         >
-          <Text style={[styles.barButtonGlyph, { color: isDarkTheme ? '#f1f5f9' : '#0f172a' }, isLocateDisabled && { color: isDarkTheme ? '#64748b' : '#94a3b8', opacity: 0.55 }]}>⌖</Text>
+          <Text style={[styles.barButtonGlyph, { color: sheetLabel }, isLocateDisabled && { color: sheetTertiaryLabel, opacity: 0.55 }]}>⌖</Text>
         </Pressable>
 
-        <View style={[styles.barDivider, { backgroundColor: isDarkTheme ? 'rgba(255,255,255,0.12)' : '#e2e8f0' }]} />
+        <View style={[styles.barDivider, { backgroundColor: sheetSeparator }]} />
 
         {Platform.OS === 'ios' ? (
           <>
@@ -211,13 +220,13 @@ export function MapSheetScreen() {
               onPress={handleBleScan}
               style={({ pressed }) => [
                 styles.barButton,
-                pressed && { backgroundColor: isDarkTheme ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' },
+                pressed && { backgroundColor: sheetSystemFill },
                 bleCardVisible && styles.barButtonActive,
               ]}
             >
-              <Text style={[styles.barButtonBleLabel, { color: isDarkTheme ? '#60a5fa' : '#1d4ed8' }]}>BLE</Text>
+              <Text style={[styles.barButtonBleLabel, { color: sheetAccent(sheetScheme) }]}>BLE</Text>
             </Pressable>
-            <View style={[styles.barDivider, { backgroundColor: isDarkTheme ? 'rgba(255,255,255,0.12)' : '#e2e8f0' }]} />
+            <View style={[styles.barDivider, { backgroundColor: sheetSeparator }]} />
           </>
         ) : null}
 
@@ -227,28 +236,28 @@ export function MapSheetScreen() {
           onPress={handleToggleSettings}
           style={({ pressed }) => [
             styles.barButton,
-            pressed && { backgroundColor: isDarkTheme ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' },
+            pressed && { backgroundColor: sheetSystemFill },
             settingsVisible && styles.barButtonActive,
           ]}
         >
-          <Text style={[styles.barButtonGlyph, { color: isDarkTheme ? '#f1f5f9' : '#0f172a' }]}>{baseLayerIcon}</Text>
+          <Text style={[styles.barButtonGlyph, { color: sheetLabel }]}>{baseLayerIcon}</Text>
         </Pressable>
 
-        <View style={[styles.barDivider, { backgroundColor: isDarkTheme ? 'rgba(255,255,255,0.12)' : '#e2e8f0' }]} />
+        <View style={[styles.barDivider, { backgroundColor: sheetSeparator }]} />
 
         <View style={styles.levelRow}>
           {levels.map((level) => {
             const selected = level === selectedLevel;
             return (
-                <Pressable
-                  key={level}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${level}층 선택`}
-                  hitSlop={HIT_SLOP}
-                  onPress={() => setSelectedLevel(level)}
-                  style={[styles.levelButton, selected && styles.levelButtonSelected]}
-                >
-                  <Text style={[styles.levelButtonText, { color: isDarkTheme ? '#f1f5f9' : '#0f172a' }, selected && { color: isDarkTheme ? '#60a5fa' : '#1d4ed8' }]}>
+              <Pressable
+                key={level}
+                accessibilityRole="button"
+                accessibilityLabel={`${level}층 선택`}
+                hitSlop={HIT_SLOP}
+                onPress={() => setSelectedLevel(level)}
+                style={[styles.levelButton, selected && styles.levelButtonSelected]}
+              >
+                    <Text style={[styles.levelButtonText, { color: sheetLabel }, selected && { color: sheetAccent(sheetScheme) }]}>
                     {level}F
                   </Text>
                 </Pressable>
@@ -257,36 +266,31 @@ export function MapSheetScreen() {
         </View>
 
         <View style={styles.infoGroup}>
-          <View style={[styles.barDivider, { backgroundColor: isDarkTheme ? 'rgba(255,255,255,0.12)' : '#e2e8f0' }]} />
+          <View style={[styles.barDivider, { backgroundColor: sheetSeparator }]} />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="지도 정보"
             onPress={() => requestShowAttribution()}
             style={({ pressed }) => [
               styles.barButton,
-              pressed && { backgroundColor: isDarkTheme ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' },
+              pressed && { backgroundColor: sheetSystemFill },
             ]}
           >
-            <Text style={[styles.barButtonGlyph, { color: isDarkTheme ? '#f1f5f9' : '#0f172a' }]}>ⓘ</Text>
+            <Text style={[styles.barButtonGlyph, { color: sheetLabel }]}>ⓘ</Text>
           </Pressable>
         </View>
       </View>
 
       {/* Row 2: Search bar */}
-      <View style={styles.searchRow}>
+        <View style={styles.searchRow}>
           <SearchBar
             containerStyle={{ flex: 1 }}
-            glassColorScheme={isDarkMap ? 'dark' : 'light'}
-            insets={{ top: 0, bottom: 0, left: 0, right: 0 }}
-            isSearchFocused={isSearchFocused}
-            onBlur={() => setIsSearchFocused(false)}
+            useNativeSheetColors
+            onBlur={() => {}}
             onClear={() => setSearchQuery('')}
-            onFocus={() => setIsSearchFocused(true)}
-            onResultSelect={handleSelectSearchResult}
+            onFocus={() => {}}
             onSearchChange={setSearchQuery}
             searchQuery={searchQuery}
-            searchResults={searchResults}
-            selectedFeatureId={selectedFeatureId}
           />
       </View>
     </>
@@ -315,28 +319,61 @@ export function MapSheetScreen() {
                 : bleStatus === 'success' && bleResult
                   ? `BLE WCL 위치 확인됨 · ±${bleResult.accuracyMeters.toFixed(1)}m · 신뢰도 ${(bleResult.confidence * 100).toFixed(0)}%`
                   : null;
-          return msg ? <Text style={[styles.helperText, { color: isDarkTheme ? '#94a3b8' : '#64748b' }]}>{msg}</Text> : null;
+          return msg ? <Text style={[styles.helperText, { color: sheetSecondaryLabel }]}>{msg}</Text> : null;
         })()}
 
         {/* Empty state — shown when BLE and settings are both closed */}
-        {!showBle && !showSettings && (
+        {!showBle && !showSettings && searchQuery.trim().length === 0 && (
           <View style={styles.emptyState}>
-            <Text style={[styles.emptyStateTitle, { color: isDarkTheme ? '#f1f5f9' : '#0f172a' }]}>BSSM 학교 지도</Text>
-            <Text style={[styles.emptyStateText, { color: isDarkTheme ? '#cbd5e1' : '#475569' }]}>
+            <Text style={[styles.emptyStateTitle, { color: sheetLabel }]}>BSSM 학교 지도</Text>
+            <Text style={[styles.emptyStateText, { color: sheetSecondaryLabel }]}> 
               검색하거나 지도에서 교실을 탭하여 정보를 확인하세요.
             </Text>
-            <Text style={[styles.emptyStateHint, { color: isDarkTheme ? '#64748b' : '#94a3b8' }]}>
+            <Text style={[styles.emptyStateHint, { color: sheetTertiaryLabel }]}> 
               ⌖ 현재 위치 찾기 · BLE 실내 측위 · 지도 스타일 변경
             </Text>
           </View>
         )}
 
+        {searchQuery.trim().length > 0 && searchResults.length > 0 && !showBle && !showSettings && (
+          <>
+            {searchResults.map((feature: CampusFeature) => {
+              const featureKey = feature.properties.id ?? String(feature.id);
+              const selected = featureKey === String(selectedFeatureId);
+              return (
+                <Pressable
+                  key={featureKey}
+                  accessibilityRole="button"
+                  hitSlop={HIT_SLOP}
+                  onPress={() => handleSelectSearchResult(featureKey)}
+                  style={({ pressed }) => [
+                    styles.searchResultRow,
+                    selected && styles.searchResultRowSelected,
+                    pressed && { opacity: 0.88 },
+                  ]}
+                >
+                  <Text style={[styles.searchResultName, { color: sheetLabel }, selected && { color: sheetAccent(sheetScheme) }]} numberOfLines={1}>
+                    {feature.properties.name_ko || feature.properties.name}
+                  </Text>
+                  <Text style={[styles.searchResultMeta, { color: sheetSecondaryLabel }, selected && { color: sheetAccent(sheetScheme) }]}>
+                    {selected ? '선택됨' : `${feature.properties.level}층 · ${feature.properties.category}`}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </>
+        )}
+
+        {searchQuery.trim().length > 0 && searchResults.length === 0 && !showBle && !showSettings && (
+          <FeedbackStateCard title="검색 결과" message="현재 층에서 일치하는 교실이 없습니다." variant="empty" />
+        )}
+
         {/* Settings Panel */}
         {showSettings && (
-          <GlassSurface variant="modal" cornerRadius={20} colorScheme={isDarkTheme ? 'dark' : 'light'} style={styles.settingsCard}>
-            <Text style={[styles.settingsTitle, { color: isDarkTheme ? '#f1f5f9' : '#0f172a' }]}>지도 설정</Text>
+          <GlassSurface variant="modal" cornerRadius={20} style={styles.settingsCard}>
+            <Text style={[styles.settingsTitle, { color: sheetLabel }]}>지도 설정</Text>
 
-            <Text style={[styles.settingsSectionTitle, { color: isDarkTheme ? '#94a3b8' : '#64748b' }]}>배경 지도</Text>
+            <Text style={[styles.settingsSectionTitle, { color: sheetSecondaryLabel }]}>배경 지도</Text>
             <View style={styles.baseLayerRow}>
               {BASE_LAYER_OPTIONS.map((opt) => {
                 const active = baseLayer === opt.key;
@@ -346,18 +383,18 @@ export function MapSheetScreen() {
                     onPress={() => setBaseLayer(opt.key)}
                     style={[
                       styles.baseLayerButton,
-                      { backgroundColor: isDarkTheme ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', borderColor: isDarkTheme ? 'rgba(255,255,255,0.12)' : '#e2e8f0' },
-                      active && { backgroundColor: isDarkTheme ? 'rgba(59,130,246,0.25)' : 'rgba(59,130,246,0.08)', borderColor: isDarkTheme ? 'rgba(59,130,246,0.4)' : 'rgba(59,130,246,0.2)' },
+                      { backgroundColor: sheetSystemFill, borderColor: sheetSeparator },
+                      active && { backgroundColor: sheetSelectionBg, borderColor: sheetAccent(sheetScheme) },
                     ]}
                   >
-                    <Text style={styles.baseLayerIcon}>{opt.icon}</Text>
-                    <Text style={[styles.baseLayerLabel, { color: isDarkTheme ? '#94a3b8' : '#64748b' }, active && { color: isDarkTheme ? '#60a5fa' : '#1d4ed8' }]}>{opt.label}</Text>
+                    <Text style={[styles.baseLayerIcon, { color: sheetLabel }]}>{opt.icon}</Text>
+                    <Text style={[styles.baseLayerLabel, { color: sheetSecondaryLabel }, active && { color: sheetAccent(sheetScheme) }]}>{opt.label}</Text>
                   </Pressable>
                 );
               })}
             </View>
 
-            <Text style={[styles.settingsSectionTitle, { color: isDarkTheme ? '#94a3b8' : '#64748b' }]}>카테고리 표시</Text>
+            <Text style={[styles.settingsSectionTitle, { color: sheetSecondaryLabel }]}>카테고리 표시</Text>
             <View style={styles.categoryGrid}>
               {allCategories().map((cat) => {
                 const hidden = hiddenCategories.has(cat);
@@ -368,11 +405,11 @@ export function MapSheetScreen() {
                     onPress={() => toggleCategory(cat)}
                     style={[
                       styles.categoryChip,
-                      { backgroundColor: isDarkTheme ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', borderColor: isDarkTheme ? 'rgba(255,255,255,0.12)' : '#e2e8f0', borderLeftColor: CATEGORY_COLORS[cat] },
-                      hidden && { backgroundColor: isDarkTheme ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)', opacity: 0.55 },
+                      { backgroundColor: sheetSystemFill, borderColor: sheetSeparator, borderLeftColor: CATEGORY_COLORS[cat] },
+                      hidden && { backgroundColor: sheetSecondarySystemFill, opacity: 0.55 },
                     ]}
                   >
-                    <Text style={[styles.categoryChipText, { color: isDarkTheme ? '#f1f5f9' : '#0f172a' }, hidden && { color: isDarkTheme ? '#64748b' : '#94a3b8' }]}>
+                    <Text style={[styles.categoryChipText, { color: sheetLabel }, hidden && { color: sheetTertiaryLabel }]}>
                       {hidden ? '✕' : '✓'} {CATEGORY_LABELS[cat]}
                     </Text>
                   </Pressable>
@@ -386,7 +423,7 @@ export function MapSheetScreen() {
         {/* BLE Status Card */}
         {showBle && (
           <BleWclStatusCard
-            colorScheme={isDarkMap ? 'dark' : 'light'}
+            colorScheme={sheetScheme === 'dark' ? 'dark' : 'light'}
             status={bleStatus}
             result={bleResult}
             error={bleError}
@@ -422,7 +459,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   mergedBlock: {
-    overflow: 'hidden',
+    overflow: 'visible',
     paddingVertical: 4,
     paddingHorizontal: 10,
     marginTop: 0,
@@ -450,7 +487,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
   },
   barButtonActive: {
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    backgroundColor: sheetSelectionBg,
   },
   barButtonGlyph: {
     fontSize: 18,
@@ -479,7 +516,7 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   levelButtonSelected: {
-    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+    backgroundColor: sheetSelectionBg,
   },
   levelButtonText: {
     fontSize: 12,
@@ -502,6 +539,25 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
     paddingHorizontal: 4,
+  },
+  searchResultRow: {
+    borderRadius: 14,
+    gap: 2,
+    marginHorizontal: 2,
+    marginBottom: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  searchResultRowSelected: {
+    backgroundColor: sheetSelectionBg,
+  },
+  searchResultName: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  searchResultMeta: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   // ── Settings ────────────────────────────────────
   settingsCard: {
