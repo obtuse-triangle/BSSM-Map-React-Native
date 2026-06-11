@@ -28,6 +28,8 @@ import { useMapStore } from '../../store/mapStore';
 import type { BleWclResult } from '../../services/location/bleWclProvider';
 import type { FusionConfidenceLevel, FusionState } from '../../types/fusion';
 
+const MARKER_EASE_DURATION_MS = 300;
+
 // ── Types ────────────────────────────────────────────────────────────────
 
 type MarkerData = {
@@ -171,10 +173,12 @@ function snapshotToMarkerData(snapshot: StoreSnapshot): MarkerData | null {
 // ── Component ────────────────────────────────────────────────────────────
 
 function CampusBleMarker() {
-  // ── React state — drives GeoJSON rendering (updated at 1 Hz) ─────────
   const [markerData, setMarkerData] = useState<MarkerData | null>(null);
 
-  // ── Ref to hold latest snapshot for synchronous access ───────────────
+  const animRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fromPosRef = useRef<{ lng: number; lat: number } | null>(null);
+  const targetDataRef = useRef<MarkerData | null>(null);
+
   const lastSnapshotRef = useRef<StoreSnapshot>({
     status: useBleLocationStore.getState().status,
     result: useBleLocationStore.getState().result,
@@ -182,10 +186,35 @@ function CampusBleMarker() {
     currentHeading: useBleLocationStore.getState().currentHeading,
   });
 
-  // ── Imperative store subscription (NO React re-render on every tick) ─
+  const startEaseTo = (target: MarkerData) => {
+    const fromLng = fromPosRef.current?.lng ?? target.longitude;
+    const fromLat = fromPosRef.current?.lat ?? target.latitude;
+    const start = Date.now();
+
+    if (animRef.current) clearTimeout(animRef.current);
+
+    const tick = () => {
+      const elapsed = Date.now() - start;
+      const t = Math.min(elapsed / MARKER_EASE_DURATION_MS, 1);
+      const eased = 1 - Math.pow(1 - t, 3);
+
+      const curLng = fromLng + (target.longitude - fromLng) * eased;
+      const curLat = fromLat + (target.latitude - fromLat) * eased;
+
+      setMarkerData({ ...target, longitude: curLng, latitude: curLat });
+
+      if (t < 1) {
+        animRef.current = setTimeout(tick, 16);
+      } else {
+        fromPosRef.current = { lng: target.longitude, lat: target.latitude };
+        animRef.current = null;
+      }
+    };
+
+    tick();
+  };
+
   useEffect(() => {
-    /* Bootstrap from current store state (avoids flash-of-no-marker on
-     * mount when a BLE result already exists). */
     const initial = useBleLocationStore.getState();
     const initialSnapshot: StoreSnapshot = {
       status: initial.status,
@@ -198,45 +227,21 @@ function CampusBleMarker() {
     const initialData = snapshotToMarkerData(initialSnapshot);
     if (initialData) {
       setMarkerData(initialData);
+      fromPosRef.current = { lng: initialData.longitude, lat: initialData.latitude };
     }
 
-    /* Subscribe to BLE store changes imperatively.
-     * Zustand v5 subscribe(listener) — does NOT cause React re-renders.
-     * We call getState() inside the listener for the latest snapshot. */
     const unsubBle = useBleLocationStore.subscribe(() => {
       const { status, result, fusionState, currentHeading } = useBleLocationStore.getState();
       lastSnapshotRef.current = { status, result, fusionState, currentHeading };
 
-      if (__DEV__) {
-        console.log(
-          '[BLE-MARKER] Subscribe triggered: status=',
-          status,
-          'fusion=',
-          fusionState && fusionState.confidenceLevel !== 'unknown'
-            ? `${fusionState.lng.toFixed(6)},${fusionState.lat.toFixed(6)}`
-            : null,
-          'result=',
-          result ? `${result.longitude.toFixed(6)},${result.latitude.toFixed(6)}` : null,
-        );
-      }
-
       const nextMarkerData = snapshotToMarkerData({ status, result, fusionState, currentHeading });
 
       if (nextMarkerData) {
-        /* Trigger a minimal React render to update the GeoJSON source.
-         * This is the ONLY render the marker subtree performs per BLE
-         * update — the parent CampusMap is NOT affected. */
-        if (__DEV__) {
-          console.log('[BLE-MARKER] Setting markerData to:', nextMarkerData.longitude.toFixed(6), nextMarkerData.latitude.toFixed(6));
-        }
-        setMarkerData(nextMarkerData);
+        targetDataRef.current = nextMarkerData;
+        startEaseTo(nextMarkerData);
       } else {
-        /* No valid position — hide the marker.
-         * setMarkerData(null) triggers a render that returns null,
-         * removing the GeoJSONSource + Layers from the tree. */
-        if (__DEV__) {
-          console.log('[BLE-MARKER] Clearing markerData (null)');
-        }
+        if (animRef.current) { clearTimeout(animRef.current); animRef.current = null; }
+        fromPosRef.current = null;
         setMarkerData(null);
       }
     });
@@ -244,40 +249,26 @@ function CampusBleMarker() {
     const unsubMap = useMapStore.subscribe(() => {
       const snapshot = lastSnapshotRef.current;
       const marker = snapshotToMarkerData(snapshot);
-      if (!marker) {
-        return;
+      if (marker) {
+        startEaseTo(marker);
       }
-
-      setMarkerData(marker);
     });
 
     return () => {
       unsubBle();
       unsubMap();
+      if (animRef.current) clearTimeout(animRef.current);
     };
   }, []);
 
-  // ── Memoised GeoJSON — only re-computes when markerData identity changes ─
   const geoJsonData = useMemo(() => {
-    if (!markerData) {
-      if (__DEV__) console.log('[BLE-MARKER] geoJsonData: null (no markerData)');
-      return null;
-    }
-    const geoJson = makeMarkerGeoJson(markerData);
-    if (__DEV__) console.log('[BLE-MARKER] geoJsonData created:', JSON.stringify(geoJson.features[0].geometry.coordinates));
-    return geoJson;
+    if (!markerData) return null;
+    return makeMarkerGeoJson(markerData);
   }, [markerData]);
 
-  // ── Render ───────────────────────────────────────────────────────────────
-  if (!geoJsonData) {
-    return null;
-  }
+  if (!geoJsonData) return null;
 
   const showHeadingArrow = markerData?.heading != null;
-
-  if (__DEV__) {
-    console.log('[BLE-MARKER] heading debug:', markerData?.heading, 'showHeadingArrow:', showHeadingArrow);
-  }
 
   return (
     <GeoJSONSource id="ble-marker" data={geoJsonData}>
@@ -293,12 +284,12 @@ function CampusBleMarker() {
             'interpolate',
             ['linear'],
             ['zoom'],
-            14,
-            ['*', ['get', 'accuracyMeters'], 0.25],
-            18,
-            ['*', ['get', 'accuracyMeters'], 1],
-            22,
-            ['*', ['get', 'accuracyMeters'], 4],
+            15,
+            ['*', ['get', 'accuracyMeters'], 0.53],
+            17,
+            ['*', ['get', 'accuracyMeters'], 2.11],
+            19,
+            ['*', ['get', 'accuracyMeters'], 8.44],
           ],
           'circle-color': '#2979FF',
           'circle-opacity': 0.15,
