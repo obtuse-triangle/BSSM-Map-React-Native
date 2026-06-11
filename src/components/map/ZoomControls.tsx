@@ -11,7 +11,7 @@ type ZoomControlsProps = {
 
 export function ZoomControls({ onZoomIn, onZoomOut, onReset, style }: ZoomControlsProps) {
   return (
-    <GlassSurface variant="control" cornerRadius={18} pointerEvents="box-none" style={[styles.container, style]}>
+    <GlassSurface variant="control" cornerRadius={18} colorScheme="light" pointerEvents="box-none" style={[styles.container, style]}>
       <Pressable onPress={onZoomIn} style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}>
         <Text style={styles.buttonText}>+</Text>
       </Pressable>

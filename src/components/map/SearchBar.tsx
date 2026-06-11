@@ -22,6 +22,7 @@ export interface SearchBarProps {
   insets: EdgeInsets
   selectedFeatureId: string | number | null
   containerStyle?: StyleProp<ViewStyle>
+  glassColorScheme?: 'light' | 'dark'
 }
 
 export function SearchBar({
@@ -36,6 +37,7 @@ export function SearchBar({
   insets,
   selectedFeatureId,
   containerStyle,
+  glassColorScheme,
 }: SearchBarProps) {
   const scheme = useColorScheme()
   const [fieldHeight, setFieldHeight] = useState(0)
@@ -94,7 +96,7 @@ export function SearchBar({
       </KeyboardAvoidingView>
 
       {showResults || showEmpty ? (
-        <GlassSurface variant="search" cornerRadius={20} style={[styles.resultsCard, { top: fieldHeight + 8, width: dropdownWidth }]}>
+        <GlassSurface variant="search" cornerRadius={20} colorScheme={glassColorScheme} style={[styles.resultsCard, { top: fieldHeight + 8, width: dropdownWidth }]}>
           <Text style={[styles.resultsTitle, { color: adaptiveText(scheme) }]}>검색 결과</Text>
           {showResults ? (
             <ScrollView

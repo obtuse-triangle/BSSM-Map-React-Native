@@ -83,7 +83,7 @@ export function PlaceDetailBottomSheet({ floor, room }: PlaceDetailBottomSheetPr
   return (
     <GestureDetector gesture={gesture}>
       <Animated.View style={[styles.sheet, sheetStyle]}>
-        <GlassSurface variant="sheet" cornerRadius={24} style={styles.sheetGlass}>
+        <GlassSurface variant="sheet" cornerRadius={24} colorScheme="light" style={styles.sheetGlass}>
           <View style={styles.handleBar} />
 
           <View style={styles.headerRow}>

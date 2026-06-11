@@ -199,7 +199,7 @@ export function BleWclStatusCard({
   }
 
   return (
-    <GlassSurface variant="status" cornerRadius={24} style={styles.card}>
+    <GlassSurface variant="status" cornerRadius={24} colorScheme="light" style={styles.card}>
       {/* ── Header ─────────────────────────────── */}
       <View style={styles.headerRow}>
         <View style={styles.headerCopy}>
