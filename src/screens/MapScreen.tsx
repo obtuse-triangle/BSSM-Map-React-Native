@@ -47,6 +47,7 @@ export function MapScreen({ navigation }: MapScreenProps) {
     setSettingsVisible,
     pendingFlyToFeatureId,
     setPendingFlyToFeatureId,
+    showAttributionTick,
   } = useMapStore();
 
   const { position, status: positionStatus, error: positionError, locateCurrentPosition } = usePositionStore();
@@ -136,6 +137,15 @@ export function MapScreen({ navigation }: MapScreenProps) {
       setPendingFlyToFeatureId(null);
     }
   }, [pendingFlyToFeatureId, setPendingFlyToFeatureId, handleLocate]);
+
+  const attributionFirstRenderRef = useRef(true);
+  useEffect(() => {
+    if (attributionFirstRenderRef.current) {
+      attributionFirstRenderRef.current = false;
+      return;
+    }
+    campusMapRef.current?.showAttribution();
+  }, [showAttributionTick]);
 
   const clearPendingBleFly = useCallback(() => {
     pendingFlyToBleRef.current = false;

@@ -43,6 +43,7 @@ type MapStoreState = {
   bleCardVisible: boolean;
   settingsVisible: boolean;
   pendingFlyToFeatureId: string | null;
+  showAttributionTick: number;
   setSelectedFloorKey: (floorKey: FloorKey) => void;
   setSelectedLevel: (level: number) => void;
   setSelectedRoomId: (roomId: number | null) => void;
@@ -61,6 +62,7 @@ type MapStoreState = {
   setBleCardVisible: (visible: boolean) => void;
   setSettingsVisible: (visible: boolean) => void;
   setPendingFlyToFeatureId: (featureId: string | null) => void;
+  requestShowAttribution: () => void;
 };
 
 const initialFloorKey = getFirstFloorKey(bssmFloorMap) ?? null;
@@ -78,6 +80,7 @@ export const useMapStore = create<MapStoreState>()((set, get) => ({
   bleCardVisible: false,
   settingsVisible: false,
   pendingFlyToFeatureId: null,
+  showAttributionTick: 0,
   setSelectedFloorKey: (floorKey) => {
     set({ selectedFloorKey: floorKey, selectedRoomId: null, selectedFeatureId: null });
   },
@@ -135,4 +138,5 @@ export const useMapStore = create<MapStoreState>()((set, get) => ({
   setPendingFlyToFeatureId: (pendingFlyToFeatureId) => {
     set({ pendingFlyToFeatureId });
   },
+  requestShowAttribution: () => set((state) => ({ showAttributionTick: state.showAttributionTick + 1 })),
 }));

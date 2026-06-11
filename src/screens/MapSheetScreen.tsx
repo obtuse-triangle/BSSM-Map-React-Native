@@ -61,6 +61,7 @@ export function MapSheetScreen() {
     setBleCardVisible,
     setSettingsVisible,
     setPendingFlyToFeatureId,
+    requestShowAttribution,
   } = useMapStore();
 
   const allCategories = useMapStore((s) => s.allCategories);
@@ -275,6 +276,19 @@ export function MapSheetScreen() {
             );
           })}
         </View>
+
+        <View style={[styles.barDivider, { backgroundColor: isDarkMap ? 'rgba(255,255,255,0.12)' : '#e2e8f0' }]} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="지도 정보"
+          onPress={() => requestShowAttribution()}
+          style={({ pressed }) => [
+            styles.barButton,
+            pressed && { backgroundColor: isDarkMap ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' },
+          ]}
+        >
+          <Text style={[styles.barButtonGlyph, { color: isDarkMap ? '#f1f5f9' : '#0f172a' }]}>ⓘ</Text>
+        </Pressable>
       </View>
 
       {/* Row 2: Search bar */}

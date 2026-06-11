@@ -46,6 +46,7 @@ export type CampusMapHandle = {
   zoomIn: () => void;
   zoomOut: () => void;
   resetView: () => void;
+  showAttribution: () => void;
 };
 
 type CampusMapProps = {
@@ -214,7 +215,7 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false }: CampusM
     [],
   );
 
-  useImperativeHandle(ref, () => ({ flyToUser, flyToCoordinates, flyToFeature, zoomIn, zoomOut, resetView }), [flyToCoordinates, flyToFeature, flyToUser, resetView, zoomIn, zoomOut]);
+  useImperativeHandle(ref, () => ({ flyToUser, flyToCoordinates, flyToFeature, zoomIn, zoomOut, resetView, showAttribution: () => mapRef.current?.showAttribution?.() }), [flyToCoordinates, flyToFeature, flyToUser, resetView, zoomIn, zoomOut]);
 
   const levelFilter = useMemo(
     () => ['==', ['get', 'level'], selectedLevel] as unknown as FilterSpecification,
@@ -241,7 +242,7 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false }: CampusM
 
   return (
     <View style={styles.container}>
-      <Map ref={mapRef} mapStyle={BASE_STYLE} style={styles.map} onPress={handleMapPress} onRegionDidChange={handleRegionDidChange}>
+      <Map ref={mapRef} mapStyle={BASE_STYLE} style={styles.map} onPress={handleMapPress} onRegionDidChange={handleRegionDidChange} logo={false} attribution={false}>
         <Camera
           ref={cameraRef}
           initialViewState={{
