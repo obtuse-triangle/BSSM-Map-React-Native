@@ -26,6 +26,7 @@ export function RootNavigator() {
         component={MapSheetScreen}
         options={{
           presentation: 'formSheet',
+          contentStyle: { backgroundColor: 'transparent' },
           sheetAllowedDetents: [0.12, 0.5, 1.0],
           sheetInitialDetentIndex: 0,
           sheetGrabberVisible: true,

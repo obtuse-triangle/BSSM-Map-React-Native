@@ -55,7 +55,7 @@ export function SearchBar({
   return (
     <View style={[styles.container, containerStyle]} pointerEvents="box-none">
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.kavWrapper}>
-        <GlassSurface variant="search" cornerRadius={18} style={styles.searchFieldGlass}>
+        <GlassSurface variant="search" cornerRadius={999} style={styles.searchFieldGlass}>
           <View onLayout={handleFieldLayout} style={styles.searchField}>
             <Text style={styles.searchIcon}>⌕</Text>
             <TextInput
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
   },
   searchField: {
     alignItems: 'center',
-    borderRadius: 18,
+    borderRadius: 999,
     flexDirection: 'row',
     gap: 8,
     minHeight: 52,

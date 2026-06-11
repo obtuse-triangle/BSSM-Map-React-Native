@@ -195,8 +195,8 @@ export function MapSheetScreen() {
         </View>
 
         {/* Position status helper text */}
-        <Text style={styles.helperText}>
-          {statusForSelectedFloor === 'loading'
+        {(() => {
+          const msg = statusForSelectedFloor === 'loading'
             ? '현재 위치를 계산하는 중입니다.'
             : statusForSelectedFloor === 'success' && currentPosition
               ? `현재 위치 x ${currentPosition.x.toFixed(1)}% · y ${currentPosition.y.toFixed(1)}%`
@@ -204,8 +204,9 @@ export function MapSheetScreen() {
                 ? positionError ?? '현재 위치를 찾지 못했습니다.'
                 : bleStatus === 'success' && bleResult
                   ? `BLE WCL 위치 확인됨 · ±${bleResult.accuracyMeters.toFixed(1)}m · 신뢰도 ${(bleResult.confidence * 100).toFixed(0)}%`
-                  : '현재 층에서 AP를 눌러 위치를 계산할 수 있습니다.'}
-        </Text>
+                  : null;
+          return msg ? <Text style={styles.helperText}>{msg}</Text> : null;
+        })()}
 
         {/* Settings Panel */}
         {showSettings && (
@@ -350,6 +351,7 @@ export function MapSheetScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: 'transparent',
   },
   scrollContent: {
     gap: 12,
@@ -358,6 +360,8 @@ const styles = StyleSheet.create({
   searchRow: {
     flexDirection: 'row',
     zIndex: 20,
+    paddingHorizontal: 4,
+    paddingTop: 4,
   },
   helperText: {
     color: '#64748b',

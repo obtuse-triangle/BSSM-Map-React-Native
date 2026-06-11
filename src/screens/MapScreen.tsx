@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 12,
     right: 12,
-    bottom: 10,
+    bottom: 80,
     zIndex: 10,
   },
   glassBar: {
