@@ -146,6 +146,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     gap: 12,
     height: SHEET_HEIGHT,
+    width: '100%',
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 18,
@@ -154,6 +155,8 @@ const styles = StyleSheet.create({
   sheetGlass: {
     flex: 1,
     gap: 12,
+    alignSelf: 'stretch',
+    width: '100%',
   },
   handleBar: {
     alignSelf: 'center',

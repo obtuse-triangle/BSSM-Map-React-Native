@@ -39,6 +39,10 @@ type MapStoreState = {
   hiddenCategories: Set<CampusFeatureCategory>;
   detectedBuildingId: string | null;
   userCoordinates: { longitude: number; latitude: number } | null;
+  // Cross-screen UI state shared between MapScreen (glass bar) and MapSheetScreen (content)
+  bleCardVisible: boolean;
+  settingsVisible: boolean;
+  pendingFlyToFeatureId: string | null;
   setSelectedFloorKey: (floorKey: FloorKey) => void;
   setSelectedLevel: (level: number) => void;
   setSelectedRoomId: (roomId: number | null) => void;
@@ -53,6 +57,10 @@ type MapStoreState = {
   showAllCategories: () => void;
   hideAllCategories: () => void;
   allCategories: () => CampusFeatureCategory[];
+  // Cross-screen UI actions
+  setBleCardVisible: (visible: boolean) => void;
+  setSettingsVisible: (visible: boolean) => void;
+  setPendingFlyToFeatureId: (featureId: string | null) => void;
 };
 
 const initialFloorKey = getFirstFloorKey(bssmFloorMap) ?? null;
@@ -67,6 +75,9 @@ export const useMapStore = create<MapStoreState>()((set, get) => ({
   hiddenCategories: new Set<CampusFeatureCategory>(),
   detectedBuildingId: null,
   userCoordinates: null,
+  bleCardVisible: false,
+  settingsVisible: false,
+  pendingFlyToFeatureId: null,
   setSelectedFloorKey: (floorKey) => {
     set({ selectedFloorKey: floorKey, selectedRoomId: null, selectedFeatureId: null });
   },
@@ -115,4 +126,13 @@ export const useMapStore = create<MapStoreState>()((set, get) => ({
     set({ hiddenCategories: new Set(ALL_CATEGORIES) });
   },
   allCategories: () => ALL_CATEGORIES,
+  setBleCardVisible: (bleCardVisible) => {
+    set({ bleCardVisible });
+  },
+  setSettingsVisible: (settingsVisible) => {
+    set({ settingsVisible });
+  },
+  setPendingFlyToFeatureId: (pendingFlyToFeatureId) => {
+    set({ pendingFlyToFeatureId });
+  },
 }));
