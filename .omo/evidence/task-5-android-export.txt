@@ -1,0 +1,24 @@
+npm warn Unknown project config "node-linker". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+Starting Metro Bundler
+Android ./index.ts ▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░ 88.2% ( 983/1061)
+Android ./index.ts ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░ 99.9% (1356/1356)
+Android Bundled 6701ms index.ts (1356 modules)
+
+› Assets (21):
+node_modules/@maplibre/maplibre-react-native/lib/module/assets/heading.png (3 variations | 450 B)
+node_modules/@react-navigation/elements/lib/module/assets/back-icon-mask.png (653 B)
+node_modules/@react-navigation/elements/lib/module/assets/back-icon.png (4 variations | 152 B)
+node_modules/@react-navigation/elements/lib/module/assets/clear-icon.png (4 variations | 425 B)
+node_modules/@react-navigation/elements/lib/module/assets/close-icon.png (4 variations | 235 B)
+node_modules/@react-navigation/elements/lib/module/assets/search-icon.png (4 variations | 599 B)
+src/data/campus-design.mbtiles (10.6 MB)
+
+› android bundles (1):
+_expo/static/js/android/index-dee19478aabafa9dfd3dd79bcbf8ccbe.hbc (4.19 MB)
+
+› Files (1):
+metadata.json (1.6 kB)
+
+Exported: /tmp/ap-viz-export-smoke
+Something prevented Expo from exiting, forcefully exiting now.
+EXIT CODE: 0
