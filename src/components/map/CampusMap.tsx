@@ -24,6 +24,7 @@ import { useSavedPlacesStore } from '../../store/savedPlacesStore';
 import CampusBleMarker from './CampusBleMarker';
 import CampusApMarkers from './CampusApMarkers';
 import SavedPinsLayer from './SavedPinsLayer';
+import RoutePathLayer from './RoutePathLayer';
 import { getDetectedBuildingId } from '../../utils/buildingDetection';
 import type { CampusGeoJSON } from '../../types/geojson';
 import { getFeatureById } from '../../utils/geoJsonHelpers';
@@ -437,6 +438,7 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false, onUserMap
         <SavedPinsLayer />
         <CampusBleMarker />
         <CampusApMarkers />
+        <RoutePathLayer />
       </Map>
     </View>
   );
