@@ -1,0 +1,5 @@
+Simulator QA blocked: Android expo export fails due to pre-existing pnpm dependency issue.
+Error: ENOENT @react-native/virtualized-lists/package.json in pnpm virtual store.
+This is unrelated to routing changes — the error occurs at react-native import level.
+iOS simulator would require Xcode + valid signing config which is not available in this environment.
+Visual QA deferred to manual testing by user on their dev device/simulator.
