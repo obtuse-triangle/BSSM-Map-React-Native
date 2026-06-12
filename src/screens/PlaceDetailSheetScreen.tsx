@@ -5,6 +5,7 @@ import { GlassSurface } from '../components/glass';
 import { sheetAccent, sheetLabel, sheetSecondaryLabel, sheetSecondarySystemFill, sheetSelectionBg, sheetSeparator, sheetSystemFill } from '../theme/sheetSemanticColors';
 import campusDataUntyped from '../data/campus-wgs84.json';
 import { useMapStore } from '../store/mapStore';
+import { useSavedPlacesStore } from '../store/savedPlacesStore';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
@@ -71,6 +72,47 @@ export function PlaceDetailSheetScreen() {
     } as FloorElement & { _geojsonMeta?: { category: string; centroid: string } };
   }, [selectedFeature]);
 
+  // ── Save / unsave state ────────────────────────────────────────────
+  const featureIdForSave = selectedFeature && selectedFeature.properties.interactive
+    ? String(selectedFeature.id)
+    : null;
+
+  const [isSaved, setIsSaved] = useState<boolean>(
+    featureIdForSave ? useSavedPlacesStore.getState().isCampusFeatureSaved(featureIdForSave) : false,
+  );
+
+  useEffect(() => {
+    if (!featureIdForSave) {
+      setIsSaved(false);
+      return;
+    }
+    setIsSaved(useSavedPlacesStore.getState().isCampusFeatureSaved(featureIdForSave));
+    const unsub = useSavedPlacesStore.subscribe((state) => {
+      setIsSaved(state.isCampusFeatureSaved(featureIdForSave));
+    });
+    return unsub;
+  }, [featureIdForSave]);
+
+  const handleToggleSave = useCallback(() => {
+    if (!selectedFeature || !featureIdForSave) return;
+    const feature = selectedFeature;
+
+    if (isSaved) {
+      useSavedPlacesStore.getState().removeSavedPlace(`campus:${featureIdForSave}`);
+      return;
+    }
+
+    const snapshot = {
+      featureId: featureIdForSave,
+      name: feature.properties.name,
+      nameKo: feature.properties.name_ko,
+      category: feature.properties.category,
+      level: feature.properties.level,
+      coordinates: getFeatureCentroid(feature),
+    };
+    useSavedPlacesStore.getState().hydrateSavedCampusPlace(snapshot);
+  }, [selectedFeature, featureIdForSave, isSaved]);
+
   // Clean up store selection when dismissing
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', () => {
@@ -111,6 +153,24 @@ export function PlaceDetailSheetScreen() {
           <View style={[styles.floorBadge, { backgroundColor: sheetSelectionBg, borderColor: sheetSeparator }]}>
             <Text style={[styles.floorBadgeText, { color: sheetAccent(accentScheme) }]}>{floorLabel}</Text>
           </View>
+        )}
+
+        {featureIdForSave && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={isSaved ? '저장됨' : '저장'}
+            onPress={handleToggleSave}
+            style={({ pressed }) => [
+              styles.saveButton,
+              { backgroundColor: sheetSystemFill },
+              pressed && styles.closeButtonPressed,
+            ]}
+            hitSlop={{ top: 7, bottom: 7, left: 7, right: 7 }}
+          >
+            <Text style={[styles.saveButtonText, { color: isSaved ? sheetAccent(accentScheme) : sheetSecondaryLabel }]}>
+              {isSaved ? '★' : '☆'}
+            </Text>
+          </Pressable>
         )}
 
         <Pressable
@@ -215,6 +275,20 @@ const styles = StyleSheet.create({
   closeButtonText: {
     fontSize: 18,
     fontWeight: '400',
+    includeFontPadding: false,
+    textAlign: 'center',
+  },
+  saveButton: {
+    alignItems: 'center',
+    alignSelf: 'center',
+    borderRadius: 15,
+    height: 30,
+    justifyContent: 'center',
+    width: 30,
+  },
+  saveButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
     includeFontPadding: false,
     textAlign: 'center',
   },
