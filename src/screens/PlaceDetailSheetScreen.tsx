@@ -103,12 +103,14 @@ export function PlaceDetailSheetScreen() {
           accessibilityRole="button"
           accessibilityLabel="닫기"
           onPress={handleDismiss}
-          style={styles.closeButton}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={({ pressed }) => [
+            styles.closeButton,
+            { backgroundColor: sheetSystemFill },
+            pressed && styles.closeButtonPressed,
+          ]}
+          hitSlop={{ top: 7, bottom: 7, left: 7, right: 7 }}
         >
-          <GlassSurface variant="control" cornerRadius={14} style={[styles.closeButtonInner, { backgroundColor: sheetSystemFill }]}>
-            <Text style={[styles.closeButtonText, { color: sheetSecondaryLabel }]}>✕</Text>
-          </GlassSurface>
+          <Text style={[styles.closeButtonText, { color: sheetSecondaryLabel }]}>×</Text>
         </Pressable>
       </View>
 
@@ -186,18 +188,21 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   closeButton: {
-    alignSelf: 'center',
-  },
-  closeButtonInner: {
     alignItems: 'center',
-    borderRadius: 14,
-    height: 28,
+    alignSelf: 'center',
+    borderRadius: 15,
+    height: 30,
     justifyContent: 'center',
-    width: 28,
+    width: 30,
+  },
+  closeButtonPressed: {
+    opacity: 0.6,
   },
   closeButtonText: {
-    fontSize: 13,
-    fontWeight: '700',
+    fontSize: 18,
+    fontWeight: '400',
+    includeFontPadding: false,
+    textAlign: 'center',
   },
   // ── Detail card ─────────────────────────────────
   detailCard: {
