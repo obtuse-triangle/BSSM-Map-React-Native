@@ -3,16 +3,26 @@ package expo.modules.androidble
 import android.Manifest
 import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothManager
+import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanResult
+import android.bluetooth.le.ScanSettings
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.content.ContextCompat
 import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
+import java.util.Collections
+import java.util.concurrent.CountDownLatch
 
 class AndroidBlePositioningModule : Module() {
+  private var continuousScanCallback: ScanCallback? = null
+  private var isContinuousScanning: Boolean = false
+  private val scanLock = Any()
+
   override fun definition() = ModuleDefinition {
     Name("AndroidBlePositioning")
 
@@ -24,6 +34,25 @@ class AndroidBlePositioningModule : Module() {
 
     AsyncFunction("requestBlePermissions") {
       requestBlePermissions()
+    }
+
+    // One-shot bounded scan
+    AsyncFunction("startArubaBleScan") { durationMs: Int? ->
+      startArubaBleScanInternal(durationMs)
+    }
+
+    // Continuous scan (sync, no return value)
+    Function("startContinuousArubaBleScan") {
+      startContinuousArubaBleScanInternal()
+    }
+
+    // Stop any active scan
+    Function("stopArubaBleScan") {
+      stopActiveScan()
+    }
+
+    OnDestroy {
+      stopActiveScan()
     }
   }
 
@@ -145,6 +174,174 @@ class AndroidBlePositioningModule : Module() {
       "payloadHex" to payloadHex,
       "observedAt" to observedAt
     )
+  }
+
+  // ---- One-shot bounded scan ----
+
+  /**
+   * Start a one-shot BLE scan for Aruba/HPE beacons.
+   *
+   * @param durationMs  Scan duration in milliseconds. Defaults to 10000.
+   *                    Clamped to [1000, 30000].
+   * @return List of parsed ArubaBleObservation maps collected during the
+   *         scan window.
+   */
+  private fun startArubaBleScanInternal(durationMs: Int?): List<Map<String, Any>> {
+    val effectiveDuration = (durationMs ?: 10000).coerceIn(1000, 30000)
+    val context = appContext.reactContext ?: throw AppContextLostException()
+    checkBlePrerequisites(context)
+
+    val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+    val bluetoothLeScanner = bluetoothManager.adapter.bluetoothLeScanner
+
+    val observations = Collections.synchronizedList(mutableListOf<Map<String, Any>>())
+    val latch = CountDownLatch(1)
+
+    val callback = object : ScanCallback() {
+      override fun onScanResult(callbackType: Int, result: ScanResult) {
+        val observation = parseArubaObservation(
+          result.device,
+          result,
+          System.currentTimeMillis()
+        )
+        if (observation != null) {
+          observations.add(observation)
+        }
+      }
+    }
+
+    val settings = ScanSettings.Builder()
+      .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+      .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
+      .setReportDelay(0)
+      .build()
+
+    try {
+      bluetoothLeScanner.startScan(null, settings, callback)
+    } catch (e: SecurityException) {
+      throw MissingPermissionException("BLUETOOTH_SCAN")
+    } catch (e: Exception) {
+      throw Exception("Scan start failed: ${e.message}").also {
+        Handler(Looper.getMainLooper()).post {
+          sendEvent("onArubaBleScanError", mapOf(
+            "code" to "ERR_SCAN_START_FAILED",
+            "message" to (e.message ?: "unknown")
+          ))
+        }
+      }
+    }
+
+    Handler(Looper.getMainLooper()).postDelayed({
+      try {
+        bluetoothLeScanner.stopScan(callback)
+      } catch (_: SecurityException) {
+        // Best effort — permission was already verified
+      } catch (_: Exception) {
+        // Best effort stop
+      }
+      latch.countDown()
+    }, effectiveDuration.toLong())
+
+    try {
+      latch.await()
+    } catch (_: InterruptedException) {
+      Thread.currentThread().interrupt()
+    } finally {
+      try {
+        bluetoothLeScanner.stopScan(callback)
+      } catch (_: Exception) {
+        // Best effort — already stopped via postDelayed
+      }
+    }
+
+    return observations
+  }
+
+  // ---- Continuous scan ----
+
+  private fun startContinuousArubaBleScanInternal() {
+    synchronized(scanLock) {
+      if (isContinuousScanning) return
+    }
+
+    val context = appContext.reactContext ?: throw AppContextLostException()
+    checkBlePrerequisites(context)
+
+    val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+    val bluetoothLeScanner = bluetoothManager.adapter.bluetoothLeScanner
+
+    val settings = ScanSettings.Builder()
+      .setScanMode(ScanSettings.SCAN_MODE_BALANCED)
+      .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES)
+      .setReportDelay(0L)
+      .build()
+
+    val callback = object : ScanCallback() {
+      override fun onScanResult(callbackType: Int, result: ScanResult) {
+        val observation = parseArubaObservation(
+          result.device,
+          result,
+          System.currentTimeMillis()
+        ) ?: return
+
+        Handler(Looper.getMainLooper()).post {
+          sendEvent("onArubaBleObservation", observation)
+        }
+      }
+    }
+
+    try {
+      bluetoothLeScanner.startScan(null, settings, callback)
+    } catch (e: SecurityException) {
+      throw MissingPermissionException("BLUETOOTH_SCAN")
+    } catch (e: Exception) {
+      Handler(Looper.getMainLooper()).post {
+        sendEvent("onArubaBleScanError", mapOf(
+          "code" to "ERR_SCAN_START_FAILED",
+          "message" to (e.message ?: "unknown")
+        ))
+      }
+      return
+    }
+
+    synchronized(scanLock) {
+      continuousScanCallback = callback
+      isContinuousScanning = true
+    }
+  }
+
+  // ---- Stop active scan ----
+
+  private fun stopActiveScan() {
+    val cb: ScanCallback?
+    synchronized(scanLock) {
+      cb = continuousScanCallback
+      if (cb == null) return
+      continuousScanCallback = null
+      isContinuousScanning = false
+    }
+
+    val context = appContext.reactContext ?: return
+
+    try {
+      val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+      val bluetoothLeScanner = bluetoothManager.adapter.bluetoothLeScanner
+      bluetoothLeScanner.stopScan(cb)
+    } catch (e: SecurityException) {
+      Handler(Looper.getMainLooper()).post {
+        sendEvent("onArubaBleScanError", mapOf(
+          "code" to "ERR_SCAN_STOP_FAILED",
+          "message" to (e.message ?: "BLUETOOTH_SCAN permission missing")
+        ))
+      }
+    } catch (e: Exception) {
+      Handler(Looper.getMainLooper()).post {
+        sendEvent("onArubaBleScanError", mapOf(
+          "code" to "ERR_SCAN_STOP_FAILED",
+          "message" to (e.message ?: "unknown")
+        ))
+      }
+    }
   }
 }
 

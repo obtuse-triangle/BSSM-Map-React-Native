@@ -16,13 +16,31 @@ declare class AndroidBlePositioningModule extends NativeModule<AndroidBlePositio
   /** Returns true when all required BLE runtime permissions are granted. */
   requestBlePermissions(): Promise<boolean>;
 
-  // TODO(android-ble): implemented in Task 3
+  /**
+   * Start a one-shot BLE scan for Aruba/HPE beacons.
+   *
+   * Scans for the given duration (clamped to [1000, 30000] ms, defaults
+   * to 10000 ms) and returns all discovered Aruba observations. During
+   * the scan window, `onArubaBleObservation` events are also emitted
+   * for each discovered beacon.
+   */
   startArubaBleScan(durationMs?: number): Promise<ArubaBleObservation[]>;
 
-  // TODO(android-ble): implemented in Task 3
+  /**
+   * Start continuous BLE scanning for Aruba/HPE beacons.
+   *
+   * Emits `onArubaBleObservation` events in real-time until
+   * `stopArubaBleScan()` is called or the module is destroyed.
+   * Duplicate calls are no-ops.
+   */
   startContinuousArubaBleScan(): void;
 
-  // TODO(android-ble): implemented in Task 3
+  /**
+   * Stop any active continuous BLE scan.
+   *
+   * Stops the stored ScanCallback and clears scanning state.
+   * Safe to call when no scan is active.
+   */
   stopArubaBleScan(): void;
 }
 
