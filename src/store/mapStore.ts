@@ -52,6 +52,8 @@ type MapStoreState = {
   settingsVisible: boolean;
   pendingFlyToFeatureId: string | null;
   showAttributionTick: number;
+  // Monotonic signal for external screens to request sheet minimization without encoding UI state
+  minimizeSheetsTick: number;
   setSelectedFloorKey: (floorKey: FloorKey) => void;
   setSelectedLevel: (level: number) => void;
   setSelectedRoomId: (roomId: number | null) => void;
@@ -77,6 +79,7 @@ type MapStoreState = {
   setSettingsVisible: (visible: boolean) => void;
   setPendingFlyToFeatureId: (featureId: string | null) => void;
   requestShowAttribution: () => void;
+  requestMinimizeSheets: () => void;
 };
 
 const initialFloorKey = getFirstFloorKey(bssmFloorMap) ?? null;
@@ -112,6 +115,7 @@ export const useMapStore = create<MapStoreState>()((set, get) => ({
   settingsVisible: false,
   pendingFlyToFeatureId: null,
   showAttributionTick: 0,
+  minimizeSheetsTick: 0,
   setSelectedFloorKey: (floorKey) => {
     set({ selectedFloorKey: floorKey, selectedRoomId: null, selectedFeatureId: null });
   },
@@ -222,4 +226,5 @@ export const useMapStore = create<MapStoreState>()((set, get) => ({
     set({ pendingFlyToFeatureId });
   },
   requestShowAttribution: () => set((state) => ({ showAttributionTick: state.showAttributionTick + 1 })),
+  requestMinimizeSheets: () => set((state) => ({ minimizeSheetsTick: state.minimizeSheetsTick + 1 })),
 }));
