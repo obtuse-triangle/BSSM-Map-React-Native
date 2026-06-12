@@ -1,4 +1,4 @@
-import type { CampusFeature, GeoJSONMultiPolygon, GeoJSONPoint, GeoJSONPolygon } from '../types/geojson';
+import type { CampusFeature, GeoJSONMultiPolygon, GeoJSONPolygon } from '../types/geojson';
 import { getFeatureCentroid } from './geoJsonHelpers';
 
 export const CAMERA_FLY_TO_DURATION_MS = 500;
@@ -34,6 +34,11 @@ const getAllPolygonRings = (geometry: GeoJSONPolygon | GeoJSONMultiPolygon): [nu
   }
 
   return geometry.coordinates.flat() as [number, number][][];
+};
+
+const hasPolygonCoordinates = (geometry: GeoJSONPolygon | GeoJSONMultiPolygon): boolean => {
+  const rings = getAllPolygonRings(geometry);
+  return rings.length > 0 && rings.some((ring) => ring.length > 0);
 };
 
 const isFiniteCoordinate = (coordinate: readonly number[]): coordinate is [number, number] => {
@@ -112,6 +117,10 @@ export const getFeatureCameraTarget = (feature: CampusFeature): FeatureCameraTar
       padding: FEATURE_FIT_PADDING,
       duration: CAMERA_FLY_TO_DURATION_MS,
     };
+  }
+
+  if (!hasPolygonCoordinates(feature.geometry)) {
+    return null;
   }
 
   const centroid = getFeatureCentroid(feature);

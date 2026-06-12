@@ -212,6 +212,33 @@ describe('cameraTarget', () => {
       });
     });
 
+    it('returns null for an empty polygon', () => {
+      const feature = makeFeature('empty-polygon', {
+        type: 'Polygon',
+        coordinates: [],
+      } as unknown as CampusGeometry);
+
+      expect(getFeatureCameraTarget(feature)).toBeNull();
+    });
+
+    it('returns null for an empty multipolygon', () => {
+      const feature = makeFeature('empty-multipolygon', {
+        type: 'MultiPolygon',
+        coordinates: [],
+      } as unknown as CampusGeometry);
+
+      expect(getFeatureCameraTarget(feature)).toBeNull();
+    });
+
+    it('returns null for a polygon with an empty ring', () => {
+      const feature = makeFeature('empty-ring-polygon', {
+        type: 'Polygon',
+        coordinates: [[]],
+      } as unknown as CampusGeometry);
+
+      expect(getFeatureCameraTarget(feature)).toBeNull();
+    });
+
     it('falls back to centroid for a degenerate multipolygon with finite centroid', () => {
       const feature = multiPolygonFeature([
         [
