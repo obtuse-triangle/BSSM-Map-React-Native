@@ -40,7 +40,7 @@ export function buildRouteLayerData(
     return { activeFeatures: [], dimmedFeatures: [] };
   }
 
-  const geoJson = routeResultToGeoJson(result, nodeCoords);
+  const geoJson = routeResultToGeoJson(result, nodeCoords, selectedLevel);
 
   const activeFeatures: RouteGeoJsonFeature[] = [];
   const dimmedFeatures: RouteGeoJsonFeature[] = [];

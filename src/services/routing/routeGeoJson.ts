@@ -23,6 +23,8 @@ export interface RouteGeoJsonFeature {
     level: number;
     segmentType: 'walk';
     segmentIndex: number;
+    isCurrentLevel: boolean;
+    opacityClass: 'active' | 'dimmed';
   };
 }
 
@@ -37,6 +39,7 @@ function segmentToFeature(
   segment: RouteFloorSegment,
   segmentIndex: number,
   nodeCoords: Map<string, [number, number]>,
+  selectedLevel?: number,
 ): RouteGeoJsonFeature | null {
   const coords: [number, number][] = [];
 
@@ -66,6 +69,8 @@ function segmentToFeature(
       level: segment.level,
       segmentType: 'walk',
       segmentIndex,
+      isCurrentLevel: selectedLevel !== undefined ? segment.level === selectedLevel : false,
+      opacityClass: selectedLevel !== undefined && segment.level === selectedLevel ? 'active' : 'dimmed',
     },
   };
 }
@@ -82,6 +87,7 @@ function segmentToFeature(
 export function routeResultToGeoJson(
   result: RouteResult,
   nodeCoords: Map<string, [number, number]>,
+  selectedLevel?: number,
 ): RouteGeoJsonFeatureCollection {
   if (!result.ok) {
     return { type: 'FeatureCollection', features: [] };
@@ -90,7 +96,7 @@ export function routeResultToGeoJson(
   const features: RouteGeoJsonFeature[] = [];
 
   for (let i = 0; i < result.floorSegments.length; i++) {
-    const feature = segmentToFeature(result.floorSegments[i], i, nodeCoords);
+    const feature = segmentToFeature(result.floorSegments[i], i, nodeCoords, selectedLevel);
     if (feature) {
       features.push(feature);
     }

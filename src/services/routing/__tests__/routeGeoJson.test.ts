@@ -65,7 +65,7 @@ const failedResult: RouteResult = {
 describe('routeResultToGeoJson', () => {
   it('returns FeatureCollection with correct number of LineString features for valid result', () => {
     const nodeCoords = makeNodeCoords();
-    const geoJson = routeResultToGeoJson(successResult, nodeCoords);
+    const geoJson = routeResultToGeoJson(successResult, nodeCoords, 1);
 
     expect(geoJson.type).toBe('FeatureCollection');
     expect(geoJson.features).toHaveLength(2);
@@ -75,7 +75,7 @@ describe('routeResultToGeoJson', () => {
 
   it('projects EPSG:5183 coordinates to WGS84 within campus bounds', () => {
     const nodeCoords = makeNodeCoords();
-    const geoJson = routeResultToGeoJson(successResult, nodeCoords);
+    const geoJson = routeResultToGeoJson(successResult, nodeCoords, 1);
 
     for (const feature of geoJson.features) {
       for (const [lon, lat] of feature.geometry.coordinates) {
@@ -87,26 +87,40 @@ describe('routeResultToGeoJson', () => {
     }
   });
 
-  it('each feature has required properties (level, segmentType, segmentIndex)', () => {
+  it('each feature has required properties (level, segmentType, segmentIndex, isCurrentLevel, opacityClass)', () => {
     const nodeCoords = makeNodeCoords();
-    const geoJson = routeResultToGeoJson(successResult, nodeCoords);
+    const geoJson = routeResultToGeoJson(successResult, nodeCoords, 1);
 
     expect(geoJson.features[0].properties).toEqual({
       level: 1,
       segmentType: 'walk',
       segmentIndex: 0,
+      isCurrentLevel: true,
+      opacityClass: 'active',
     });
 
     expect(geoJson.features[1].properties).toEqual({
       level: 2,
       segmentType: 'walk',
       segmentIndex: 1,
+      isCurrentLevel: false,
+      opacityClass: 'dimmed',
     });
+  });
+
+  it('defaults to dimmed properties when selectedLevel is not provided', () => {
+    const nodeCoords = makeNodeCoords();
+    const geoJson = routeResultToGeoJson(successResult, nodeCoords);
+
+    expect(geoJson.features[0].properties.isCurrentLevel).toBe(false);
+    expect(geoJson.features[0].properties.opacityClass).toBe('dimmed');
+    expect(geoJson.features[1].properties.isCurrentLevel).toBe(false);
+    expect(geoJson.features[1].properties.opacityClass).toBe('dimmed');
   });
 
   it('LineString coordinates match the node count (3 nodes → 3 coords)', () => {
     const nodeCoords = makeNodeCoords();
-    const geoJson = routeResultToGeoJson(successResult, nodeCoords);
+    const geoJson = routeResultToGeoJson(successResult, nodeCoords, 1);
 
     // Segment 0: n1, n2, n3 → 3 coordinate pairs
     expect(geoJson.features[0].geometry.coordinates).toHaveLength(3);
@@ -116,7 +130,7 @@ describe('routeResultToGeoJson', () => {
 
   it('returns empty FeatureCollection for failed route (ok: false)', () => {
     const nodeCoords = makeNodeCoords();
-    const geoJson = routeResultToGeoJson(failedResult, nodeCoords);
+    const geoJson = routeResultToGeoJson(failedResult, nodeCoords, 1);
 
     expect(geoJson.type).toBe('FeatureCollection');
     expect(geoJson.features).toHaveLength(0);
@@ -135,7 +149,7 @@ describe('routeResultToGeoJson', () => {
     };
 
     const nodeCoords = makeNodeCoords();
-    const geoJson = routeResultToGeoJson(resultWithMissing, nodeCoords);
+    const geoJson = routeResultToGeoJson(resultWithMissing, nodeCoords, 1);
 
     // Only first segment (with valid nodes) should appear
     expect(geoJson.features).toHaveLength(1);
@@ -154,7 +168,7 @@ describe('routeResultToGeoJson', () => {
     };
 
     const nodeCoords = makeNodeCoords();
-    const geoJson = routeResultToGeoJson(resultOneNode, nodeCoords);
+    const geoJson = routeResultToGeoJson(resultOneNode, nodeCoords, 1);
 
     expect(geoJson.features).toHaveLength(0);
   });

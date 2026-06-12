@@ -132,8 +132,18 @@ export function PlaceDetailSheetScreen() {
 
   const handleFindRoute = useCallback(() => {
     if (!featureIdForSave) return;
-    useRouteStore.getState().setDestinationFeature(featureIdForSave);
-    useRouteStore.getState().computeRoute();
+    const routeStore = useRouteStore.getState();
+    const mapState = useMapStore.getState();
+
+    if (mapState.userCoordinates) {
+      routeStore.setOriginFromUserLocation(
+        [mapState.userCoordinates.longitude, mapState.userCoordinates.latitude],
+        mapState.selectedLevel,
+      );
+    }
+
+    routeStore.setDestinationFeature(featureIdForSave);
+    routeStore.computeRoute();
     useMapStore.getState().requestMinimizeSheets();
     navigation.goBack();
   }, [featureIdForSave, navigation]);

@@ -89,9 +89,13 @@ describe('buildRouteLayerData', () => {
 
     expect(activeFeatures).toHaveLength(1);
     expect(activeFeatures[0].properties.level).toBe(1);
+    expect(activeFeatures[0].properties.isCurrentLevel).toBe(true);
+    expect(activeFeatures[0].properties.opacityClass).toBe('active');
 
     expect(dimmedFeatures).toHaveLength(1);
     expect(dimmedFeatures[0].properties.level).toBe(2);
+    expect(dimmedFeatures[0].properties.isCurrentLevel).toBe(false);
+    expect(dimmedFeatures[0].properties.opacityClass).toBe('dimmed');
   });
 
   it('classifies segments on level 2 as active and level 1 as dimmed when selectedLevel=2', () => {
@@ -103,9 +107,13 @@ describe('buildRouteLayerData', () => {
 
     expect(activeFeatures).toHaveLength(1);
     expect(activeFeatures[0].properties.level).toBe(2);
+    expect(activeFeatures[0].properties.isCurrentLevel).toBe(true);
+    expect(activeFeatures[0].properties.opacityClass).toBe('active');
 
     expect(dimmedFeatures).toHaveLength(1);
     expect(dimmedFeatures[0].properties.level).toBe(1);
+    expect(dimmedFeatures[0].properties.isCurrentLevel).toBe(false);
+    expect(dimmedFeatures[0].properties.opacityClass).toBe('dimmed');
   });
 
   it('all segments on same level as selectedLevel → all active, none dimmed', () => {
@@ -121,6 +129,8 @@ describe('buildRouteLayerData', () => {
     // Verify all active features are level 3
     for (const f of activeFeatures) {
       expect(f.properties.level).toBe(3);
+      expect(f.properties.isCurrentLevel).toBe(true);
+      expect(f.properties.opacityClass).toBe('active');
     }
   });
 
@@ -133,6 +143,11 @@ describe('buildRouteLayerData', () => {
 
     expect(activeFeatures).toHaveLength(0);
     expect(dimmedFeatures).toHaveLength(2);
+
+    for (const f of dimmedFeatures) {
+      expect(f.properties.isCurrentLevel).toBe(false);
+      expect(f.properties.opacityClass).toBe('dimmed');
+    }
   });
 
   it('is deterministic: same input → same output', () => {
