@@ -5,6 +5,7 @@ import { GlassSurface } from '../components/glass';
 import { sheetAccent, sheetLabel, sheetSecondaryLabel, sheetSecondarySystemFill, sheetSelectionBg, sheetSeparator, sheetSystemFill } from '../theme/sheetSemanticColors';
 import campusDataUntyped from '../data/campus-wgs84.json';
 import { useMapStore } from '../store/mapStore';
+import { useRouteStore } from '../store/routeStore';
 import { useSavedPlacesStore } from '../store/savedPlacesStore';
 import { SAVED_PLACE_COLOR_PALETTE } from '../types/savedPlaces';
 import type { SavedCustomPin } from '../types/savedPlaces';
@@ -129,6 +130,25 @@ export function PlaceDetailSheetScreen() {
     useSavedPlacesStore.getState().hydrateSavedCampusPlace(snapshot);
   }, [selectedFeature, featureIdForSave, isSaved]);
 
+  const handleFindRoute = useCallback(() => {
+    if (!featureIdForSave) return;
+    useRouteStore.getState().setDestinationFeature(featureIdForSave);
+    useRouteStore.getState().computeRoute();
+    useMapStore.getState().requestMinimizeSheets();
+    navigation.goBack();
+  }, [featureIdForSave, navigation]);
+
+  const [originJustSet, setOriginJustSet] = useState(false);
+  const originTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleSetAsOrigin = useCallback(() => {
+    if (!featureIdForSave) return;
+    useRouteStore.getState().setOriginFromFeature(featureIdForSave);
+    setOriginJustSet(true);
+    if (originTimeoutRef.current) clearTimeout(originTimeoutRef.current);
+    originTimeoutRef.current = setTimeout(() => setOriginJustSet(false), 1500);
+  }, [featureIdForSave]);
+
   // ── Custom pin editor state ─────────────────────────────────────────────
   const [customPinState, setCustomPinState] = useState<{
     id: string | null;
@@ -240,7 +260,7 @@ export function PlaceDetailSheetScreen() {
                 {SAVED_PLACE_COLOR_PALETTE.map((c) => {
                   const selected = customPinPlace.color === c;
                   return (
-                    <Pressable
+            <Pressable
                       key={c}
                       accessibilityRole="button"
                       accessibilityLabel={`색상 ${c}`}
@@ -309,6 +329,24 @@ export function PlaceDetailSheetScreen() {
           </Pressable>
         )}
 
+        {featureIdForSave && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="길찾기"
+            onPress={handleFindRoute}
+            style={({ pressed }) => [
+              styles.routeButton,
+              { backgroundColor: sheetSystemFill },
+              pressed && styles.closeButtonPressed,
+            ]}
+            hitSlop={{ top: 7, bottom: 7, left: 7, right: 7 }}
+          >
+            <Text style={[styles.routeButtonText, { color: sheetAccent(accentScheme) }]}>
+              길찾기
+            </Text>
+          </Pressable>
+        )}
+
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="닫기"
@@ -343,6 +381,24 @@ export function PlaceDetailSheetScreen() {
             </View>
           )}
         </GlassSurface>
+      )}
+
+      {featureIdForSave && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="출발지로 설정"
+          onPress={handleSetAsOrigin}
+          style={({ pressed }) => [
+            styles.setOriginButton,
+            { backgroundColor: sheetSystemFill, borderColor: sheetSeparator },
+            originJustSet && { backgroundColor: sheetSelectionBg },
+            pressed && styles.closeButtonPressed,
+          ]}
+        >
+          <Text style={[styles.setOriginButtonText, { color: originJustSet ? sheetAccent(accentScheme) : sheetSecondaryLabel }]}>
+            {originJustSet ? '✓ 출발지로 설정됨' : '출발지로 설정'}
+          </Text>
+        </Pressable>
       )}
 
       {!bottomSheetRoom && (
@@ -496,6 +552,32 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   deleteButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  routeButton: {
+    alignItems: 'center',
+    alignSelf: 'center',
+    borderRadius: 15,
+    height: 30,
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  routeButtonText: {
+    fontSize: 12,
+    fontWeight: '700',
+    includeFontPadding: false,
+    textAlign: 'center',
+  },
+  setOriginButton: {
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    borderRadius: 14,
+    borderWidth: 1,
+    marginHorizontal: 16,
+    paddingVertical: 12,
+  },
+  setOriginButtonText: {
     fontSize: 14,
     fontWeight: '700',
   },

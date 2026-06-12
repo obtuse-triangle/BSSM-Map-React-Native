@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, useColorScheme, View } from 'react-native';
 import { MAP_STYLES } from '../constants/mapStyles';
 import campusDataUntyped from '../data/campus-wgs84.json';
 import { FeedbackStateCard } from '../components/feedback/FeedbackStateCard';
@@ -11,6 +11,7 @@ import { useMapStore, type CampusFeatureCategory } from '../store/mapStore';
 import { usePositionStore } from '../store/positionStore';
 import { useBleLocationStore } from '../store/bleLocationStore';
 import { useSavedPlacesStore } from '../store/savedPlacesStore';
+import { useRouteStore } from '../store/routeStore';
 import {
   sheetAccent,
   sheetLabel,
@@ -261,6 +262,48 @@ export function MapSheetScreen() {
   const savedPlaces = useSavedPlacesStore((s) => s.savedPlaces);
   const savedPlacesArray = useMemo(() => Object.values(savedPlaces), [savedPlaces]);
 
+  const routeResult = useRouteStore((s) => s.routeResult);
+  const routeDestination = useRouteStore((s) => s.routeDestination);
+  const routeOrigin = useRouteStore((s) => s.routeOrigin);
+  const routeError = useRouteStore((s) => s.error);
+  const accessibilityMode = useRouteStore((s) => s.accessibilityMode);
+
+  const routeDestinationName = useMemo(() => {
+    if (!routeDestination) return null;
+    const feature = getFeatureById(campusData, routeDestination.featureId);
+    if (!feature) return null;
+    return feature.properties.name_ko || feature.properties.name;
+  }, [routeDestination]);
+
+  const routeSummary = useMemo(() => {
+    if (!routeResult || !routeResult.ok) return null;
+    const segments = routeResult.floorSegments;
+    const floors = new Set(segments.map((s) => s.level)).size;
+    return {
+      totalDistanceMeters: routeResult.totalDistanceMeters,
+      estimatedTimeSeconds: routeResult.estimatedTimeSeconds,
+      segmentCount: segments.length,
+      floorCount: floors,
+      usedStairsFallback: routeResult.usedStairsFallback,
+      warning: routeResult.warning ?? null,
+    };
+  }, [routeResult]);
+
+  const originModeLabel = useMemo(() => {
+    if (!routeOrigin) return '출발지 미설정';
+    if (routeOrigin.type === 'user_location') return '현재 위치에서';
+    return '선택한 장소에서';
+  }, [routeOrigin]);
+
+  const handleClearRoute = useCallback(() => {
+    useRouteStore.getState().clearRoute();
+  }, []);
+
+  const handleToggleAccessibility = useCallback((value: boolean) => {
+    useRouteStore.getState().setAccessibilityMode(value ? 'elevator_priority' : 'normal');
+    useRouteStore.getState().recomputeRoute();
+  }, []);
+
   const handleSelectSavedCampusPlace = useCallback(
     (featureId: string) => {
       const feature = getFeatureById(campusData, featureId);
@@ -467,6 +510,68 @@ export function MapSheetScreen() {
                   : null;
           return msg ? <Text style={[styles.helperText, { color: sheetSecondaryLabel }]}>{msg}</Text> : null;
         })()}
+
+        {/* Route card — shown when search empty, BLE/settings closed, route or error exists */}
+        {!showBle && !showSettings && searchQuery.trim().length === 0 && (routeResult || routeError) && (
+          <GlassSurface variant="sheet" cornerRadius={20} style={[styles.routeCard, { borderColor: sheetSeparator }]}>
+            {routeSummary && routeResult?.ok && (
+              <>
+                <Text style={[styles.routeCardTitle, { color: sheetLabel }]} numberOfLines={1}>
+                  📍 {routeDestinationName ?? '경로'}
+                </Text>
+                <Text style={[styles.routeCardMeta, { color: sheetSecondaryLabel }]}>
+                  {originModeLabel}
+                </Text>
+                <View style={[styles.routeCardRow, { backgroundColor: sheetSecondarySystemFill, borderColor: sheetSeparator }]}>
+                  <Text style={[styles.routeCardLabel, { color: sheetSecondaryLabel }]}>거리</Text>
+                  <Text style={[styles.routeCardValue, { color: sheetLabel }]}>
+                    {routeSummary.totalDistanceMeters.toFixed(0)}m
+                  </Text>
+                </View>
+                <View style={[styles.routeCardRow, { backgroundColor: sheetSecondarySystemFill, borderColor: sheetSeparator }]}>
+                  <Text style={[styles.routeCardLabel, { color: sheetSecondaryLabel }]}>구간</Text>
+                  <Text style={[styles.routeCardValue, { color: sheetLabel }]}>
+                    {routeSummary.segmentCount}개 구간 · {routeSummary.floorCount}개 층
+                  </Text>
+                </View>
+                <View style={[styles.routeCardRow, { backgroundColor: sheetSecondarySystemFill, borderColor: sheetSeparator }]}>
+                  <Text style={[styles.routeCardLabel, { color: sheetSecondaryLabel }]}>엘리베이터 우선</Text>
+                  <Switch
+                    value={accessibilityMode === 'elevator_priority'}
+                    onValueChange={handleToggleAccessibility}
+                    accessibilityLabel="엘리베이터 우선"
+                  />
+                </View>
+                {routeSummary.usedStairsFallback && (
+                  <Text style={styles.routeCardWarning}>
+                    ⚠ 계단 사용 (엘리베이터 경로 없음)
+                  </Text>
+                )}
+              </>
+            )}
+            {routeError && (
+              <Text style={styles.routeCardError}>
+                {routeError === 'ROUTE_ORIGIN_REQUIRED'
+                  ? '출발지를 먼저 설정해주세요'
+                  : routeError}
+              </Text>
+            )}
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="경로 지우기"
+              onPress={handleClearRoute}
+              style={({ pressed }) => [
+                styles.clearRouteButton,
+                { backgroundColor: sheetSystemFill },
+                pressed && { opacity: 0.7 },
+              ]}
+            >
+              <Text style={[styles.clearRouteButtonText, { color: sheetAccent(sheetScheme) }]}>
+                경로 지우기
+              </Text>
+            </Pressable>
+          </GlassSurface>
+        )}
 
         {/* Saved places list — shown when search empty, BLE/settings closed */}
         {!showBle && !showSettings && searchQuery.trim().length === 0 && savedPlacesArray.length > 0 && (
@@ -855,5 +960,57 @@ const styles = StyleSheet.create({
   savedPlaceMeta: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  routeCard: {
+    borderWidth: 1,
+    gap: 12,
+    marginHorizontal: 2,
+    padding: 20,
+  },
+  routeCardTitle: {
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  routeCardMeta: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  routeCardRow: {
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  routeCardLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  routeCardValue: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  routeCardWarning: {
+    color: '#e67e22',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  routeCardError: {
+    color: '#e74c3c',
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20,
+  },
+  clearRouteButton: {
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    borderRadius: 12,
+    paddingVertical: 12,
+  },
+  clearRouteButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

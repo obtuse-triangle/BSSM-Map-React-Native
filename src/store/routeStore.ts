@@ -13,8 +13,6 @@ import { getFeatureById, getFeatureCentroid } from '../utils/geoJsonHelpers';
 
 const campusData = campusDataUntyped as unknown as CampusGeoJSON;
 
-// ── Injectable route computer ──────────────────────────────────────
-
 function mockComputeRoute(input: {
   origin: RouteOrigin;
   destination: RouteDestination;
@@ -46,8 +44,6 @@ export function setRouteComputer(
 ): void {
   computeIndoorRoute = fn;
 }
-
-// ── Store ──────────────────────────────────────────────────────────
 
 export interface RouteStoreState {
   routeOrigin: RouteOrigin | null;
@@ -176,3 +172,10 @@ export const useRouteStore = create<RouteStoreState>()((set, get) => ({
     }
   },
 }));
+
+try {
+  const { computeRoute } = require('../services/routing/routeComputer');
+  setRouteComputer(computeRoute);
+} catch (_e) {
+  // Tests or environments without routing data keep the mock
+}
