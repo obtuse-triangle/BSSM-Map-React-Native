@@ -45,6 +45,8 @@ export function MapScreen({ navigation }: MapScreenProps) {
     setSettingsVisible,
     pendingFlyToFeatureId,
     setPendingFlyToFeatureId,
+    pendingFlyToCoordinates,
+    setPendingFlyToCoordinates,
     showAttributionTick,
   } = useMapStore();
 
@@ -97,7 +99,7 @@ export function MapScreen({ navigation }: MapScreenProps) {
     showToast({ message: 'GPS 위치 추적이 활성화되었습니다', variant: 'success' });
   }, [gpsTrackingEnabled, setGpsTrackingEnabled, requestLocationPermission, requestPreciseLocation, showToast]);
 
-  // Watch for pending fly-to feature from MapSheet
+  // Watch for pending fly-to feature or coordinates from MapSheet
   useEffect(() => {
     if (pendingFlyToFeatureId) {
       if (pendingFlyToFeatureId === '__locate__') {
@@ -106,8 +108,11 @@ export function MapScreen({ navigation }: MapScreenProps) {
         campusMapRef.current?.flyToFeature(pendingFlyToFeatureId);
       }
       setPendingFlyToFeatureId(null);
+    } else if (pendingFlyToCoordinates) {
+      campusMapRef.current?.flyToCoordinates(pendingFlyToCoordinates);
+      setPendingFlyToCoordinates(null);
     }
-  }, [pendingFlyToFeatureId, setPendingFlyToFeatureId, handleLocate]);
+  }, [pendingFlyToFeatureId, pendingFlyToCoordinates, setPendingFlyToFeatureId, setPendingFlyToCoordinates, handleLocate]);
 
   const attributionFirstRenderRef = useRef(true);
   useEffect(() => {

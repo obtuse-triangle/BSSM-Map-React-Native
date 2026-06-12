@@ -1,0 +1,1 @@
+Code trace: long-press on empty area -> CampusMap.handleMapLongPress -> no campus-fill hit -> useSavedPlacesStore.createCustomPin -> setSelectedSavedPlaceId -> setSelectedFeatureId(null) -> requestMinimizeSheets -> MapSheetScreen useEffect navigates to PlaceDetailSheet -> custom pin editor renders with TextInput + color swatches + delete

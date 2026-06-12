@@ -1,0 +1,13 @@
+=== Task 4: tsc ===
+npm warn Unknown project config "node-linker". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+=== Task 4: tests ===
+PASS src/store/__tests__/mapStore.test.ts
+PASS src/utils/__tests__/cameraTarget.test.ts
+PASS src/services/location/__tests__/zoneInference.test.ts
+PASS src/services/location/__tests__/deadReckoning.test.ts
+
+Test Suites: 6 passed, 6 total
+Tests:       87 passed, 87 total
+Snapshots:   0 total
+Time:        1.28 s, estimated 2 s
+Ran all test suites.

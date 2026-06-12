@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, useColorScheme, View } from 'react-native';
 
 import { GlassSurface } from '../components/glass';
 import { sheetAccent, sheetLabel, sheetSecondaryLabel, sheetSecondarySystemFill, sheetSelectionBg, sheetSeparator, sheetSystemFill } from '../theme/sheetSemanticColors';
 import campusDataUntyped from '../data/campus-wgs84.json';
 import { useMapStore } from '../store/mapStore';
+import { useSavedPlacesStore } from '../store/savedPlacesStore';
+import { SAVED_PLACE_COLOR_PALETTE } from '../types/savedPlaces';
+import type { SavedCustomPin } from '../types/savedPlaces';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
@@ -85,10 +88,84 @@ export function PlaceDetailSheetScreen() {
     } as FloorElement & { _geojsonMeta?: { category: string; centroid: string } };
   }, [selectedFeature]);
 
+  // ── Save / unsave state ────────────────────────────────────────────
+  const featureIdForSave = selectedFeature && selectedFeature.properties.interactive
+    ? String(selectedFeature.id)
+    : null;
+
+  const [isSaved, setIsSaved] = useState<boolean>(
+    featureIdForSave ? useSavedPlacesStore.getState().isCampusFeatureSaved(featureIdForSave) : false,
+  );
+
+  useEffect(() => {
+    if (!featureIdForSave) {
+      setIsSaved(false);
+      return;
+    }
+    setIsSaved(useSavedPlacesStore.getState().isCampusFeatureSaved(featureIdForSave));
+    const unsub = useSavedPlacesStore.subscribe((state) => {
+      setIsSaved(state.isCampusFeatureSaved(featureIdForSave));
+    });
+    return unsub;
+  }, [featureIdForSave]);
+
+  const handleToggleSave = useCallback(() => {
+    if (!selectedFeature || !featureIdForSave) return;
+    const feature = selectedFeature;
+
+    if (isSaved) {
+      useSavedPlacesStore.getState().removeSavedPlace(`campus:${featureIdForSave}`);
+      return;
+    }
+
+    const snapshot = {
+      featureId: featureIdForSave,
+      name: feature.properties.name,
+      nameKo: feature.properties.name_ko,
+      category: feature.properties.category,
+      level: feature.properties.level,
+      coordinates: getFeatureCentroid(feature),
+    };
+    useSavedPlacesStore.getState().hydrateSavedCampusPlace(snapshot);
+  }, [selectedFeature, featureIdForSave, isSaved]);
+
+  // ── Custom pin editor state ─────────────────────────────────────────────
+  const [customPinState, setCustomPinState] = useState<{
+    id: string | null;
+    place: SavedCustomPin | null;
+  }>(() => {
+    const id = useSavedPlacesStore.getState().selectedSavedPlaceId;
+    const place = id ? useSavedPlacesStore.getState().getSavedPlace(id) : undefined;
+    return { id, place: place && place.type === 'custom' ? place : null };
+  });
+
+  useEffect(() => {
+    const sync = () => {
+      const id = useSavedPlacesStore.getState().selectedSavedPlaceId;
+      const place = id ? useSavedPlacesStore.getState().getSavedPlace(id) : undefined;
+      setCustomPinState({ id, place: place && place.type === 'custom' ? place : null });
+    };
+    sync();
+    const unsub = useSavedPlacesStore.subscribe(sync);
+    return unsub;
+  }, []);
+
+  const customPinPlace: SavedCustomPin | null = selectedFeatureId ? null : customPinState.place;
+
+  const handleDeleteCustomPin = useCallback(() => {
+    if (!customPinPlace) return;
+    useSavedPlacesStore.getState().removeSavedPlace(customPinPlace.id);
+    useSavedPlacesStore.getState().setSelectedSavedPlaceId(null);
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    }
+  }, [customPinPlace, navigation]);
+
   // Clean up store selection when dismissing
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', () => {
       setSelectedFeatureId(null);
+      useSavedPlacesStore.getState().setSelectedSavedPlaceId(null);
     });
     return unsubscribe;
   }, [navigation, setSelectedFeatureId]);
@@ -108,6 +185,93 @@ export function PlaceDetailSheetScreen() {
 
   return (
     <View style={styles.container}>
+      {customPinPlace ? (
+        <>
+          {/* Pill row — visible at all detents for custom pin */}
+          <View style={[styles.pillRow, isCollapsed && styles.pillRowCollapsed]}>
+            <View style={styles.pillCopy}>
+              <Text style={[styles.pillTitle, { color: sheetLabel }]} numberOfLines={1}>
+                {customPinPlace.name || '새 핀'}
+              </Text>
+              {!isCollapsed && (
+                <Text style={[styles.pillSubtitle, { color: sheetSecondaryLabel }]} numberOfLines={1}>
+                  커스텀 핀
+                </Text>
+              )}
+            </View>
+
+            <View style={[styles.floorBadge, { backgroundColor: sheetSelectionBg, borderColor: sheetSeparator }]}>
+              <Text style={[styles.floorBadgeText, { color: sheetAccent(accentScheme) }]}>📍</Text>
+            </View>
+
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="닫기"
+              onPress={handleDismiss}
+              style={({ pressed }) => [
+                styles.closeButton,
+                { backgroundColor: sheetSystemFill },
+                pressed && styles.closeButtonPressed,
+              ]}
+              hitSlop={{ top: 7, bottom: 7, left: 7, right: 7 }}
+            >
+              <Text style={[styles.closeButtonText, { color: sheetSecondaryLabel }]}>×</Text>
+            </Pressable>
+          </View>
+
+          {/* Custom pin editor — visible at medium+ detents */}
+          {isMediumOrFull && (
+            <GlassSurface variant="sheet" cornerRadius={20} style={[styles.detailCard, { borderColor: sheetSeparator }]}>
+              <Text style={[styles.editorSectionTitle, { color: sheetSecondaryLabel }]}>이름</Text>
+              <TextInput
+                value={customPinPlace.name}
+                onChangeText={(text) => useSavedPlacesStore.getState().updateCustomPin(customPinPlace.id, { name: text })}
+                placeholder="이름 입력"
+                placeholderTextColor={sheetSecondaryLabel}
+                style={[
+                  styles.nameInput,
+                  { color: sheetLabel, backgroundColor: sheetSecondarySystemFill, borderColor: sheetSeparator },
+                ]}
+                accessibilityLabel="커스텀 핀 이름"
+              />
+
+              <Text style={[styles.editorSectionTitle, { color: sheetSecondaryLabel }]}>색상</Text>
+              <View style={styles.colorRow}>
+                {SAVED_PLACE_COLOR_PALETTE.map((c) => {
+                  const selected = customPinPlace.color === c;
+                  return (
+                    <Pressable
+                      key={c}
+                      accessibilityRole="button"
+                      accessibilityLabel={`색상 ${c}`}
+                      onPress={() => useSavedPlacesStore.getState().updateCustomPin(customPinPlace.id, { color: c })}
+                      style={[
+                        styles.colorSwatch,
+                        { backgroundColor: c },
+                        selected && { borderWidth: 2, borderColor: sheetAccent(accentScheme) },
+                      ]}
+                    />
+                  );
+                })}
+              </View>
+
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="삭제"
+                onPress={handleDeleteCustomPin}
+                style={({ pressed }) => [
+                  styles.deleteButton,
+                  { backgroundColor: sheetSystemFill },
+                  pressed && styles.closeButtonPressed,
+                ]}
+              >
+                <Text style={[styles.deleteButtonText, { color: sheetAccent(accentScheme) }]}>삭제</Text>
+              </Pressable>
+            </GlassSurface>
+          )}
+        </>
+      ) : (
+        <>
       {/* Pill row — visible at all detents */}
       <View style={[styles.pillRow, isCollapsed && styles.pillRowCollapsed]}>
         <View style={styles.pillCopy}>
@@ -125,6 +289,24 @@ export function PlaceDetailSheetScreen() {
           <View style={[styles.floorBadge, { backgroundColor: sheetSelectionBg, borderColor: sheetSeparator }]}>
             <Text style={[styles.floorBadgeText, { color: sheetAccent(accentScheme) }]}>{floorLabel}</Text>
           </View>
+        )}
+
+        {featureIdForSave && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={isSaved ? '저장됨' : '저장'}
+            onPress={handleToggleSave}
+            style={({ pressed }) => [
+              styles.saveButton,
+              { backgroundColor: sheetSystemFill },
+              pressed && styles.closeButtonPressed,
+            ]}
+            hitSlop={{ top: 7, bottom: 7, left: 7, right: 7 }}
+          >
+            <Text style={[styles.saveButtonText, { color: isSaved ? sheetAccent(accentScheme) : sheetSecondaryLabel }]}>
+              {isSaved ? '★' : '☆'}
+            </Text>
+          </Pressable>
         )}
 
         <Pressable
@@ -167,6 +349,8 @@ export function PlaceDetailSheetScreen() {
         <View style={styles.emptyContainer}>
           <Text style={[styles.emptyText, { color: sheetSecondaryLabel }]}>공간 정보를 불러올 수 없습니다.</Text>
         </View>
+      )}
+        </>
       )}
     </View>
   );
@@ -230,6 +414,20 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
     textAlign: 'center',
   },
+  saveButton: {
+    alignItems: 'center',
+    alignSelf: 'center',
+    borderRadius: 15,
+    height: 30,
+    justifyContent: 'center',
+    width: 30,
+  },
+  saveButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    includeFontPadding: false,
+    textAlign: 'center',
+  },
   // ── Detail card ─────────────────────────────────
   detailCard: {
     borderWidth: 1,
@@ -265,5 +463,40 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',
+  },
+  // ── Custom pin editor ───────────────────────────────────
+  editorSectionTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+  },
+  nameInput: {
+    borderRadius: 12,
+    borderWidth: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  colorRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  colorSwatch: {
+    borderRadius: 14,
+    height: 24,
+    width: 24,
+  },
+  deleteButton: {
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    borderRadius: 12,
+    marginTop: 8,
+    paddingVertical: 12,
+  },
+  deleteButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

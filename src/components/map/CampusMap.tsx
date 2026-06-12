@@ -20,8 +20,10 @@ import campusDataUntyped from '../../data/campus-wgs84.json';
 import outlineDataUntyped from '../../data/school-outline.json';
 import { MAP_STYLES } from '../../constants/mapStyles';
 import { useMapStore, type CampusFeatureCategory, type MapBaseLayer } from '../../store/mapStore';
+import { useSavedPlacesStore } from '../../store/savedPlacesStore';
 import CampusBleMarker from './CampusBleMarker';
 import CampusApMarkers from './CampusApMarkers';
+import SavedPinsLayer from './SavedPinsLayer';
 import { getDetectedBuildingId } from '../../utils/buildingDetection';
 import type { CampusGeoJSON } from '../../types/geojson';
 import { getFeatureById } from '../../utils/geoJsonHelpers';
@@ -142,6 +144,26 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false, onUserMap
         return;
       }
 
+      // 1) Saved pin check first
+      const pinFeatures = await mapRef.current.queryRenderedFeatures(point, {
+        layers: ['saved-pins-layer'],
+      });
+      const hitPin = (pinFeatures as Array<{
+        properties?: { id?: string };
+        geometry?: { coordinates?: [number, number] };
+      }> | undefined)?.[0];
+      if (hitPin && hitPin.properties?.id) {
+        useSavedPlacesStore.getState().setSelectedSavedPlaceId(hitPin.properties.id);
+        useMapStore.getState().setSelectedFeatureId(null);
+        const g = hitPin.geometry?.coordinates;
+        if (g && Number.isFinite(g[0]) && Number.isFinite(g[1])) {
+          useMapStore.getState().setPendingFlyToCoordinates(g);
+        }
+        useMapStore.getState().requestMinimizeSheets();
+        return;
+      }
+
+      // 2) Campus polygon (existing logic)
       const features = await mapRef.current.queryRenderedFeatures(point, {
         layers: ['campus-fill'],
       });
@@ -164,6 +186,39 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false, onUserMap
     },
     [selectedFeatureId, setSelectedFeatureId],
   );
+
+  const handleMapLongPress = useCallback(async (event: any) => {
+    const point = event?.nativeEvent?.point;
+    const lngLat = event?.nativeEvent?.lngLat;
+    if (!point || !lngLat || !mapRef.current) {
+      console.warn('[CampusMap] long-press missing point or lngLat; skipping pin creation');
+      return;
+    }
+    const lng = typeof lngLat.longitude === 'number'
+      ? lngLat.longitude
+      : Array.isArray(lngLat) ? lngLat[0] : NaN;
+    const lat = typeof lngLat.latitude === 'number'
+      ? lngLat.latitude
+      : Array.isArray(lngLat) ? lngLat[1] : NaN;
+    if (!Number.isFinite(lng) || !Number.isFinite(lat)) {
+      console.warn('[CampusMap] long-press non-finite coords; skipping');
+      return;
+    }
+    const features = await mapRef.current.queryRenderedFeatures(point, {
+      layers: ['campus-fill'],
+    });
+    const interactiveHit = (features as Array<{ properties?: { interactive?: boolean } }> | undefined)
+      ?.find((f) => f?.properties?.interactive === true);
+    if (interactiveHit) {
+      // do not create a pin when long-pressing a building/room polygon
+      return;
+    }
+    const newId = useSavedPlacesStore.getState().createCustomPin({ coordinates: [lng, lat] });
+    if (!newId) return;
+    useSavedPlacesStore.getState().setSelectedSavedPlaceId(newId);
+    useMapStore.getState().setSelectedFeatureId(null);
+    useMapStore.getState().requestMinimizeSheets();
+  }, []);
 
   const handleUserLocationUpdate = useCallback(
     (position: { coords?: { longitude?: number; latitude?: number } } | undefined) => {
@@ -294,7 +349,7 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false, onUserMap
 
   return (
     <View style={styles.container}>
-      <Map ref={mapRef} mapStyle={BASE_STYLE} style={styles.map} onPress={handleMapPress} onRegionWillChange={handleRegionWillChange} onRegionDidChange={handleRegionDidChange} logo={false} attribution={false}>
+      <Map ref={mapRef} mapStyle={BASE_STYLE} style={styles.map} onPress={handleMapPress} onLongPress={handleMapLongPress} onRegionWillChange={handleRegionWillChange} onRegionDidChange={handleRegionDidChange} logo={false} attribution={false}>
         <Camera
           ref={cameraRef}
           initialViewState={{
@@ -387,6 +442,7 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false, onUserMap
           />
         </GeoJSONSource>
 
+        <SavedPinsLayer />
         <CampusBleMarker />
         <CampusApMarkers />
       </Map>
