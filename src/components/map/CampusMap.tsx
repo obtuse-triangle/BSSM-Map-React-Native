@@ -21,6 +21,7 @@ import outlineDataUntyped from '../../data/school-outline.json';
 import { MAP_STYLES } from '../../constants/mapStyles';
 import { useMapStore, type CampusFeatureCategory, type MapBaseLayer } from '../../store/mapStore';
 import CampusBleMarker from './CampusBleMarker';
+import SavedPinsLayer from './SavedPinsLayer';
 import { getDetectedBuildingId } from '../../utils/buildingDetection';
 import type { CampusGeoJSON } from '../../types/geojson';
 import { getFeatureById } from '../../utils/geoJsonHelpers';
@@ -386,6 +387,7 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false, onUserMap
           />
         </GeoJSONSource>
 
+        <SavedPinsLayer />
         <CampusBleMarker />
       </Map>
     </View>
