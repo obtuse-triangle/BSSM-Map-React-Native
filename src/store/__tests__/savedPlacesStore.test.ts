@@ -288,6 +288,84 @@ describe('savedPlacesStore', () => {
     });
   });
 
+  // ── Persist hydration round-trip (real AsyncStorage serialize/deserialize) ──
+
+  describe('persist hydration round-trip', () => {
+    it('serializes savedPlaces to AsyncStorage and rehydrates them', async () => {
+      // 1. Create records
+      useSavedPlacesStore.getState().clearSavedPlacesForTests();
+      useSavedPlacesStore.getState().hydrateSavedCampusPlace(campusSnapshot());
+      useSavedPlacesStore.getState().createCustomPin({ name: 'TestPin', coordinates: [127.5, 37.5] });
+
+      // 2. Trigger persist flush - in zustand persist, set() triggers save.
+      // Wait a microtask for the async storage write
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      // 3. Read the persisted JSON from AsyncStorage
+      const AsyncStorage = require('@react-native-async-storage/async-storage');
+      const persistedKey = '@school-map/saved-places';
+      const raw = await AsyncStorage.getItem(persistedKey);
+      expect(raw).toBeTruthy();
+      const parsed = JSON.parse(raw!);
+
+      // 4. Verify the persisted state has the records and NOT selectedSavedPlaceId
+      expect(parsed.state.savedPlaces).toBeDefined();
+      expect(parsed.state.savedPlaces['campus:room-42']).toBeDefined();
+      expect(parsed.state.savedPlaces['campus:room-42'].name).toBe('Music Room');
+
+      // Find the custom pin id by scanning values
+      const customPinIds = Object.keys(parsed.state.savedPlaces).filter(
+        (id: string) => !id.startsWith('campus:'),
+      );
+      expect(customPinIds.length).toBe(1);
+      const customPin = parsed.state.savedPlaces[customPinIds[0]];
+      expect(customPin.type).toBe('custom');
+      expect(customPin.name).toBe('TestPin');
+      expect(customPin.coordinates).toEqual([127.5, 37.5]);
+
+      // 5. Verify partialize excluded selectedSavedPlaceId
+      expect(parsed.state.selectedSavedPlaceId).toBeUndefined();
+
+      // 6. Verify schema version persisted
+      expect(parsed.state.schemaVersion).toBe(1);
+    });
+
+    it('rehydrates state from AsyncStorage on rehydrate()', async () => {
+      // Pre-seed AsyncStorage with serialized state
+      const AsyncStorage = require('@react-native-async-storage/async-storage');
+      const seedState = {
+        state: {
+          savedPlaces: {
+            'campus:room-99': {
+              id: 'campus:room-99',
+              type: 'campus',
+              featureId: 'room-99',
+              name: 'Seed Room',
+              nameKo: '씨드 룸',
+              category: 'room',
+              level: 1,
+              coordinates: [128.0, 35.0],
+              color: '#00A676',
+              createdAt: new Date().toISOString(),
+            },
+          },
+          schemaVersion: 1,
+        },
+        version: 1,
+      };
+      await AsyncStorage.setItem('@school-map/saved-places', JSON.stringify(seedState));
+
+      // Trigger rehydrate on the existing store
+      await useSavedPlacesStore.persist.rehydrate();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      // Verify the seeded record is now in the store
+      const place = useSavedPlacesStore.getState().getSavedPlace('campus:room-99');
+      expect(place).toBeDefined();
+      expect(place!.name).toBe('Seed Room');
+    });
+  });
+
   // ── 200-item boundary ───────────────────────────────────────────────
 
   describe('200-item boundary', () => {
