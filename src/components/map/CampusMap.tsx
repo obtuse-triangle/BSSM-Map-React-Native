@@ -32,7 +32,7 @@ const outlineData = outlineDataUntyped as any;
 
 const CAMPUS_BOUNDS: [number, number, number, number] = [128.9028, 35.1876, 128.9041, 35.1893];
 const CAMPUS_CENTER: [number, number] = [128.9035, 35.1885];
-const PROGRAMMATIC_CAMERA_SUPPRESSION_MS = 1500;
+const PROGRAMMATIC_CAMERA_SUPPRESSION_MS = 600;
 
 const BASE_STYLE = {
   version: 8 as const,
@@ -224,7 +224,7 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false, onUserMap
 
   const handleRegionWillChange = useCallback((event: NativeSyntheticEvent<ViewStateChangeEvent>) => {
     const userInteraction = (event.nativeEvent as Partial<ViewStateChangeEvent>).userInteraction;
-    if (Date.now() < programmaticCameraUntil.current || userInteraction === false || userDragGestureActiveRef.current) {
+    if (Date.now() < programmaticCameraUntil.current || userInteraction !== true || userDragGestureActiveRef.current) {
       return;
     }
 
