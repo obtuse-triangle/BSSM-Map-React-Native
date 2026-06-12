@@ -81,6 +81,7 @@ export function MapSheetScreen() {
     setBleCardVisible,
     setSettingsVisible,
     setPendingFlyToFeatureId,
+    setPendingFlyToCoordinates,
     requestShowAttribution,
     requestMinimizeSheets,
     bleTrackingEnabled,
@@ -212,6 +213,44 @@ export function MapSheetScreen() {
 
   const isFocused = useIsFocused();
   const selectedSavedPlaceId = useSavedPlacesStore((s) => s.selectedSavedPlaceId);
+  const setSelectedSavedPlaceId = useSavedPlacesStore((s) => s.setSelectedSavedPlaceId);
+  const savedPlaces = useSavedPlacesStore((s) => s.savedPlaces);
+  const savedPlacesArray = useMemo(() => Object.values(savedPlaces), [savedPlaces]);
+
+  const handleSelectSavedCampusPlace = useCallback(
+    (featureId: string) => {
+      const feature = getFeatureById(campusData, featureId);
+      if (feature && feature.properties.level !== selectedLevel) {
+        setSelectedLevel(feature.properties.level);
+      }
+      setSelectedSavedPlaceId(null);
+      setSearchQuery('');
+      setBleCardVisible(false);
+      setSettingsVisible(false);
+      Keyboard.dismiss();
+      setSelectedFeatureId(featureId);
+      setPendingFlyToFeatureId(featureId);
+      requestMinimizeSheets();
+    },
+    [selectedLevel, setSelectedLevel, setSelectedSavedPlaceId, setSearchQuery, setBleCardVisible, setSettingsVisible, setSelectedFeatureId, setPendingFlyToFeatureId, requestMinimizeSheets],
+  );
+
+  const handleSelectSavedCustomPin = useCallback(
+    (pinId: string) => {
+      const place = useSavedPlacesStore.getState().getSavedPlace(pinId);
+      if (!place || place.type !== 'custom') return;
+      setSelectedFeatureId(null);
+      setSelectedSavedPlaceId(pinId);
+      const g = place.coordinates;
+      if (Number.isFinite(g[0]) && Number.isFinite(g[1])) {
+        setPendingFlyToCoordinates(g);
+      }
+      setBleCardVisible(false);
+      setSettingsVisible(false);
+      requestMinimizeSheets();
+    },
+    [setSelectedFeatureId, setSelectedSavedPlaceId, setPendingFlyToCoordinates, setBleCardVisible, setSettingsVisible, requestMinimizeSheets],
+  );
 
   // Navigate to PlaceDetailSheet when a feature is selected
   useEffect(() => {
@@ -377,8 +416,49 @@ export function MapSheetScreen() {
           return msg ? <Text style={[styles.helperText, { color: sheetSecondaryLabel }]}>{msg}</Text> : null;
         })()}
 
-        {/* Empty state — shown when BLE and settings are both closed */}
-        {!showBle && !showSettings && searchQuery.trim().length === 0 && (
+        {/* Saved places list — shown when search empty, BLE/settings closed */}
+        {!showBle && !showSettings && searchQuery.trim().length === 0 && savedPlacesArray.length > 0 && (
+          <View style={styles.savedPlacesSection}>
+            <Text style={[styles.savedPlacesTitle, { color: sheetSecondaryLabel }]}>저장된 장소</Text>
+            {savedPlacesArray.map((place) => {
+              const isCustom = place.type === 'custom';
+              const color = place.color;
+              const onPress = isCustom
+                ? () => handleSelectSavedCustomPin(place.id)
+                : () => handleSelectSavedCampusPlace(place.featureId);
+              const subtitle = isCustom
+                ? '커스텀 핀'
+                : `${place.level}층 · ${CATEGORY_LABELS[place.category as CampusFeatureCategory] ?? place.category}`;
+              return (
+                <Pressable
+                  key={place.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`저장된 장소 ${place.name}`}
+                  hitSlop={HIT_SLOP}
+                  onPress={onPress}
+                  style={({ pressed }) => [
+                    styles.savedPlaceRow,
+                    { backgroundColor: sheetSystemFill, borderColor: sheetSeparator },
+                    pressed && { opacity: 0.88 },
+                  ]}
+                >
+                  <View style={[styles.savedPlaceColor, { backgroundColor: color }]} />
+                  <View style={styles.savedPlaceCopy}>
+                    <Text style={[styles.savedPlaceName, { color: sheetLabel }]} numberOfLines={1}>
+                      {place.name}
+                    </Text>
+                    <Text style={[styles.savedPlaceMeta, { color: sheetSecondaryLabel }]} numberOfLines={1}>
+                      {subtitle}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
+
+        {/* Empty state — shown when BLE and settings are both closed, no saved places */}
+        {!showBle && !showSettings && searchQuery.trim().length === 0 && savedPlacesArray.length === 0 && (
           <View style={styles.emptyState}>
             <Text style={[styles.emptyStateTitle, { color: sheetLabel }]}>BSSM 학교 지도</Text>
             <Text style={[styles.emptyStateText, { color: sheetSecondaryLabel }]}> 
@@ -386,6 +466,9 @@ export function MapSheetScreen() {
             </Text>
             <Text style={[styles.emptyStateHint, { color: sheetTertiaryLabel }]}> 
               ⌖ 현재 위치 찾기 · BLE 실내 측위 · 지도 스타일 변경
+            </Text>
+            <Text style={[styles.emptyStateHint, { color: sheetTertiaryLabel }]}>
+              💡 빈 지도를 길게 눌러 커스텀 핀을 추가할 수 있습니다
             </Text>
           </View>
         )}
@@ -750,5 +833,42 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 16,
     textAlign: 'center',
+  },
+  savedPlacesSection: {
+    gap: 8,
+    paddingHorizontal: 2,
+  },
+  savedPlacesTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.3,
+    paddingHorizontal: 4,
+  },
+  savedPlaceRow: {
+    alignItems: 'center',
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: 10,
+    marginHorizontal: 2,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  savedPlaceColor: {
+    borderRadius: 8,
+    height: 16,
+    width: 16,
+  },
+  savedPlaceCopy: {
+    flex: 1,
+    gap: 1,
+  },
+  savedPlaceName: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  savedPlaceMeta: {
+    fontSize: 12,
+    fontWeight: '600',
   },
 });
