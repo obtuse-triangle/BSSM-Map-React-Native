@@ -35,21 +35,16 @@ export function PlaceDetailSheetScreen() {
     }
 
     lastMinimizedTickRef.current = minimizeSheetsTick;
+    // Restrict to the two smallest detents. Sheet snaps to smallest (0.09)
+    // and the user can drag up to 0.3 but no further while minimized.
+    // No restore timer, no sheetInitialDetentIndex — the sheetDetentChange
+    // listener still drives currentDetentIndex locally for the pill row
+    // style. Restricted detents stay in place until the next state
+    // transition (avoids snap-back bug).
     navigation.setOptions({
-      sheetAllowedDetents: [0.09],
-      sheetLargestUndimmedDetentIndex: 0,
-      sheetInitialDetentIndex: 0,
+      sheetAllowedDetents: [0.09, 0.3],
+      sheetLargestUndimmedDetentIndex: 1,
     });
-
-    const restoreTimer = setTimeout(() => {
-      navigation.setOptions({
-        sheetAllowedDetents: [0.09, 0.3, 0.55, 1.0],
-        sheetLargestUndimmedDetentIndex: 3,
-        sheetInitialDetentIndex: 0,
-      });
-    }, 400);
-
-    return () => clearTimeout(restoreTimer);
   }, [minimizeSheetsTick, navigation]);
 
   const selectedFeature = useMemo(() => {

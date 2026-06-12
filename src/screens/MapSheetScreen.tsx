@@ -139,21 +139,14 @@ export function MapSheetScreen() {
     }
 
     lastMinimizedTickRef.current = minimizeSheetsTick;
+    // Restrict to the two smallest detents. Sheet snaps to the first (0.06)
+    // and the user can drag up to 0.12 but no further while minimized.
+    // No restore timer, no sheetInitialDetentIndex — the restricted detents
+    // stay in place until the next state transition.
     navigation.setOptions({
-      sheetAllowedDetents: [0.06],
-      sheetLargestUndimmedDetentIndex: 0,
-      sheetInitialDetentIndex: 0,
+      sheetAllowedDetents: [0.06, 0.12],
+      sheetLargestUndimmedDetentIndex: 1,
     });
-
-    const restoreTimer = setTimeout(() => {
-      navigation.setOptions({
-        sheetAllowedDetents: [0.06, 0.12, 0.5, 1.0],
-        sheetLargestUndimmedDetentIndex: 3,
-        sheetInitialDetentIndex: 0,
-      });
-    }, 400);
-
-    return () => clearTimeout(restoreTimer);
   }, [minimizeSheetsTick, navigation]);
 
   useEffect(() => {
@@ -166,39 +159,24 @@ export function MapSheetScreen() {
     prevSettingsVisibleRef.current = settingsVisible;
 
     if (bleJustOpened || settingsJustOpened) {
+      // Open: allow only medium and full detents — sheet snaps to medium (first)
+      // User can drag UP to full but not DOWN while BLE/settings is open.
+      // No restore timer, no sheetInitialDetentIndex — restricted detents
+      // stay in place until the next state transition (avoids snap-back bug).
       navigation.setOptions({
-        sheetAllowedDetents: [0.5],
-        sheetLargestUndimmedDetentIndex: 0,
-        sheetInitialDetentIndex: 0,
+        sheetAllowedDetents: [0.5, 1.0],
+        sheetLargestUndimmedDetentIndex: 1,
       });
-
-      const restoreTimer = setTimeout(() => {
-        navigation.setOptions({
-          sheetAllowedDetents: [0.06, 0.12, 0.5, 1.0],
-          sheetLargestUndimmedDetentIndex: 3,
-          sheetInitialDetentIndex: 2,
-        });
-      }, 400);
-
-      return () => clearTimeout(restoreTimer);
     }
 
     if (bleJustClosed || settingsJustClosed) {
+      // Close: restore full detent range. Sheet stays at current position
+      // (medium, 0.5) and the user can drag down to smallest (0.06) if they
+      // want. No restore timer, no sheetInitialDetentIndex.
       navigation.setOptions({
-        sheetAllowedDetents: [0.06],
-        sheetLargestUndimmedDetentIndex: 0,
-        sheetInitialDetentIndex: 0,
+        sheetAllowedDetents: [0.06, 0.12, 0.5, 1.0],
+        sheetLargestUndimmedDetentIndex: 3,
       });
-
-      const restoreTimer = setTimeout(() => {
-        navigation.setOptions({
-          sheetAllowedDetents: [0.06, 0.12, 0.5, 1.0],
-          sheetLargestUndimmedDetentIndex: 3,
-          sheetInitialDetentIndex: 0,
-        });
-      }, 400);
-
-      return () => clearTimeout(restoreTimer);
     }
   }, [bleCardVisible, settingsVisible, navigation]);
 
