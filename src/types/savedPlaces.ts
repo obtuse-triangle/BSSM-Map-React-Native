@@ -2,7 +2,6 @@ import type { CampusFeatureCategory } from './geojson';
 
 /** Hex color string for saved place markers. */
 export type SavedPlaceColor =
-  | '#2979FF'
   | '#00A676'
   | '#FFB300'
   | '#E53935'
@@ -13,7 +12,6 @@ export type SavedPlaceColor =
 
 /** Readonly tuple of all available palette colors. */
 export const SAVED_PLACE_COLOR_PALETTE: readonly SavedPlaceColor[] = [
-  '#2979FF',
   '#00A676',
   '#FFB300',
   '#E53935',
@@ -24,13 +22,13 @@ export const SAVED_PLACE_COLOR_PALETTE: readonly SavedPlaceColor[] = [
 ] as const;
 
 /** Default color used for custom pins when none is specified. */
-export const DEFAULT_CUSTOM_PIN_COLOR: SavedPlaceColor = '#2979FF';
+export const DEFAULT_CUSTOM_PIN_COLOR: SavedPlaceColor = '#00A676';
 
 /** AsyncStorage key for the persisted saved places. */
 export const SAVED_PLACES_STORAGE_KEY = '@school-map/saved-places';
 
 /** Schema version for persisted data migration. */
-export const SAVED_PLACES_SCHEMA_VERSION = 1;
+export const SAVED_PLACES_SCHEMA_VERSION = 2;
 
 /** A campus feature that has been saved/bookmarked. */
 export interface SavedCampusPlace {
@@ -53,6 +51,7 @@ export interface SavedCustomPin {
   name: string;
   coordinates: [number, number];
   color: SavedPlaceColor;
+  level: number;
   createdAt: string;
 }
 

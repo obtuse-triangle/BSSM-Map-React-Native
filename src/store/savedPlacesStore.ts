@@ -29,6 +29,8 @@ export interface CreateCustomPinInput {
   name?: string;
   coordinates: [number, number];
   color?: SavedPlaceColor;
+  /** Floor level the pin belongs to. Required so pins are scoped per-floor. */
+  level: number;
 }
 
 /** Patch fields allowed when updating an existing custom pin. */
@@ -154,6 +156,7 @@ export const useSavedPlacesStore = create<SavedPlacesStore>()(
           name: input.name || '새 핀',
           coordinates: input.coordinates,
           color,
+          level: input.level,
           createdAt: new Date().toISOString(),
         };
 
@@ -212,8 +215,24 @@ export const useSavedPlacesStore = create<SavedPlacesStore>()(
       storage: createJSONStorage(() => AsyncStorage),
       version: SAVED_PLACES_SCHEMA_VERSION,
       migrate: (persistedState, version) => {
-        // Future migrations go here; currently a single version no-op.
-        return persistedState as SavedPlacesStore;
+        const state = persistedState as Record<string, any>;
+        if (version < 2) {
+          const savedPlaces = state.savedPlaces ?? {};
+          for (const key of Object.keys(savedPlaces)) {
+            const place = savedPlaces[key];
+            if (place && place.type === 'custom' && place.level === undefined) {
+              place.level = 1;
+            }
+            if (place && place.type === 'campus' && place.color === '#2979FF') {
+              place.color = '#00A676';
+            }
+            if (place && place.type === 'custom' && place.color === '#2979FF') {
+              place.color = '#00A676';
+            }
+          }
+          state.savedPlaces = savedPlaces;
+        }
+        return state as SavedPlacesStore;
       },
       partialize: (state) => ({
         savedPlaces: state.savedPlaces,

@@ -30,6 +30,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { GeoJSONSource, Layer } from '@maplibre/maplibre-react-native';
 import { useSavedPlacesStore } from '../../store/savedPlacesStore';
+import { useMapStore } from '../../store/mapStore';
 import type { SavedPlace } from '../../types/savedPlaces';
 
 // ── Internal types ───────────────────────────────────────────────────────
@@ -55,21 +56,23 @@ type PointFeatureCollection = {
 
 // ── GeoJSON helper ───────────────────────────────────────────────────────
 
-function toGeoJson(snapshot: SavedPlacesSnapshot): PointFeatureCollection {
-  const features: PointFeature[] = Object.values(snapshot).map((place) => ({
-    type: 'Feature',
-    id: place.id,
-    geometry: {
-      type: 'Point',
-      coordinates: place.coordinates, // [longitude, latitude]
-    },
-    properties: {
+function toGeoJson(snapshot: SavedPlacesSnapshot, selectedLevel: number): PointFeatureCollection {
+  const features: PointFeature[] = Object.values(snapshot)
+    .filter((place) => place.level === selectedLevel)
+    .map((place) => ({
+      type: 'Feature',
       id: place.id,
-      name: place.name,
-      color: place.color,
-      kind: place.type, // 'campus' | 'custom'
-    },
-  }));
+      geometry: {
+        type: 'Point',
+        coordinates: place.coordinates, // [longitude, latitude]
+      },
+      properties: {
+        id: place.id,
+        name: place.name,
+        color: place.color,
+        kind: place.type, // 'campus' | 'custom'
+      },
+    }));
 
   return { type: 'FeatureCollection', features };
 }
@@ -81,20 +84,13 @@ function SavedPinsLayer() {
   const lastSnapshotRef = useRef<SavedPlacesSnapshot>({});
 
   useEffect(() => {
-    // Initial data load
-    const initial = useSavedPlacesStore.getState().savedPlaces;
-    lastSnapshotRef.current = initial;
-    if (Object.keys(initial).length > 0) {
-      setGeoJsonData(toGeoJson(initial));
-    }
-
-    // Imperative subscribe — no React re-render on every store tick;
-    // only when savedPlaces reference actually changes.
-    const unsub = useSavedPlacesStore.subscribe(() => {
+    const rebuild = () => {
       const snapshot = useSavedPlacesStore.getState().savedPlaces;
+      const selectedLevel = useMapStore.getState().selectedLevel;
 
-      // Skip if the snapshot reference hasn't changed (noop subscribe)
-      if (snapshot === lastSnapshotRef.current) return;
+      if (snapshot === lastSnapshotRef.current) {
+        return;
+      }
       lastSnapshotRef.current = snapshot;
 
       if (Object.keys(snapshot).length === 0) {
@@ -102,10 +98,32 @@ function SavedPinsLayer() {
         return;
       }
 
-      setGeoJsonData(toGeoJson(snapshot));
+      setGeoJsonData(toGeoJson(snapshot, selectedLevel));
+    };
+
+    // Initial data load
+    rebuild();
+
+    // Imperative subscribe — no React re-render on every store tick;
+    // only when savedPlaces reference actually changes.
+    const unsubPlaces = useSavedPlacesStore.subscribe(rebuild);
+
+    return unsubPlaces;
+  }, []);
+
+  useEffect(() => {
+    const unsubLevel = useMapStore.subscribe((state, prevState) => {
+      if (state.selectedLevel === prevState.selectedLevel) return;
+      const snapshot = useSavedPlacesStore.getState().savedPlaces;
+      lastSnapshotRef.current = snapshot;
+      if (Object.keys(snapshot).length === 0) {
+        setGeoJsonData(null);
+        return;
+      }
+      setGeoJsonData(toGeoJson(snapshot, state.selectedLevel));
     });
 
-    return unsub;
+    return unsubLevel;
   }, []);
 
   if (!geoJsonData) return null;

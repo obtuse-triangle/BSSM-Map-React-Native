@@ -36,7 +36,7 @@ describe('savedPlacesStore', () => {
       const state = useSavedPlacesStore.getState();
       expect(state.savedPlaces).toEqual({});
       expect(state.selectedSavedPlaceId).toBeNull();
-      expect(state.schemaVersion).toBe(1);
+      expect(state.schemaVersion).toBe(2);
     });
   });
 
@@ -101,7 +101,7 @@ describe('savedPlacesStore', () => {
 
   describe('createCustomPin', () => {
     it('creates a custom pin with defaults', () => {
-      const id = useSavedPlacesStore.getState().createCustomPin({ coordinates: validCoord });
+      const id = useSavedPlacesStore.getState().createCustomPin({ coordinates: validCoord, level: 1 });
       expect(id).toBeTruthy();
       const record = useSavedPlacesStore.getState().savedPlaces[id!] as SavedCustomPin;
       expect(record.type).toBe('custom');
@@ -115,6 +115,7 @@ describe('savedPlacesStore', () => {
         name: 'My Spot',
         coordinates: validCoord2,
         color: '#E53935',
+        level: 1,
       });
       const record = useSavedPlacesStore.getState().savedPlaces[id!] as SavedCustomPin;
       expect(record.name).toBe('My Spot');
@@ -127,16 +128,17 @@ describe('savedPlacesStore', () => {
         name: 'Bad Color',
         coordinates: validCoord,
         color: '#INVALID' as any,
+        level: 1,
       });
       const record = useSavedPlacesStore.getState().savedPlaces[id!] as SavedCustomPin;
       expect(record.color).toBe(DEFAULT_CUSTOM_PIN_COLOR);
     });
 
     it('rejects non-finite coordinates', () => {
-      const result1 = useSavedPlacesStore.getState().createCustomPin({ coordinates: [NaN, 37] });
+      const result1 = useSavedPlacesStore.getState().createCustomPin({ coordinates: [NaN, 37], level: 1 });
       expect(result1).toBeNull();
 
-      const result2 = useSavedPlacesStore.getState().createCustomPin({ coordinates: [127, undefined as any] });
+      const result2 = useSavedPlacesStore.getState().createCustomPin({ coordinates: [127, undefined as any], level: 1 });
       expect(result2).toBeNull();
     });
   });
@@ -145,7 +147,7 @@ describe('savedPlacesStore', () => {
 
   describe('updateCustomPin', () => {
     it('updates name and color of a custom pin', () => {
-      const id = useSavedPlacesStore.getState().createCustomPin({ coordinates: validCoord })!;
+      const id = useSavedPlacesStore.getState().createCustomPin({ coordinates: validCoord, level: 1 })!;
       const success = useSavedPlacesStore.getState().updateCustomPin(id, { name: 'Updated', color: '#00A676' });
       expect(success).toBe(true);
 
@@ -155,7 +157,7 @@ describe('savedPlacesStore', () => {
     });
 
     it('partially updates with just name', () => {
-      const id = useSavedPlacesStore.getState().createCustomPin({ name: 'Original', coordinates: validCoord })!;
+      const id = useSavedPlacesStore.getState().createCustomPin({ name: 'Original', coordinates: validCoord, level: 1 })!;
       useSavedPlacesStore.getState().updateCustomPin(id, { name: 'Renamed' });
 
       const record = useSavedPlacesStore.getState().savedPlaces[id] as SavedCustomPin;
@@ -179,6 +181,7 @@ describe('savedPlacesStore', () => {
         name: 'Test',
         coordinates: validCoord,
         color: '#8E24AA',
+        level: 1,
       })!;
       useSavedPlacesStore.getState().updateCustomPin(id, { color: '#BADBAD' as any });
 
@@ -191,7 +194,7 @@ describe('savedPlacesStore', () => {
 
   describe('removeSavedPlace', () => {
     it('removes a saved place by id', () => {
-      const id = useSavedPlacesStore.getState().createCustomPin({ coordinates: validCoord })!;
+      const id = useSavedPlacesStore.getState().createCustomPin({ coordinates: validCoord, level: 1 })!;
       expect(Object.keys(useSavedPlacesStore.getState().savedPlaces).length).toBe(1);
 
       useSavedPlacesStore.getState().removeSavedPlace(id);
@@ -199,7 +202,7 @@ describe('savedPlacesStore', () => {
     });
 
     it('clears selectedSavedPlaceId when the removed place was selected', () => {
-      const id = useSavedPlacesStore.getState().createCustomPin({ coordinates: validCoord })!;
+      const id = useSavedPlacesStore.getState().createCustomPin({ coordinates: validCoord, level: 1 })!;
       useSavedPlacesStore.getState().setSelectedSavedPlaceId(id);
       expect(useSavedPlacesStore.getState().selectedSavedPlaceId).toBe(id);
 
@@ -221,7 +224,7 @@ describe('savedPlacesStore', () => {
     });
 
     it('returns false for custom pins (not campus)', () => {
-      useSavedPlacesStore.getState().createCustomPin({ coordinates: validCoord });
+      useSavedPlacesStore.getState().createCustomPin({ coordinates: validCoord, level: 1 });
       expect(useSavedPlacesStore.getState().isCampusFeatureSaved('whatever')).toBe(false);
     });
   });
@@ -230,7 +233,7 @@ describe('savedPlacesStore', () => {
 
   describe('getSavedPlace', () => {
     it('returns the saved place by id', () => {
-      const id = useSavedPlacesStore.getState().createCustomPin({ coordinates: validCoord })!;
+      const id = useSavedPlacesStore.getState().createCustomPin({ coordinates: validCoord, level: 1 })!;
       const place = useSavedPlacesStore.getState().getSavedPlace(id);
       expect(place).toBeDefined();
       expect(place!.id).toBe(id);
@@ -257,7 +260,7 @@ describe('savedPlacesStore', () => {
 
   describe('clearSavedPlacesForTests', () => {
     it('clears all saved places and selected id', () => {
-      useSavedPlacesStore.getState().createCustomPin({ coordinates: validCoord });
+      useSavedPlacesStore.getState().createCustomPin({ coordinates: validCoord, level: 1 });
       useSavedPlacesStore.getState().hydrateSavedCampusPlace(campusSnapshot());
       useSavedPlacesStore.getState().setSelectedSavedPlaceId('some-id');
 
@@ -275,7 +278,7 @@ describe('savedPlacesStore', () => {
       // This tests the persist config indirectly via partialize behavior
       const state = useSavedPlacesStore.getState();
       state.setSelectedSavedPlaceId('should-not-persist');
-      state.createCustomPin({ name: 'PersistMe', coordinates: validCoord });
+      state.createCustomPin({ name: 'PersistMe', coordinates: validCoord, level: 1 });
 
       // The partialize function should only keep savedPlaces and schemaVersion
       const persistFn = (useSavedPlacesStore as any).persist?.options?.partialize;
@@ -295,7 +298,7 @@ describe('savedPlacesStore', () => {
       // 1. Create records
       useSavedPlacesStore.getState().clearSavedPlacesForTests();
       useSavedPlacesStore.getState().hydrateSavedCampusPlace(campusSnapshot());
-      useSavedPlacesStore.getState().createCustomPin({ name: 'TestPin', coordinates: [127.5, 37.5] });
+      useSavedPlacesStore.getState().createCustomPin({ name: 'TestPin', coordinates: [127.5, 37.5], level: 1 });
 
       // 2. Trigger persist flush - in zustand persist, set() triggers save.
       // Wait a microtask for the async storage write
@@ -327,7 +330,7 @@ describe('savedPlacesStore', () => {
       expect(parsed.state.selectedSavedPlaceId).toBeUndefined();
 
       // 6. Verify schema version persisted
-      expect(parsed.state.schemaVersion).toBe(1);
+      expect(parsed.state.schemaVersion).toBe(2);
     });
 
     it('rehydrates state from AsyncStorage on rehydrate()', async () => {
@@ -364,6 +367,36 @@ describe('savedPlacesStore', () => {
       expect(place).toBeDefined();
       expect(place!.name).toBe('Seed Room');
     });
+
+    it('migrates v1 custom pins: adds level=1 and remaps #2979FF → #00A676', async () => {
+      const AsyncStorage = require('@react-native-async-storage/async-storage');
+      const seedState = {
+        state: {
+          savedPlaces: {
+            'legacy-pin-1': {
+              id: 'legacy-pin-1',
+              type: 'custom',
+              name: 'Old Pin',
+              coordinates: [128.0, 35.0],
+              color: '#2979FF',
+              createdAt: new Date().toISOString(),
+            },
+          },
+          schemaVersion: 1,
+        },
+        version: 1,
+      };
+      await AsyncStorage.setItem('@school-map/saved-places', JSON.stringify(seedState));
+
+      await useSavedPlacesStore.persist.rehydrate();
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      const place = useSavedPlacesStore.getState().getSavedPlace('legacy-pin-1') as SavedCustomPin;
+      expect(place).toBeDefined();
+      expect(place.name).toBe('Old Pin');
+      expect(place.level).toBe(1);
+      expect(place.color).toBe('#00A676');
+    });
   });
 
   // ── 200-item boundary ───────────────────────────────────────────────
@@ -374,6 +407,7 @@ describe('savedPlacesStore', () => {
         const id = useSavedPlacesStore.getState().createCustomPin({
           name: `Pin ${i}`,
           coordinates: [127 + i * 0.001, 37 + i * 0.001] as [number, number],
+          level: 1,
         });
         expect(id).toBeTruthy();
       }
@@ -390,6 +424,7 @@ describe('savedPlacesStore', () => {
         useSavedPlacesStore.getState().createCustomPin({
           name: `Pin ${i}`,
           coordinates: [128 + i * 0.001, 38 + i * 0.001] as [number, number],
+          level: 1,
         });
       }
       expect(Object.keys(useSavedPlacesStore.getState().savedPlaces).length).toBe(200);
@@ -399,8 +434,8 @@ describe('savedPlacesStore', () => {
   // ── Color palette validation ────────────────────────────────────────
 
   describe('color palette constants', () => {
-    it('SAVED_PLACE_COLOR_PALETTE contains exactly 8 colors', () => {
-      expect(SAVED_PLACE_COLOR_PALETTE.length).toBe(8);
+    it('SAVED_PLACE_COLOR_PALETTE contains exactly 7 colors', () => {
+      expect(SAVED_PLACE_COLOR_PALETTE.length).toBe(7);
     });
 
     it('all palette entries are valid hex strings', () => {

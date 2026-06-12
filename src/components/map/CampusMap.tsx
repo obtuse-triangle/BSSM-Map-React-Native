@@ -204,16 +204,8 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false, onUserMap
       console.warn('[CampusMap] long-press non-finite coords; skipping');
       return;
     }
-    const features = await mapRef.current.queryRenderedFeatures(point, {
-      layers: ['campus-fill'],
-    });
-    const interactiveHit = (features as Array<{ properties?: { interactive?: boolean } }> | undefined)
-      ?.find((f) => f?.properties?.interactive === true);
-    if (interactiveHit) {
-      // do not create a pin when long-pressing a building/room polygon
-      return;
-    }
-    const newId = useSavedPlacesStore.getState().createCustomPin({ coordinates: [lng, lat] });
+    const currentLevel = useMapStore.getState().selectedLevel;
+    const newId = useSavedPlacesStore.getState().createCustomPin({ coordinates: [lng, lat], level: currentLevel });
     if (!newId) return;
     useSavedPlacesStore.getState().setSelectedSavedPlaceId(newId);
     useMapStore.getState().setSelectedFeatureId(null);
