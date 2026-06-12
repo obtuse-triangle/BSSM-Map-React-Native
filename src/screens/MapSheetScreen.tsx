@@ -81,6 +81,7 @@ export function MapSheetScreen() {
     setSettingsVisible,
     setPendingFlyToFeatureId,
     requestShowAttribution,
+    requestMinimizeSheets,
     bleTrackingEnabled,
     setBleTrackingEnabled,
     clearLocationSource,
@@ -150,13 +151,16 @@ export function MapSheetScreen() {
       if (feature && feature.properties.level !== selectedLevel) {
         setSelectedLevel(feature.properties.level);
       }
+      setSearchQuery('');
+      setBleCardVisible(false);
+      setSettingsVisible(false);
+      Keyboard.dismiss();
       setSelectedFeatureId(featureId);
       // Signal MapScreen to fly to this feature
       setPendingFlyToFeatureId(featureId);
-      setSearchQuery('');
-      Keyboard.dismiss();
+      requestMinimizeSheets();
     },
-    [selectedLevel, setSelectedFeatureId, setSelectedLevel, setPendingFlyToFeatureId, setSearchQuery],
+    [selectedLevel, setBleCardVisible, setSelectedFeatureId, setSelectedLevel, setSettingsVisible, setPendingFlyToFeatureId, setSearchQuery, requestMinimizeSheets],
   );
 
   const handleBleScan = useCallback(() => {
@@ -198,7 +202,11 @@ export function MapSheetScreen() {
       // Close BLE/settings when showing place detail
       setBleCardVisible(false);
       setSettingsVisible(false);
-      navigation.navigate('PlaceDetailSheet');
+      const navigationState = navigation.getState();
+      const currentRouteName = navigationState.routes[navigationState.index]?.name;
+      if (currentRouteName !== 'PlaceDetailSheet') {
+        navigation.navigate('PlaceDetailSheet');
+      }
     }
   }, [selectedFeatureId, isFocused, navigation, setBleCardVisible, setSettingsVisible]);
 
