@@ -394,8 +394,8 @@ export const useBleLocationStore = create<BleLocationStoreState>()((set, get) =>
         const fusionUpdate = fusionEngine.getState();
         set({ fusionState: fusionUpdate, fusionUnavailableReason: fusionUpdate.unavailableReason });
 
-        if (fusionUpdate.confidenceLevel !== 'unknown') {
-          useMapStore.getState().setUserCoordinates({
+        if (fusionUpdate.confidenceLevel !== 'unknown' && useMapStore.getState().bleTrackingEnabled) {
+          useMapStore.getState().setBleCoordinates({
             longitude: fusionUpdate.lng,
             latitude: fusionUpdate.lat,
           });
@@ -494,8 +494,8 @@ export const useBleLocationStore = create<BleLocationStoreState>()((set, get) =>
             fusionEngine.applyMotion(fusionMotion);
             const fusionUpdate = fusionEngine.getState();
             set({ fusionState: fusionUpdate });
-            if (fusionUpdate.confidenceLevel !== 'unknown') {
-              useMapStore.getState().setUserCoordinates({
+            if (fusionUpdate.confidenceLevel !== 'unknown' && useMapStore.getState().bleTrackingEnabled) {
+              useMapStore.getState().setBleCoordinates({
                 longitude: fusionUpdate.lng,
                 latitude: fusionUpdate.lat,
               });

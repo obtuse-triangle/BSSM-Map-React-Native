@@ -182,6 +182,8 @@ function CampusBleMarker() {
   const fromPosRef = useRef<{ lng: number; lat: number } | null>(null);
   const targetDataRef = useRef<MarkerData | null>(null);
 
+  const bleTrackingEnabled = useMapStore((s) => s.bleTrackingEnabled);
+
   const lastSnapshotRef = useRef<StoreSnapshot>({
     status: useBleLocationStore.getState().status,
     result: useBleLocationStore.getState().result,
@@ -227,13 +229,22 @@ function CampusBleMarker() {
     };
     lastSnapshotRef.current = initialSnapshot;
 
-    const initialData = snapshotToMarkerData(initialSnapshot);
+    const initialData = useMapStore.getState().bleTrackingEnabled
+      ? snapshotToMarkerData(initialSnapshot)
+      : null;
     if (initialData) {
       setMarkerData(initialData);
       fromPosRef.current = { lng: initialData.longitude, lat: initialData.latitude };
     }
 
     const unsubBle = useBleLocationStore.subscribe(() => {
+      if (!useMapStore.getState().bleTrackingEnabled) {
+        if (animRef.current) { clearTimeout(animRef.current); animRef.current = null; }
+        fromPosRef.current = null;
+        setMarkerData(null);
+        return;
+      }
+
       const { status, result, fusionState, currentHeading } = useBleLocationStore.getState();
       lastSnapshotRef.current = { status, result, fusionState, currentHeading };
 
@@ -269,6 +280,8 @@ function CampusBleMarker() {
     return makeMarkerGeoJson(markerData);
   }, [markerData]);
 
+  // Skip marker rendering when BLE tracking is disabled
+  if (!bleTrackingEnabled) return null;
   if (!geoJsonData) return null;
 
   const showHeadingArrow = markerData?.heading != null;
