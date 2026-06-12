@@ -23,6 +23,7 @@
     "expo-glass-effect": "~0.1.10",
     "expo-modules-core": "~3.0.30",
     "expo-status-bar": "~3.0.9",
+    "polygon-clipping": "^0.15.7",
     "proj4": "^2.20.8",
     "react": "19.1.0",
     "react-dom": "19.1.0",
