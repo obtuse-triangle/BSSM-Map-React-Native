@@ -1,0 +1,7 @@
+iOS simulator visual QA blocked: requires running iOS simulator with app build.
+Visual verification deferred. Baseline AP visibility logic is covered by:
+- src/components/map/__tests__/apVisualization.test.ts (28 tests)
+- src/store/__tests__/mapStore.test.ts (AP toggle tests including 11 new tests)
+The component rendering logic is type-checked via npx tsc --noEmit (exit 0).
+Full Jest suite passes: 96 tests passed.
+Android Expo export smoke test passes: exit 0.

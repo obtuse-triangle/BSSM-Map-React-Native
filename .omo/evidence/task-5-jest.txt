@@ -1,0 +1,18 @@
+npm warn Unknown project config "node-linker". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+
+> school-map-react-native@1.1.0 test
+> jest --runInBand
+
+PASS src/services/location/__tests__/particleFusionEngine.test.ts
+PASS src/utils/__tests__/cameraTarget.test.ts
+PASS src/services/location/__tests__/deadReckoning.test.ts
+PASS src/components/map/__tests__/apVisualization.test.ts
+PASS src/store/__tests__/mapStore.test.ts
+PASS src/services/location/__tests__/zoneInference.test.ts
+
+Test Suites: 6 passed, 6 total
+Tests:       96 passed, 96 total
+Snapshots:   0 total
+Time:        1.259 s, estimated 2 s
+Ran all test suites.
+EXIT CODE: 0

@@ -81,6 +81,8 @@ export function MapSheetScreen() {
     gpsTrackingEnabled,
     userCoordinates,
     minimizeSheetsTick,
+    showApMarkers,
+    toggleApMarkers,
   } = useMapStore();
 
   const allCategories = useMapStore((s) => s.allCategories);
@@ -291,6 +293,21 @@ export function MapSheetScreen() {
             <View style={[styles.barDivider, { backgroundColor: sheetSeparator }]} />
           </>
         ) : null}
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={showApMarkers ? 'AP 위치 표시 끄기' : 'AP 위치 표시 켜기'}
+          onPress={toggleApMarkers}
+          style={({ pressed }) => [
+            styles.barButton,
+            pressed && { backgroundColor: sheetSystemFill },
+            showApMarkers && styles.barButtonActive,
+          ]}
+        >
+          <Text style={[styles.barButtonBleLabel, { color: sheetAccent(sheetScheme) }]}>AP</Text>
+        </Pressable>
+
+        <View style={[styles.barDivider, { backgroundColor: sheetSeparator }]} />
 
         <Pressable
           accessibilityRole="button"
