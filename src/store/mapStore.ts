@@ -8,6 +8,9 @@ import type { MapStyleId } from '../constants/mapStyles';
 
 export type MapBaseLayer = MapStyleId;
 
+export type LocationSource = 'gps' | 'ble';
+export type SourceCoordinates = { longitude: number; latitude: number } | null;
+
 export type CampusFeatureCategory =
   | 'classroom'
   | 'corridor'
@@ -39,6 +42,11 @@ type MapStoreState = {
   hiddenCategories: Set<CampusFeatureCategory>;
   detectedBuildingId: string | null;
   userCoordinates: { longitude: number; latitude: number } | null;
+  gpsTrackingEnabled: boolean;
+  bleTrackingEnabled: boolean;
+  userCoordinatesSource: LocationSource | null;
+  gpsCoordinates: SourceCoordinates;
+  bleCoordinates: SourceCoordinates;
   // Cross-screen UI state shared between MapScreen (glass bar) and MapSheetScreen (content)
   bleCardVisible: boolean;
   settingsVisible: boolean;
@@ -51,7 +59,13 @@ type MapStoreState = {
   clearSelectedRoom: () => void;
   setShowApMarkers: (showApMarkers: boolean) => void;
   setDetectedBuildingId: (buildingId: string | null) => void;
+  /** @deprecated Use setGpsCoordinates instead. */
   setUserCoordinates: (coords: { longitude: number; latitude: number } | null) => void;
+  setGpsTrackingEnabled: (enabled: boolean) => void;
+  setBleTrackingEnabled: (enabled: boolean) => void;
+  setGpsCoordinates: (coords: SourceCoordinates) => void;
+  setBleCoordinates: (coords: SourceCoordinates) => void;
+  clearLocationSource: (source: LocationSource) => void;
   toggleApMarkers: () => void;
   setBaseLayer: (layer: MapBaseLayer) => void;
   toggleCategory: (category: CampusFeatureCategory) => void;
@@ -67,6 +81,18 @@ type MapStoreState = {
 
 const initialFloorKey = getFirstFloorKey(bssmFloorMap) ?? null;
 
+function resolveMergedCoordinates(
+  state: Pick<MapStoreState, 'bleTrackingEnabled' | 'bleCoordinates' | 'gpsTrackingEnabled' | 'gpsCoordinates'>,
+): Pick<MapStoreState, 'userCoordinates' | 'userCoordinatesSource'> {
+  if (state.bleTrackingEnabled && state.bleCoordinates !== null) {
+    return { userCoordinates: state.bleCoordinates, userCoordinatesSource: 'ble' };
+  }
+  if (state.gpsTrackingEnabled && state.gpsCoordinates !== null) {
+    return { userCoordinates: state.gpsCoordinates, userCoordinatesSource: 'gps' };
+  }
+  return { userCoordinates: null, userCoordinatesSource: null };
+}
+
 export const useMapStore = create<MapStoreState>()((set, get) => ({
   selectedFloorKey: initialFloorKey,
   selectedLevel: 1,
@@ -77,6 +103,11 @@ export const useMapStore = create<MapStoreState>()((set, get) => ({
   hiddenCategories: new Set<CampusFeatureCategory>(),
   detectedBuildingId: null,
   userCoordinates: null,
+  gpsTrackingEnabled: false,
+  bleTrackingEnabled: false,
+  userCoordinatesSource: null,
+  gpsCoordinates: null,
+  bleCoordinates: null,
   bleCardVisible: false,
   settingsVisible: false,
   pendingFlyToFeatureId: null,
@@ -102,8 +133,60 @@ export const useMapStore = create<MapStoreState>()((set, get) => ({
   setDetectedBuildingId: (detectedBuildingId) => {
     set({ detectedBuildingId });
   },
-  setUserCoordinates: (userCoordinates) => {
-    set({ userCoordinates });
+  /** @deprecated Use setGpsCoordinates instead — delegates to setGpsCoordinates for backward compatibility. */
+  setUserCoordinates: (coords) => {
+    set((state) => ({
+      gpsCoordinates: coords,
+      ...resolveMergedCoordinates({ ...state, gpsCoordinates: coords }),
+    }));
+  },
+  setGpsTrackingEnabled: (enabled) => {
+    set((state) => {
+      const gpsCoordinates = enabled ? state.gpsCoordinates : null;
+      return {
+        gpsTrackingEnabled: enabled,
+        gpsCoordinates,
+        ...resolveMergedCoordinates({ ...state, gpsTrackingEnabled: enabled, gpsCoordinates }),
+      };
+    });
+  },
+  setBleTrackingEnabled: (enabled) => {
+    set((state) => {
+      const bleCoordinates = enabled ? state.bleCoordinates : null;
+      return {
+        bleTrackingEnabled: enabled,
+        bleCoordinates,
+        ...resolveMergedCoordinates({ ...state, bleTrackingEnabled: enabled, bleCoordinates }),
+      };
+    });
+  },
+  setGpsCoordinates: (coords) => {
+    if (get().gpsTrackingEnabled === false && coords !== null) return;
+    set((state) => ({
+      gpsCoordinates: coords,
+      ...resolveMergedCoordinates({ ...state, gpsCoordinates: coords }),
+    }));
+  },
+  setBleCoordinates: (coords) => {
+    if (get().bleTrackingEnabled === false && coords !== null) return;
+    set((state) => ({
+      bleCoordinates: coords,
+      ...resolveMergedCoordinates({ ...state, bleCoordinates: coords }),
+    }));
+  },
+  clearLocationSource: (source) => {
+    set((state) => {
+      if (source === 'gps') {
+        return {
+          gpsCoordinates: null,
+          ...resolveMergedCoordinates({ ...state, gpsCoordinates: null }),
+        };
+      }
+      return {
+        bleCoordinates: null,
+        ...resolveMergedCoordinates({ ...state, bleCoordinates: null }),
+      };
+    });
   },
   toggleApMarkers: () => {
     set((state) => ({ showApMarkers: !state.showApMarkers }));
