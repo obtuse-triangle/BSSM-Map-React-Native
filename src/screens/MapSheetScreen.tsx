@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { MAP_STYLES } from '../constants/mapStyles';
 import campusDataUntyped from '../data/campus-wgs84.json';
@@ -53,6 +53,13 @@ const CATEGORY_COLORS: Record<CampusFeatureCategory, string> = {
 };
 
 const BASE_LAYER_OPTIONS = MAP_STYLES.map((s) => ({ key: s.id, label: s.label, icon: s.icon }));
+
+const BLE_STATUS_LABELS = {
+  idle: '대기',
+  scanning: '스캔 중',
+  success: '성공',
+  error: '오류',
+} as const;
 
 export function MapSheetScreen() {
   const sheetScheme = useColorScheme();
@@ -118,24 +125,15 @@ export function MapSheetScreen() {
   } = useBleLocationStore();
 
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'MapSheet'>>();
+  const [currentDetentIndex, setCurrentDetentIndex] = useState(1);
 
-  // Sync sheetAllowedDetents with BLE/settings visibility.
-  // When BLE or settings is open, remove both collapsed detents (0.06, 0.12) so iOS
-  // auto-snaps to medium (0.5). Restore all detents when both are hidden.
-  // Always set sheetLargestUndimmedDetentIndex to the last index to prevent out-of-bounds crash.
+  // Track sheet detent position for collapsed vs expanded layout
   useEffect(() => {
-    if (bleCardVisible || settingsVisible) {
-      navigation.setOptions({
-        sheetAllowedDetents: [0.5, 1.0],
-        sheetLargestUndimmedDetentIndex: 1,
-      });
-    } else {
-      navigation.setOptions({
-        sheetAllowedDetents: [0.06, 0.12, 0.5, 1.0],
-        sheetLargestUndimmedDetentIndex: 3,
-      });
-    }
-  }, [bleCardVisible, settingsVisible, navigation]);
+    const unsubscribe = navigation.addListener('sheetDetentChange', (e) => {
+      setCurrentDetentIndex(e.data.index);
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   const currentPosition = useMemo(() => {
     if (!selectedFloorKey || !position || position.floorKey !== selectedFloorKey) {
@@ -206,6 +204,14 @@ export function MapSheetScreen() {
 
   const showBle = bleCardVisible;
   const showSettings = settingsVisible;
+  const isCompactDetent = currentDetentIndex <= 1;
+  const mapCategories = allCategories();
+  const activeBaseLayer = BASE_LAYER_OPTIONS.find((opt) => opt.key === baseLayer);
+  const visibleCategoryCount = mapCategories.length - hiddenCategories.size;
+  const detectedBeaconCount = Object.keys(beaconStats).length || debugObservations.length;
+  const bleCompactDetail = bleResult
+    ? `정확도 ±${bleResult.accuracyMeters.toFixed(1)}m · 신뢰도 ${(bleResult.confidence * 100).toFixed(0)}% · AP ${bleResult.usedApCount}개`
+    : bleError ?? `감지된 비콘 ${detectedBeaconCount}개`;
 
   const mergedBlockChildren = (
     <>
@@ -381,81 +387,111 @@ export function MapSheetScreen() {
 
         {/* Settings Panel */}
         {showSettings && (
-          <GlassSurface variant="modal" cornerRadius={20} style={styles.settingsCard}>
-            <Text style={[styles.settingsTitle, { color: sheetLabel }]}>지도 설정</Text>
+          isCompactDetent ? (
+            <GlassSurface variant="modal" cornerRadius={20} style={styles.compactCard}>
+              <View style={styles.compactHeaderRow}>
+                <Text style={[styles.compactTitle, { color: sheetLabel }]}>지도 설정</Text>
+                <Text style={[styles.compactBadge, { color: sheetAccent(sheetScheme), backgroundColor: sheetSelectionBg }]}>
+                  {activeBaseLayer?.icon ?? baseLayerIcon} {activeBaseLayer?.label ?? '지도'}
+                </Text>
+              </View>
+              <Text style={[styles.compactBody, { color: sheetSecondaryLabel }]}> 
+                카테고리 {visibleCategoryCount}/{mapCategories.length}개 표시 중
+              </Text>
+              <Text style={[styles.compactCta, { color: sheetLabel, backgroundColor: sheetSystemFill }]}>위로 올려 자세히 보기</Text>
+            </GlassSurface>
+          ) : (
+            <GlassSurface variant="modal" cornerRadius={20} style={styles.settingsCard}>
+              <Text style={[styles.settingsTitle, { color: sheetLabel }]}>지도 설정</Text>
 
-            <Text style={[styles.settingsSectionTitle, { color: sheetSecondaryLabel }]}>배경 지도</Text>
-            <View style={styles.baseLayerRow}>
-              {BASE_LAYER_OPTIONS.map((opt) => {
-                const active = baseLayer === opt.key;
-                return (
-                  <Pressable
-                    key={opt.key}
-                    onPress={() => setBaseLayer(opt.key)}
-                    style={[
-                      styles.baseLayerButton,
-                      { backgroundColor: sheetSystemFill, borderColor: sheetSeparator },
-                      active && { backgroundColor: sheetSelectionBg, borderColor: sheetAccent(sheetScheme) },
-                    ]}
-                  >
-                    <Text style={[styles.baseLayerIcon, { color: sheetLabel }]}>{opt.icon}</Text>
-                    <Text style={[styles.baseLayerLabel, { color: sheetSecondaryLabel }, active && { color: sheetAccent(sheetScheme) }]}>{opt.label}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+              <Text style={[styles.settingsSectionTitle, { color: sheetSecondaryLabel }]}>배경 지도</Text>
+              <View style={styles.baseLayerRow}>
+                {BASE_LAYER_OPTIONS.map((opt) => {
+                  const active = baseLayer === opt.key;
+                  return (
+                    <Pressable
+                      key={opt.key}
+                      onPress={() => setBaseLayer(opt.key)}
+                      style={[
+                        styles.baseLayerButton,
+                        { backgroundColor: sheetSystemFill, borderColor: sheetSeparator },
+                        active && { backgroundColor: sheetSelectionBg, borderColor: sheetAccent(sheetScheme) },
+                      ]}
+                    >
+                      <Text style={[styles.baseLayerIcon, { color: sheetLabel }]}>{opt.icon}</Text>
+                      <Text style={[styles.baseLayerLabel, { color: sheetSecondaryLabel }, active && { color: sheetAccent(sheetScheme) }]}>{opt.label}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
 
-            <Text style={[styles.settingsSectionTitle, { color: sheetSecondaryLabel }]}>카테고리 표시</Text>
-            <View style={styles.categoryGrid}>
-              {allCategories().map((cat) => {
-                const hidden = hiddenCategories.has(cat);
-                return (
-                  <Pressable
-                    key={cat}
-                    hitSlop={HIT_SLOP}
-                    onPress={() => toggleCategory(cat)}
-                    style={[
-                      styles.categoryChip,
-                      { backgroundColor: sheetSystemFill, borderColor: sheetSeparator, borderLeftColor: CATEGORY_COLORS[cat] },
-                      hidden && { backgroundColor: sheetSecondarySystemFill, opacity: 0.55 },
-                    ]}
-                  >
-                    <Text style={[styles.categoryChipText, { color: sheetLabel }, hidden && { color: sheetTertiaryLabel }]}>
-                      {hidden ? '✕' : '✓'} {CATEGORY_LABELS[cat]}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+              <Text style={[styles.settingsSectionTitle, { color: sheetSecondaryLabel }]}>카테고리 표시</Text>
+              <View style={styles.categoryGrid}>
+                {mapCategories.map((cat) => {
+                  const hidden = hiddenCategories.has(cat);
+                  return (
+                    <Pressable
+                      key={cat}
+                      hitSlop={HIT_SLOP}
+                      onPress={() => toggleCategory(cat)}
+                      style={[
+                        styles.categoryChip,
+                        { backgroundColor: sheetSystemFill, borderColor: sheetSeparator, borderLeftColor: CATEGORY_COLORS[cat] },
+                        hidden && { backgroundColor: sheetSecondarySystemFill, opacity: 0.55 },
+                      ]}
+                    >
+                      <Text style={[styles.categoryChipText, { color: sheetLabel }, hidden && { color: sheetTertiaryLabel }]}> 
+                        {hidden ? '✕' : '✓'} {CATEGORY_LABELS[cat]}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
 
-          </GlassSurface>
+            </GlassSurface>
+          )
         )}
 
         {/* BLE Status Card */}
         {showBle && (
-          <BleWclStatusCard
-            colorScheme={sheetScheme === 'dark' ? 'dark' : 'light'}
-            status={bleStatus}
-            result={bleResult}
-            error={bleError}
-            onStartScan={handleBleScan}
-            onDismiss={() => { setBleCardVisible(false); dismissCard(); }}
-            scanDurationMs={scanDurationMs}
-            onSetScanDuration={setScanDurationMs}
-            debugObservations={debugObservations}
-            beaconStats={beaconStats}
-            isContinuousScanning={isContinuousScanning}
-            onStartContinuousScan={startContinuousScan}
-            onStopContinuousScan={stopContinuousScan}
-            drPosition={drPosition}
-            drStepsSinceLastBle={drStepsSinceLastBle}
-            isMotionActive={isMotionActive}
-            drErrorMeters={drErrorMeters}
-            onStartMotionTracking={startMotionTracking}
-            onStopMotionTracking={stopMotionTracking}
-            fusionState={fusionState}
-            fusionUnavailableReason={fusionUnavailableReason}
-          />
+          isCompactDetent ? (
+            <GlassSurface variant="status" cornerRadius={20} style={styles.compactCard}>
+              <View style={styles.compactHeaderRow}>
+                <Text style={[styles.compactTitle, { color: sheetLabel }]}>BLE 실내 측위</Text>
+                <Text style={[styles.compactBadge, { color: sheetAccent(sheetScheme), backgroundColor: sheetSelectionBg }]}>
+                  {BLE_STATUS_LABELS[bleStatus]}
+                </Text>
+              </View>
+              <Text style={[styles.compactBody, { color: sheetSecondaryLabel }]} numberOfLines={2}>
+                {isContinuousScanning ? '실시간 스캔 중 · ' : ''}{bleCompactDetail}
+              </Text>
+              <Text style={[styles.compactCta, { color: sheetLabel, backgroundColor: sheetSystemFill }]}>위로 올려 자세히 보기</Text>
+            </GlassSurface>
+          ) : (
+            <BleWclStatusCard
+              colorScheme={sheetScheme === 'dark' ? 'dark' : 'light'}
+              status={bleStatus}
+              result={bleResult}
+              error={bleError}
+              onStartScan={handleBleScan}
+              onDismiss={() => { setBleCardVisible(false); dismissCard(); }}
+              scanDurationMs={scanDurationMs}
+              onSetScanDuration={setScanDurationMs}
+              debugObservations={debugObservations}
+              beaconStats={beaconStats}
+              isContinuousScanning={isContinuousScanning}
+              onStartContinuousScan={startContinuousScan}
+              onStopContinuousScan={stopContinuousScan}
+              drPosition={drPosition}
+              drStepsSinceLastBle={drStepsSinceLastBle}
+              isMotionActive={isMotionActive}
+              drErrorMeters={drErrorMeters}
+              onStartMotionTracking={startMotionTracking}
+              onStopMotionTracking={stopMotionTracking}
+              fusionState={fusionState}
+              fusionUnavailableReason={fusionUnavailableReason}
+            />
+          )
         )}
 
       </ScrollView>
@@ -619,6 +655,43 @@ const styles = StyleSheet.create({
   categoryChipText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  compactCard: {
+    gap: 10,
+    padding: 16,
+  },
+  compactHeaderRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'space-between',
+  },
+  compactTitle: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  compactBadge: {
+    borderRadius: 999,
+    fontSize: 11,
+    fontWeight: '800',
+    overflow: 'hidden',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  compactBody: {
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 17,
+  },
+  compactCta: {
+    alignSelf: 'flex-start',
+    borderRadius: 999,
+    fontSize: 12,
+    fontWeight: '800',
+    overflow: 'hidden',
+    paddingHorizontal: 12,
+    paddingVertical: 7,
   },
   // ── Empty state ───────────────────────────────────
   emptyState: {
