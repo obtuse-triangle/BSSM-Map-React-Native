@@ -149,6 +149,7 @@ export function MapSheetScreen() {
       navigation.setOptions({
         sheetAllowedDetents: [0.06, 0.12, 0.5, 1.0],
         sheetLargestUndimmedDetentIndex: 3,
+        sheetInitialDetentIndex: 0,
       });
     }, 400);
 
@@ -175,6 +176,7 @@ export function MapSheetScreen() {
         navigation.setOptions({
           sheetAllowedDetents: [0.06, 0.12, 0.5, 1.0],
           sheetLargestUndimmedDetentIndex: 3,
+          sheetInitialDetentIndex: 2,
         });
       }, 400);
 
@@ -192,6 +194,7 @@ export function MapSheetScreen() {
         navigation.setOptions({
           sheetAllowedDetents: [0.06, 0.12, 0.5, 1.0],
           sheetLargestUndimmedDetentIndex: 3,
+          sheetInitialDetentIndex: 0,
         });
       }, 400);
 
