@@ -14,7 +14,6 @@ import { getAccessPointsForFloor } from '../utils/accessPoint';
 import { getLevelKeys } from '../utils/geoJsonHelpers';
 import { useMapStore } from '../store/mapStore';
 import { usePositionStore } from '../store/positionStore';
-import { useBleLocationStore } from '../store/bleLocationStore';
 import { getSelectedFloor } from '../utils/floorMap';
 import { usePermissions } from '../hooks/usePermissions';
 import { useToast } from '../hooks/useToast';
@@ -27,10 +26,7 @@ const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
 type MapScreenProps = NativeStackScreenProps<RootStackParamList, 'Map'>;
 
 export function MapScreen({ navigation }: MapScreenProps) {
-  const [locationTrackingEnabled, setLocationTrackingEnabled] = React.useState(false);
   const campusMapRef = useRef<CampusMapHandle>(null);
-  const pendingFlyToBleRef = useRef(false);
-  const flyToBleUnsubRef = useRef<(() => void) | null>(null);
 
   const {
     selectedFloorKey,
@@ -41,6 +37,8 @@ export function MapScreen({ navigation }: MapScreenProps) {
     setSelectedFeatureId,
     setBaseLayer,
     userCoordinates,
+    gpsTrackingEnabled,
+    setGpsTrackingEnabled,
     bleCardVisible,
     settingsVisible,
     setBleCardVisible,
@@ -52,39 +50,15 @@ export function MapScreen({ navigation }: MapScreenProps) {
 
   const { position, status: positionStatus, error: positionError, locateCurrentPosition } = usePositionStore();
 
-  const {
-    status: bleStatus,
-    result: bleResult,
-    error: bleError,
-    scanDurationMs,
-    setScanDurationMs,
-    debugObservations,
-    clearResult,
-    dismissCard,
-    beaconStats,
-    isContinuousScanning,
-    startContinuousScan,
-    stopContinuousScan,
-    drPosition,
-    drStepsSinceLastBle,
-    isMotionActive,
-    drErrorMeters,
-    startMotionTracking,
-    stopMotionTracking,
-    currentHeading,
-    fusionState,
-    fusionUnavailableReason,
-  } = useBleLocationStore();
-
   const { requestLocationPermission, requestPreciseLocation } = usePermissions();
 
   const { showToast, hideToast, visible: toastVisible, toastConfig } = useToast();
 
   useEffect(() => {
-    if (positionError && locationTrackingEnabled) {
+    if (positionError && gpsTrackingEnabled) {
       showToast({ message: positionError, variant: 'error', duration: 4000 });
     }
-  }, [positionError, locationTrackingEnabled, showToast]);
+  }, [positionError, gpsTrackingEnabled, showToast]);
 
   const selectedFloor = useMemo(
     () => getSelectedFloor(bssmFloorMap, selectedFloorKey),
@@ -108,25 +82,20 @@ export function MapScreen({ navigation }: MapScreenProps) {
   }, [navigation]);
 
   const handleLocate = useCallback(async () => {
-    if (userCoordinates) {
-      campusMapRef.current?.flyToUser();
+    if (gpsTrackingEnabled) {
+      // GPS OFF path
+      setGpsTrackingEnabled(false);
+      showToast({ message: 'GPS 위치 추적이 꺼졌습니다', variant: 'info' });
       return;
     }
 
-    if (!locationTrackingEnabled) {
-      const granted = await requestLocationPermission();
-      if (!granted) return;
-
-      await requestPreciseLocation();
-
-      setLocationTrackingEnabled(true);
-      showToast({ message: '위치 추적이 활성화되었습니다', variant: 'success' });
-      return;
-    }
-
-    if (!selectedFloorKey || accessPoints.length === 0) return;
-    void locateCurrentPosition({ floorKey: selectedFloorKey, accessPoints });
-  }, [accessPoints, locateCurrentPosition, locationTrackingEnabled, selectedFloorKey, userCoordinates, requestLocationPermission, requestPreciseLocation, showToast]);
+    // GPS ON path
+    const granted = await requestLocationPermission();
+    if (!granted) return;
+    await requestPreciseLocation();
+    setGpsTrackingEnabled(true);
+    showToast({ message: 'GPS 위치 추적이 활성화되었습니다', variant: 'success' });
+  }, [gpsTrackingEnabled, setGpsTrackingEnabled, requestLocationPermission, requestPreciseLocation, showToast]);
 
   // Watch for pending fly-to feature from MapSheet
   useEffect(() => {
@@ -149,66 +118,11 @@ export function MapScreen({ navigation }: MapScreenProps) {
     campusMapRef.current?.showAttribution();
   }, [showAttributionTick]);
 
-  const clearPendingBleFly = useCallback(() => {
-    pendingFlyToBleRef.current = false;
-    flyToBleUnsubRef.current?.();
-    flyToBleUnsubRef.current = null;
-  }, []);
-
-  const flyToBleResult = useCallback(
-    (result: typeof bleResult | null) => {
-      if (!result || !pendingFlyToBleRef.current) {
-        return false;
-      }
-
-      pendingFlyToBleRef.current = false;
-      flyToBleUnsubRef.current?.();
-      flyToBleUnsubRef.current = null;
-
-      const fusion = useBleLocationStore.getState().fusionState;
-      const zoneFloor = fusion?.inferredZone?.isInsideKnownZone
-        ? parseInt(fusion.inferredZone.floorKey, 10)
-        : NaN;
-      if (!isNaN(zoneFloor) && zoneFloor !== selectedLevel) {
-        setSelectedLevel(zoneFloor);
-      }
-
-      campusMapRef.current?.flyToCoordinates([result.longitude, result.latitude]);
-      return true;
-    },
-    [selectedLevel, setSelectedLevel],
-  );
-
-  const handleBleScan = useCallback(() => {
-    if (bleCardVisible) {
-      setBleCardVisible(false);
-      clearPendingBleFly();
-      dismissCard();
-      return;
-    }
-    setBleCardVisible(true);
-    pendingFlyToBleRef.current = true;
-
-    flyToBleUnsubRef.current?.();
-    flyToBleUnsubRef.current = useBleLocationStore.subscribe(() => {
-      flyToBleResult(useBleLocationStore.getState().result);
-    });
-
-    flyToBleResult(useBleLocationStore.getState().result);
-
-    if (!isContinuousScanning) {
-      startContinuousScan();
-      startMotionTracking();
-    }
-  }, [bleCardVisible, clearPendingBleFly, dismissCard, flyToBleResult, isContinuousScanning, startContinuousScan, startMotionTracking, setBleCardVisible]);
-
-  useEffect(() => clearPendingBleFly, [clearPendingBleFly]);
-
   const handleSettingsToggle = useCallback(() => {
     setSettingsVisible(!settingsVisible);
   }, [settingsVisible, setSettingsVisible]);
 
-  const isLocateDisabled = positionStatus === 'loading' && locationTrackingEnabled;
+  const isLocateDisabled = positionStatus === 'loading' && gpsTrackingEnabled;
   const baseLayerIcon = MAP_STYLES.find((s) => s.id === baseLayer)?.icon ?? '⚙';
 
   return (
@@ -222,7 +136,7 @@ export function MapScreen({ navigation }: MapScreenProps) {
 
       {/* Full-screen map */}
       <View style={styles.mapArea}>
-        <CampusMap ref={campusMapRef} topPadding={0} locationTrackingEnabled={locationTrackingEnabled} />
+        <CampusMap ref={campusMapRef} topPadding={0} locationTrackingEnabled={gpsTrackingEnabled} />
       </View>
     </View>
   );
