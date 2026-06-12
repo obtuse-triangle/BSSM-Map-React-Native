@@ -13,8 +13,17 @@ module.exports = {
     },
     plugins: [
       "./plugins/withAndroidRttPermissions",
+      "./plugins/withAndroidBlePermissions",
       "./plugins/withIosBlePermissions",
       "@maplibre/maplibre-react-native",
+      [
+        "expo-build-properties",
+        {
+          android: {
+            minSdkVersion: 28,
+          },
+        },
+      ],
     ],
     assetBundlePatterns: [
       "**/*.mbtiles",

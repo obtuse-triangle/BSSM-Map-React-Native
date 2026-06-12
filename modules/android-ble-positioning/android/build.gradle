@@ -1,0 +1,23 @@
+apply plugin: 'com.android.library'
+apply plugin: 'kotlin-android'
+apply plugin: 'expo-module-gradle-plugin'
+
+group = 'expo.modules.androidble'
+version = '1.0.0'
+
+android {
+  namespace "expo.modules.androidble"
+  compileSdk rootProject.ext.compileSdkVersion
+
+  defaultConfig {
+    minSdk 28
+    versionCode 1
+    versionName "1.0.0"
+  }
+}
+
+dependencies {
+  implementation 'org.jetbrains.kotlin:kotlin-stdlib-jdk8'
+  // Expo Modules API
+  implementation project(':expo-modules-core')
+}

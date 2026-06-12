@@ -5,8 +5,13 @@
  *   Native BLE scan → observation buffer → WCL centroid → coordinate validation → store update
  *
  * ── Design ────────────────────────────────────────────────────────────
- * 1. This provider runs **only on iOS** (the `IosBlePositioning` native
- *    module is iOS-only).  Non-iOS callers receive a `Platform.OS` error.
+ * 1. This provider drives the **native BLE scanner** through the
+ *    platform-neutral `getBleScanner()` adapter (iOS via
+ *    `IosBlePositioning`, Android via `AndroidBlePositioning`).  The
+ *    provider itself has no static dependency on either native module —
+ *    it only sees the unified `BleScannerAdapter` surface.  If neither
+ *    scanner is available on the current platform, callers receive a
+ *    descriptive `error` result.
  *
  * 2. A single `BleObservationBuffer` instance is held for the lifetime of
  *    the app.  Observations accumulate across multiple scan calls and are
@@ -23,10 +28,12 @@
  * @see computeBleWeightedCentroid  – the pure WCL function this calls
  * @see BleObservationBuffer        – rolling observation store
  * @see BLE_AP_FIXTURES             – placeholder AP catalogue
+ * @see getBleScanner               – platform-neutral scanner adapter
  */
 
 import { Platform } from 'react-native';
-import type { ArubaBleObservation } from '../../../modules/ios-ble-positioning/src';
+import type { ArubaBleObservation } from './bleScannerAdapter';
+import { getBleScanner } from './bleScannerAdapter';
 import { BleObservationBuffer } from './bleObservations';
 import type { BleApObservation } from './bleObservations';
 import { computeBleWeightedCentroid } from './bleWeightedCentroid';
@@ -44,7 +51,7 @@ function wclLog(...args: unknown[]) {
   if (DEBUG_WCL) console.log('[BLE-WCL]', ...args);
 }
 
-export type { ArubaBleObservation } from '../../../modules/ios-ble-positioning/src';
+export type { ArubaBleObservation } from './bleScannerAdapter';
 
 // ────────────────────────────────────────────────────────────────────────────
 // Public types
@@ -119,7 +126,7 @@ class BleWclProvider {
   /**
    * Execute one BLE WCL scan cycle.
    *
-   * 1. Guard: iOS only
+   * 1. Resolve platform-neutral native scanner via `getBleScanner()`
    * 2. Native Aruba BLE scan for `durationMs`
    * 3. Feed raw observations into the rolling buffer
    * 4. Prune stale entries & convert to WCL input format
@@ -128,27 +135,19 @@ class BleWclProvider {
    * 7. Return typed result
    */
   async performScan(floorKey: FloorKey, durationMs: number): Promise<BleWclScanResult> {
-    // ── iOS guard ────────────────────────────────────────────────────
-    if (Platform.OS !== 'ios') {
+    // ── Scanner resolution ───────────────────────────────────────────
+    const scanner = getBleScanner();
+    if (!scanner) {
       return {
         status: 'error',
-        error: `BLE WCL scanning requires iOS; current platform: ${Platform.OS}`,
+        error: `BLE WCL scan requires a platform-neutral native scanner; current platform: ${Platform.OS}. Run \`npx expo run:ios --device\` or \`npx expo run:android --device\` to rebuild.`,
       };
     }
 
     try {
-      // ── Native method guard ──────────────────────────────────────────
-      if (typeof (require('../../../modules/ios-ble-positioning/src') as any).IosBlePositioning?.startArubaBleScan !== 'function') {
-        return {
-          status: 'error',
-          error: 'BLE WCL scan requires a native rebuild — startArubaBleScan is not available. Run `npx expo run:ios --device` to rebuild.',
-        };
-      }
-
       // ── 1. Native scan ──────────────────────────────────────────────
-      const IosBlePositioning = (require('../../../modules/ios-ble-positioning/src') as any).IosBlePositioning;
       const rawObservations: ArubaBleObservation[] =
-        await IosBlePositioning.startArubaBleScan(durationMs);
+        await scanner.startArubaBleScan(durationMs);
 
       wclLog(`Native scan complete: ${rawObservations.length} raw observations`);
       if (DEBUG_WCL && rawObservations.length > 0) {
