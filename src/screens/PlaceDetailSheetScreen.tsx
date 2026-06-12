@@ -40,13 +40,11 @@ export function PlaceDetailSheetScreen() {
       sheetLargestUndimmedDetentIndex: 0,
       sheetInitialDetentIndex: 0,
     });
-    setCurrentDetentIndex(0);
 
     const restoreTimer = setTimeout(() => {
       navigation.setOptions({
         sheetAllowedDetents: [0.09, 0.3, 0.55, 1.0],
         sheetLargestUndimmedDetentIndex: 3,
-        sheetInitialDetentIndex: 0,
       });
     }, 400);
 
@@ -139,8 +137,7 @@ export function PlaceDetailSheetScreen() {
         </Pressable>
       </View>
 
-      {/* Detail card — visible at medium+ detents */}
-      {isMediumOrFull && bottomSheetRoom && (
+      {bottomSheetRoom && (
         <GlassSurface variant="sheet" cornerRadius={20} style={[styles.detailCard, { borderColor: sheetSeparator }]}>
           <View style={[styles.detailRow, { backgroundColor: sheetSecondarySystemFill, borderColor: sheetSeparator }]}>
             <Text style={[styles.detailLabel, { color: sheetSecondaryLabel }]}>층</Text>
@@ -161,8 +158,7 @@ export function PlaceDetailSheetScreen() {
         </GlassSurface>
       )}
 
-      {/* Empty state when no room data (medium+) */}
-      {isMediumOrFull && !bottomSheetRoom && (
+      {!bottomSheetRoom && (
         <View style={styles.emptyContainer}>
           <Text style={[styles.emptyText, { color: sheetSecondaryLabel }]}>공간 정보를 불러올 수 없습니다.</Text>
         </View>

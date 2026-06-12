@@ -144,13 +144,11 @@ export function MapSheetScreen() {
       sheetLargestUndimmedDetentIndex: 0,
       sheetInitialDetentIndex: 0,
     });
-    setCurrentDetentIndex(0);
 
     const restoreTimer = setTimeout(() => {
       navigation.setOptions({
         sheetAllowedDetents: [0.06, 0.12, 0.5, 1.0],
         sheetLargestUndimmedDetentIndex: 3,
-        sheetInitialDetentIndex: 0,
       });
     }, 400);
 
@@ -172,13 +170,11 @@ export function MapSheetScreen() {
         sheetLargestUndimmedDetentIndex: 0,
         sheetInitialDetentIndex: 0,
       });
-      setCurrentDetentIndex(0);
 
       const restoreTimer = setTimeout(() => {
         navigation.setOptions({
           sheetAllowedDetents: [0.06, 0.12, 0.5, 1.0],
           sheetLargestUndimmedDetentIndex: 3,
-          sheetInitialDetentIndex: 2,
         });
       }, 400);
 
@@ -191,13 +187,11 @@ export function MapSheetScreen() {
         sheetLargestUndimmedDetentIndex: 0,
         sheetInitialDetentIndex: 0,
       });
-      setCurrentDetentIndex(0);
 
       const restoreTimer = setTimeout(() => {
         navigation.setOptions({
           sheetAllowedDetents: [0.06, 0.12, 0.5, 1.0],
           sheetLargestUndimmedDetentIndex: 3,
-          sheetInitialDetentIndex: 0,
         });
       }, 400);
 
@@ -281,7 +275,6 @@ export function MapSheetScreen() {
 
   const showBle = bleCardVisible && !settingsVisible;
   const showSettings = settingsVisible && !bleCardVisible;
-  const isMediumOrFull = currentDetentIndex >= 2;
   const mapCategories = allCategories();
 
   const mergedBlockChildren = (
@@ -457,7 +450,7 @@ export function MapSheetScreen() {
         )}
 
         {/* Settings Panel */}
-        {showSettings && isMediumOrFull && (
+        {showSettings && (
           <GlassSurface variant="modal" cornerRadius={20} style={styles.settingsCard}>
             <Text style={[styles.settingsTitle, { color: sheetLabel }]}>지도 설정</Text>
 
@@ -509,7 +502,7 @@ export function MapSheetScreen() {
         )}
 
         {/* BLE Status Card */}
-        {showBle && isMediumOrFull && (
+        {showBle && (
           <BleWclStatusCard
             colorScheme={sheetScheme === 'dark' ? 'dark' : 'light'}
             status={bleStatus}
