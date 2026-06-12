@@ -11,6 +11,7 @@ import android.os.Handler
 import android.os.Looper
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import expo.modules.kotlin.exception.CodedException
 import expo.modules.kotlin.modules.Module
@@ -22,6 +23,7 @@ class AndroidBlePositioningModule : Module() {
   private var continuousScanCallback: ScanCallback? = null
   private var isContinuousScanning: Boolean = false
   private val scanLock = Any()
+  private val blePermissionRequestCode = 0x424C45
 
   override fun definition() = ModuleDefinition {
     Name("AndroidBlePositioning")
@@ -82,7 +84,20 @@ class AndroidBlePositioningModule : Module() {
 
   private fun requestBlePermissions(): Boolean {
     val context = appContext.reactContext ?: return false
-    return checkBleRuntimePermissions(context)
+    if (checkBleRuntimePermissions(context)) return true
+    val activity = appContext.currentActivity ?: return false
+    val perms = mutableListOf<String>()
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+      perms.add(Manifest.permission.BLUETOOTH_SCAN)
+      perms.add(Manifest.permission.BLUETOOTH_CONNECT)
+    }
+    perms.add(Manifest.permission.ACCESS_FINE_LOCATION)
+    return try {
+      ActivityCompat.requestPermissions(activity, perms.toTypedArray(), blePermissionRequestCode)
+      true
+    } catch (e: Exception) {
+      false
+    }
   }
 
   private fun checkBlePrerequisites(context: Context) {
@@ -95,6 +110,10 @@ class AndroidBlePositioningModule : Module() {
   }
 
   private fun checkBleRuntimePermissions(context: Context): Boolean {
+    val fineLocationGranted = ContextCompat.checkSelfPermission(
+      context,
+      Manifest.permission.ACCESS_FINE_LOCATION
+    ) == PackageManager.PERMISSION_GRANTED
     return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
       val scanGranted = ContextCompat.checkSelfPermission(
         context,
@@ -104,12 +123,9 @@ class AndroidBlePositioningModule : Module() {
         context,
         Manifest.permission.BLUETOOTH_CONNECT
       ) == PackageManager.PERMISSION_GRANTED
-      scanGranted && connectGranted
+      scanGranted && connectGranted && fineLocationGranted
     } else {
-      ContextCompat.checkSelfPermission(
-        context,
-        Manifest.permission.ACCESS_FINE_LOCATION
-      ) == PackageManager.PERMISSION_GRANTED
+      fineLocationGranted
     }
   }
 
