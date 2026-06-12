@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import { Alert, Linking, Platform } from 'react-native'
 import { LocationManager } from '@maplibre/maplibre-react-native'
+import { getBleScanner } from '../services/location/bleScannerAdapter'
 
 export function usePermissions() {
   const [isLoading, setIsLoading] = useState(false)
@@ -27,6 +28,32 @@ export function usePermissions() {
   }, [])
 
   const requestPreciseLocation = useCallback(async (): Promise<boolean> => {
+    if (Platform.OS === 'android') {
+      const scanner = getBleScanner()
+      if (!scanner) {
+        return true
+      }
+      try {
+        const granted = await scanner.requestBlePermissions()
+        if (!granted) {
+          Alert.alert(
+            'BLE 권한 필요',
+            'BLE 기반 실내 위치 확인을 위해 블루투스 및 위치 권한이 필요합니다.',
+            [{ text: '확인' }],
+          )
+          return false
+        }
+        return true
+      } catch {
+        Alert.alert(
+          'BLE 권한 필요',
+          'BLE 기반 실내 위치 확인을 위해 블루투스 및 위치 권한이 필요합니다.',
+          [{ text: '확인' }],
+        )
+        return false
+      }
+    }
+
     if (Platform.OS !== 'ios') {
       return true
     }

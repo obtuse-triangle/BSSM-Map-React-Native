@@ -27,6 +27,8 @@ import { CONTINUOUS_RECOMPUTE_INTERVAL_MS } from '../constants/bleConfig';
 import { BLE_AP_FIXTURES } from '../constants/bleAccessPoints';
 import { ParticleFusionEngine } from '../services/location/particleFusionEngine';
 import type { FusionState, FusionBleObservation, FusionMotionEvent } from '../types/fusion';
+import { getBleScanner } from '../services/location/bleScannerAdapter';
+import type { BleScannerAdapter } from '../services/location/bleScannerAdapter';
 
 type MotionUpdate = import('../../modules/ios-ble-positioning/src').MotionUpdate;
 
@@ -192,6 +194,7 @@ type BleLocationStoreState = {
 
 let continuousScanSubscription: EventSubscription | null = null;
 let continuousWclInterval: ReturnType<typeof setInterval> | null = null;
+let continuousScanner: BleScannerAdapter | null = null;
 const continuousBuffer = new BleObservationBuffer();
 let motionSubscription: EventSubscription | null = null;
 let drEngine: DeadReckoningEngine | null = null;
@@ -325,12 +328,10 @@ export const useBleLocationStore = create<BleLocationStoreState>()((set, get) =>
     const { isContinuousScanning } = get();
     if (isContinuousScanning) return;
 
-    if (Platform.OS !== 'ios') return;
+    const scanner = getBleScanner();
+    if (!scanner) return;
 
-    const IosBlePositioning = getIosBlePositioning();
-    if (!IosBlePositioning) return;
-
-    continuousScanSubscription = IosBlePositioning.addListener(
+    continuousScanSubscription = scanner.addListener(
       'onArubaBleObservation',
       (observation: ArubaBleObservation) => {
         wclLog(`Continuous obs: id=${observation.bleIdentifier} rssi=${observation.rssi} manuf=${observation.manufacturerId}`);
@@ -349,8 +350,9 @@ export const useBleLocationStore = create<BleLocationStoreState>()((set, get) =>
       },
     );
 
-    // Start native continuous scan
-    IosBlePositioning.startContinuousArubaBleScan();
+    scanner.startContinuousArubaBleScan();
+
+    continuousScanner = scanner;
 
     set({
       isContinuousScanning: true,
@@ -426,15 +428,13 @@ export const useBleLocationStore = create<BleLocationStoreState>()((set, get) =>
     }
     continuousBuffer.clear();
 
-    if (Platform.OS === 'ios') {
-      const IosBlePositioning = getIosBlePositioning();
-      if (IosBlePositioning) {
-        try {
-          IosBlePositioning.stopArubaBleScan();
-        } catch {
-          // Native method may not be available on all builds; ignore
-        }
+    if (continuousScanner) {
+      try {
+        continuousScanner.stopArubaBleScan();
+      } catch {
+        // Native method may not be available on all builds; ignore
       }
+      continuousScanner = null;
     }
 
     set({ isContinuousScanning: false });
