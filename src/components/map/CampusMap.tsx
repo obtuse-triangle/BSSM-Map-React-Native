@@ -1,5 +1,5 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View, type NativeSyntheticEvent } from 'react-native';
 import { Asset } from 'expo-asset';
 import * as FileSystem from 'expo-file-system';
 import {
@@ -31,6 +31,7 @@ const outlineData = outlineDataUntyped as any;
 
 const CAMPUS_BOUNDS: [number, number, number, number] = [128.9028, 35.1876, 128.9041, 35.1893];
 const CAMPUS_CENTER: [number, number] = [128.9035, 35.1885];
+const PROGRAMMATIC_CAMERA_SUPPRESSION_MS = 1500;
 
 const BASE_STYLE = {
   version: 8 as const,
@@ -53,6 +54,7 @@ export type CampusMapHandle = {
 type CampusMapProps = {
   topPadding?: number;
   locationTrackingEnabled?: boolean;
+  onUserMapDragStart?: () => void;
 };
 
 let designTilesPathPromise: Promise<string | null> | null = null;
@@ -77,9 +79,12 @@ function getDesignTilesPath(): Promise<string | null> {
   return designTilesPathPromise;
 }
 
-function CampusMap({ topPadding = 50, locationTrackingEnabled = false }: CampusMapProps, ref: Ref<CampusMapHandle>) {
+function CampusMap({ topPadding = 50, locationTrackingEnabled = false, onUserMapDragStart }: CampusMapProps, ref: Ref<CampusMapHandle>) {
   const mapRef = useRef<MapRef>(null);
   const cameraRef = useRef<CameraRef>(null);
+  const programmaticCameraUntil = useRef(0);
+  const programmaticCameraTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const userDragGestureActiveRef = useRef(false);
   const [zoomLevel, setZoomLevel] = useState(17);
   const [mbtilesPath, setMbtilesPath] = useState<string | null>(null);
   const currentPosition = useCurrentPosition({ enabled: locationTrackingEnabled });
@@ -106,6 +111,25 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false }: CampusM
 
   useEffect(() => {
     getDesignTilesPath().then(setMbtilesPath);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (programmaticCameraTimeoutRef.current) {
+        clearTimeout(programmaticCameraTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const markProgrammaticCameraMove = useCallback(() => {
+    programmaticCameraUntil.current = Date.now() + PROGRAMMATIC_CAMERA_SUPPRESSION_MS;
+    userDragGestureActiveRef.current = false;
+    if (programmaticCameraTimeoutRef.current) {
+      clearTimeout(programmaticCameraTimeoutRef.current);
+    }
+    programmaticCameraTimeoutRef.current = setTimeout(() => {
+      programmaticCameraUntil.current = 0;
+    }, PROGRAMMATIC_CAMERA_SUPPRESSION_MS);
   }, []);
 
   const handleMapPress = useCallback(
@@ -170,37 +194,55 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false }: CampusM
       return;
     }
 
+    markProgrammaticCameraMove();
     cameraRef.current?.flyTo({
       ...getCoordinateFlyToOptions([coords.longitude, coords.latitude]),
     });
-  }, []);
+  }, [markProgrammaticCameraMove]);
 
   const flyToCoordinates = useCallback((coordinates: [number, number]) => {
+    markProgrammaticCameraMove();
     cameraRef.current?.flyTo({
       ...getCoordinateFlyToOptions(coordinates),
     });
-  }, []);
+  }, [markProgrammaticCameraMove]);
 
   const zoomIn = useCallback(() => {
     const nextZoom = Math.min(zoomLevel + 1, 19);
     setZoomLevel(nextZoom);
+    markProgrammaticCameraMove();
     cameraRef.current?.zoomTo(nextZoom, { duration: 200 });
-  }, [zoomLevel]);
+  }, [markProgrammaticCameraMove, zoomLevel]);
 
   const zoomOut = useCallback(() => {
     const nextZoom = Math.max(zoomLevel - 1, 14);
     setZoomLevel(nextZoom);
+    markProgrammaticCameraMove();
     cameraRef.current?.zoomTo(nextZoom, { duration: 200 });
-  }, [zoomLevel]);
+  }, [markProgrammaticCameraMove, zoomLevel]);
+
+  const handleRegionWillChange = useCallback((event: NativeSyntheticEvent<ViewStateChangeEvent>) => {
+    const userInteraction = (event.nativeEvent as Partial<ViewStateChangeEvent>).userInteraction;
+    if (Date.now() < programmaticCameraUntil.current || userInteraction === false || userDragGestureActiveRef.current) {
+      return;
+    }
+
+    userDragGestureActiveRef.current = true;
+    onUserMapDragStart?.();
+  }, [onUserMapDragStart]);
 
   const handleRegionDidChange = useCallback((event: { nativeEvent: ViewStateChangeEvent }) => {
     setZoomLevel(event.nativeEvent.zoom);
+    if (Date.now() >= programmaticCameraUntil.current) {
+      userDragGestureActiveRef.current = false;
+    }
   }, []);
 
   const resetView = useCallback(() => {
     setZoomLevel(17);
+    markProgrammaticCameraMove();
     cameraRef.current?.fitBounds(CAMPUS_BOUNDS, { padding: { top: topPadding, right: 50, bottom: 50, left: 50 }, duration: 200 });
-  }, [topPadding]);
+  }, [markProgrammaticCameraMove, topPadding]);
 
   const flyToFeature = useCallback(
     (featureId: string) => {
@@ -214,12 +256,14 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false }: CampusM
       }
 
       if (target.type === 'bounds') {
+        markProgrammaticCameraMove();
         cameraRef.current?.fitBounds(target.bounds, { padding: target.padding, duration: target.duration });
       } else {
+        markProgrammaticCameraMove();
         cameraRef.current?.flyTo({ center: target.center, zoom: target.zoom, duration: target.duration });
       }
     },
-    [],
+    [markProgrammaticCameraMove],
   );
 
   useImperativeHandle(ref, () => ({ flyToUser, flyToCoordinates, flyToFeature, zoomIn, zoomOut, resetView, showAttribution: () => mapRef.current?.showAttribution?.() }), [flyToCoordinates, flyToFeature, flyToUser, resetView, zoomIn, zoomOut]);
@@ -249,7 +293,7 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false }: CampusM
 
   return (
     <View style={styles.container}>
-      <Map ref={mapRef} mapStyle={BASE_STYLE} style={styles.map} onPress={handleMapPress} onRegionDidChange={handleRegionDidChange} logo={false} attribution={false}>
+      <Map ref={mapRef} mapStyle={BASE_STYLE} style={styles.map} onPress={handleMapPress} onRegionWillChange={handleRegionWillChange} onRegionDidChange={handleRegionDidChange} logo={false} attribution={false}>
         <Camera
           ref={cameraRef}
           initialViewState={{

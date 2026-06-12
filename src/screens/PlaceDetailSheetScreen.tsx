@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, useColorScheme, View } from 'react-native';
 
 import { GlassSurface } from '../components/glass';
@@ -15,10 +15,11 @@ import { getFeatureById, getFeatureCentroid } from '../utils/geoJsonHelpers';
 const campusData = campusDataUntyped as unknown as CampusGeoJSON;
 
 export function PlaceDetailSheetScreen() {
-  const { selectedFeatureId, setSelectedFeatureId } = useMapStore();
+  const { selectedFeatureId, setSelectedFeatureId, minimizeSheetsTick } = useMapStore();
   const accentScheme = useColorScheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'PlaceDetailSheet'>>();
   const [currentDetentIndex, setCurrentDetentIndex] = useState(1);
+  const lastMinimizedTickRef = useRef(minimizeSheetsTick);
 
   // Track sheet detent position for collapsed vs expanded layout
   useEffect(() => {
@@ -27,6 +28,19 @@ export function PlaceDetailSheetScreen() {
     });
     return unsubscribe;
   }, [navigation]);
+
+  useEffect(() => {
+    if (minimizeSheetsTick === lastMinimizedTickRef.current) {
+      return;
+    }
+
+    lastMinimizedTickRef.current = minimizeSheetsTick;
+    navigation.setOptions({
+      sheetAllowedDetents: [0.09, 0.3, 0.55, 1.0],
+      sheetInitialDetentIndex: 0,
+    });
+    setCurrentDetentIndex(0);
+  }, [minimizeSheetsTick, navigation]);
 
   const selectedFeature = useMemo(() => {
     if (!selectedFeatureId) return null;

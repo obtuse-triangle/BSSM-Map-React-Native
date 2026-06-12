@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { MAP_STYLES } from '../constants/mapStyles';
 import campusDataUntyped from '../data/campus-wgs84.json';
@@ -87,6 +87,7 @@ export function MapSheetScreen() {
     clearLocationSource,
     gpsTrackingEnabled,
     userCoordinates,
+    minimizeSheetsTick,
   } = useMapStore();
 
   const allCategories = useMapStore((s) => s.allCategories);
@@ -127,6 +128,7 @@ export function MapSheetScreen() {
 
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'MapSheet'>>();
   const [currentDetentIndex, setCurrentDetentIndex] = useState(1);
+  const lastMinimizedTickRef = useRef(minimizeSheetsTick);
 
   // Track sheet detent position for collapsed vs expanded layout
   useEffect(() => {
@@ -135,6 +137,19 @@ export function MapSheetScreen() {
     });
     return unsubscribe;
   }, [navigation]);
+
+  useEffect(() => {
+    if (minimizeSheetsTick === lastMinimizedTickRef.current) {
+      return;
+    }
+
+    lastMinimizedTickRef.current = minimizeSheetsTick;
+    navigation.setOptions({
+      sheetAllowedDetents: [0.06, 0.12, 0.5, 1.0],
+      sheetInitialDetentIndex: 0,
+    });
+    setCurrentDetentIndex(0);
+  }, [minimizeSheetsTick, navigation]);
 
   const currentPosition = useMemo(() => {
     if (!selectedFloorKey || !position || position.floorKey !== selectedFloorKey) {

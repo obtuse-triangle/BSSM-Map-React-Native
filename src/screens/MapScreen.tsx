@@ -122,6 +122,10 @@ export function MapScreen({ navigation }: MapScreenProps) {
     setSettingsVisible(!settingsVisible);
   }, [settingsVisible, setSettingsVisible]);
 
+  const handleUserMapDragStart = useCallback(() => {
+    useMapStore.getState().requestMinimizeSheets();
+  }, []);
+
   const isLocateDisabled = positionStatus === 'loading' && gpsTrackingEnabled;
   const baseLayerIcon = MAP_STYLES.find((s) => s.id === baseLayer)?.icon ?? '⚙';
 
@@ -136,7 +140,7 @@ export function MapScreen({ navigation }: MapScreenProps) {
 
       {/* Full-screen map */}
       <View style={styles.mapArea}>
-        <CampusMap ref={campusMapRef} topPadding={0} locationTrackingEnabled={gpsTrackingEnabled} />
+        <CampusMap ref={campusMapRef} topPadding={0} locationTrackingEnabled={gpsTrackingEnabled} onUserMapDragStart={handleUserMapDragStart} />
       </View>
     </View>
   );
