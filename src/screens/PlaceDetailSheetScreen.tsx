@@ -36,10 +36,19 @@ export function PlaceDetailSheetScreen() {
 
     lastMinimizedTickRef.current = minimizeSheetsTick;
     navigation.setOptions({
-      sheetAllowedDetents: [0.09, 0.3, 0.55, 1.0],
-      sheetInitialDetentIndex: 0,
+      sheetAllowedDetents: [0.09],
+      sheetLargestUndimmedDetentIndex: 0,
     });
     setCurrentDetentIndex(0);
+
+    const restoreTimer = setTimeout(() => {
+      navigation.setOptions({
+        sheetAllowedDetents: [0.09, 0.3, 0.55, 1.0],
+        sheetLargestUndimmedDetentIndex: 3,
+      });
+    }, 400);
+
+    return () => clearTimeout(restoreTimer);
   }, [minimizeSheetsTick, navigation]);
 
   const selectedFeature = useMemo(() => {
