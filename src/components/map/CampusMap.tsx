@@ -87,7 +87,7 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false }: CampusM
   const selectedFeatureId = useMapStore((state) => state.selectedFeatureId);
   const setSelectedFeatureId = useMapStore((state) => state.setSelectedFeatureId);
   const setDetectedBuildingId = useMapStore((state) => state.setDetectedBuildingId);
-  const setUserCoordinates = useMapStore((state) => state.setUserCoordinates);
+  const setGpsCoordinates = useMapStore((state) => state.setGpsCoordinates);
   const baseLayer = useMapStore((state) => state.baseLayer);
   const hiddenCategories = useMapStore((state) => state.hiddenCategories);
   // userCoordinates ref — updated imperatively to avoid re-renders on
@@ -154,10 +154,10 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false }: CampusM
         return;
       }
 
-      setUserCoordinates({ longitude, latitude });
+      setGpsCoordinates({ longitude, latitude });
       setDetectedBuildingId(getDetectedBuildingId(longitude, latitude, campusData));
     },
-    [setDetectedBuildingId, setUserCoordinates],
+    [setDetectedBuildingId, setGpsCoordinates],
   );
 
   useEffect(() => {
