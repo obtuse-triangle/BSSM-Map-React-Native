@@ -51,6 +51,7 @@ type MapStoreState = {
   bleCardVisible: boolean;
   settingsVisible: boolean;
   pendingFlyToFeatureId: string | null;
+  pendingFlyToCoordinates: [number, number] | null;
   showAttributionTick: number;
   // Monotonic signal for external screens to request sheet minimization without encoding UI state
   minimizeSheetsTick: number;
@@ -78,6 +79,7 @@ type MapStoreState = {
   setBleCardVisible: (visible: boolean) => void;
   setSettingsVisible: (visible: boolean) => void;
   setPendingFlyToFeatureId: (featureId: string | null) => void;
+  setPendingFlyToCoordinates: (coordinates: [number, number] | null) => void;
   requestShowAttribution: () => void;
   requestMinimizeSheets: () => void;
 };
@@ -114,6 +116,7 @@ export const useMapStore = create<MapStoreState>()((set, get) => ({
   bleCardVisible: false,
   settingsVisible: false,
   pendingFlyToFeatureId: null,
+  pendingFlyToCoordinates: null,
   showAttributionTick: 0,
   minimizeSheetsTick: 0,
   setSelectedFloorKey: (floorKey) => {
@@ -224,6 +227,9 @@ export const useMapStore = create<MapStoreState>()((set, get) => ({
   },
   setPendingFlyToFeatureId: (pendingFlyToFeatureId) => {
     set({ pendingFlyToFeatureId });
+  },
+  setPendingFlyToCoordinates: (pendingFlyToCoordinates) => {
+    set({ pendingFlyToCoordinates });
   },
   requestShowAttribution: () => set((state) => ({ showAttributionTick: state.showAttributionTick + 1 })),
   requestMinimizeSheets: () => set((state) => ({ minimizeSheetsTick: state.minimizeSheetsTick + 1 })),

@@ -10,6 +10,7 @@ import { useSearchBar } from '../hooks/useSearchBar';
 import { useMapStore, type CampusFeatureCategory } from '../store/mapStore';
 import { usePositionStore } from '../store/positionStore';
 import { useBleLocationStore } from '../store/bleLocationStore';
+import { useSavedPlacesStore } from '../store/savedPlacesStore';
 import {
   sheetAccent,
   sheetLabel,
@@ -210,6 +211,7 @@ export function MapSheetScreen() {
   }, [settingsVisible, setSettingsVisible, setBleCardVisible]);
 
   const isFocused = useIsFocused();
+  const selectedSavedPlaceId = useSavedPlacesStore((s) => s.selectedSavedPlaceId);
 
   // Navigate to PlaceDetailSheet when a feature is selected
   useEffect(() => {
@@ -224,6 +226,19 @@ export function MapSheetScreen() {
       }
     }
   }, [selectedFeatureId, isFocused, navigation, setBleCardVisible, setSettingsVisible]);
+
+  // Navigate to PlaceDetailSheet when a saved custom pin is selected
+  useEffect(() => {
+    if (selectedSavedPlaceId && isFocused && !selectedFeatureId) {
+      const navigationState = navigation.getState();
+      const currentRouteName = navigationState.routes[navigationState.index]?.name;
+      if (currentRouteName !== 'PlaceDetailSheet') {
+        setBleCardVisible(false);
+        setSettingsVisible(false);
+        navigation.navigate('PlaceDetailSheet');
+      }
+    }
+  }, [selectedSavedPlaceId, selectedFeatureId, isFocused, navigation, setBleCardVisible, setSettingsVisible]);
 
   const showBle = bleCardVisible;
   const showSettings = settingsVisible;
