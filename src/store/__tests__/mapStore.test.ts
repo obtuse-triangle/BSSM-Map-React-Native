@@ -10,6 +10,7 @@ describe('mapStore source ownership', () => {
       bleCoordinates: null,
       userCoordinates: null,
       userCoordinatesSource: null,
+      showApMarkers: false,
     });
   });
 
@@ -120,6 +121,80 @@ describe('mapStore source ownership', () => {
       expect(state.bleCoordinates).toBeNull();
       expect(state.userCoordinates).toBeNull();
       expect(state.userCoordinatesSource).toBeNull();
+    });
+  });
+});
+
+describe('mapStore AP marker visibility', () => {
+  beforeEach(() => {
+    useMapStore.setState({ showApMarkers: false });
+  });
+
+  describe('default state', () => {
+    it('has showApMarkers false by default', () => {
+      expect(useMapStore.getState().showApMarkers).toBe(false);
+    });
+  });
+
+  describe('setShowApMarkers', () => {
+    it('sets showApMarkers to true', () => {
+      useMapStore.getState().setShowApMarkers(true);
+      expect(useMapStore.getState().showApMarkers).toBe(true);
+    });
+
+    it('sets showApMarkers to false', () => {
+      useMapStore.getState().setShowApMarkers(true);
+      useMapStore.getState().setShowApMarkers(false);
+      expect(useMapStore.getState().showApMarkers).toBe(false);
+    });
+  });
+
+  describe('toggleApMarkers', () => {
+    it('toggles from false to true', () => {
+      useMapStore.getState().toggleApMarkers();
+      expect(useMapStore.getState().showApMarkers).toBe(true);
+    });
+
+    it('toggles from true back to false', () => {
+      useMapStore.getState().toggleApMarkers();
+      useMapStore.getState().toggleApMarkers();
+      expect(useMapStore.getState().showApMarkers).toBe(false);
+    });
+  });
+
+  describe('AP toggle isolation', () => {
+    it('does not modify gpsTrackingEnabled when toggling AP markers', () => {
+      useMapStore.getState().setGpsTrackingEnabled(true);
+      useMapStore.getState().toggleApMarkers();
+      expect(useMapStore.getState().gpsTrackingEnabled).toBe(true);
+    });
+
+    it('does not modify bleTrackingEnabled when toggling AP markers', () => {
+      useMapStore.getState().setBleTrackingEnabled(true);
+      useMapStore.getState().toggleApMarkers();
+      expect(useMapStore.getState().bleTrackingEnabled).toBe(true);
+    });
+
+    it('does not modify userCoordinatesSource when toggling AP markers', () => {
+      useMapStore.getState().setGpsTrackingEnabled(true);
+      useMapStore.getState().setGpsCoordinates({ longitude: 127.1, latitude: 37.5 });
+      const sourceBefore = useMapStore.getState().userCoordinatesSource;
+      useMapStore.getState().toggleApMarkers();
+      expect(useMapStore.getState().userCoordinatesSource).toBe(sourceBefore);
+    });
+
+    it('does not modify gpsCoordinates when toggling AP markers', () => {
+      useMapStore.getState().setGpsTrackingEnabled(true);
+      useMapStore.getState().setGpsCoordinates({ longitude: 127.1, latitude: 37.5 });
+      useMapStore.getState().toggleApMarkers();
+      expect(useMapStore.getState().gpsCoordinates).toEqual({ longitude: 127.1, latitude: 37.5 });
+    });
+
+    it('does not modify bleCoordinates when toggling AP markers', () => {
+      useMapStore.getState().setBleTrackingEnabled(true);
+      useMapStore.getState().setBleCoordinates({ longitude: 127.2, latitude: 37.6 });
+      useMapStore.getState().toggleApMarkers();
+      expect(useMapStore.getState().bleCoordinates).toEqual({ longitude: 127.2, latitude: 37.6 });
     });
   });
 });
