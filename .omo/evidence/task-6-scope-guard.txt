@@ -1,0 +1,91 @@
+=== git log --oneline -10 ===
+53b8142 fix(map): minimize sheets on user drag
+9822099 fix(sheet): stabilize search detail transition
+f195770 fix(sheet): polish place detail header
+94d5c23 fix(sheet): prevent control taps from expanding map sheet
+1f667cf fix(sheet): add shared minimize signal
+440a009 chore(omc): update notepad and todo tracking files
+27cfa1e fix(camera): improve flyTo target resolution and add tests
+6f42f59 test(location): cover GPS/BLE source ownership state transitions
+89f4eae feat(location): independent GPS/BLE button states and accessibility labels
+6f9b9f5 feat(location): simplify MapScreen to GPS toggle + remove dead BLE code
+
+=== git diff --stat HEAD~5 -- :!node_modules ===
+ src/components/map/CampusMap.tsx       |  62 ++++++--
+ src/screens/MapScreen.tsx              |   6 +-
+ src/screens/MapSheetScreen.tsx         | 278 ++++++++++++++++++++++-----------
+ src/screens/PlaceDetailSheetScreen.tsx |  49 ++++--
+ src/store/mapStore.ts                  |   5 +
+ 5 files changed, 284 insertions(+), 116 deletions(-)
+
+=== git diff HEAD~5 -- src/components/map/PlaceDetailBottomSheet.tsx ===
+
+=== git diff HEAD~5 -- package.json ===
+
+=== ls .omo/evidence/ ===
+merge-ble-liquid-glass-summary.md
+task-1-ap-data-contract.txt
+task-1-infra-config.txt
+task-1-liquid-glass-baseline.txt
+task-1-store-signal-diff.txt
+task-1-store-signal.log
+task-10-docs.txt
+task-10-pnpm-install.txt
+task-11-structural-checks.txt
+task-12-full-static-gates.txt
+task-13-handoff-summary.txt
+task-2-coordinate-transform-error.txt
+task-2-coordinate-transform.txt
+task-2-merge-resolve.txt
+task-2-package-json.txt
+task-2-settings-collapsed-and-medium.txt
+task-2-source-param.txt
+task-2-store-signal.log
+task-3-detail-header-polish.txt
+task-3-glass-module.txt
+task-3-hitslop-complete.txt
+task-3-hitslop-count.txt
+task-3-tsc.txt
+task-3-wcl-algorithm-error.txt
+task-3-wcl-algorithm.txt
+task-4-ble-files.txt
+task-4-expo-export.log
+task-4-jest.log
+task-4-sample-buffer-error.txt
+task-4-sample-buffer.txt
+task-4-search-to-detail.txt
+task-4-tsc.log
+task-5-case-1-search-small-room.md
+task-5-case-2-search-large-area.md
+task-5-case-3-current-location.md
+task-5-case-4-direct-coordinates.md
+task-5-case-5-reset-view.md
+task-5-case-6-manual-zoom.md
+task-5-map-drag.txt
+task-5-native-ble-scan-filter.txt
+task-5-native-ble-scan.txt
+task-5-searchbar.txt
+task-5-summary.md
+task-6-ble-card.txt
+task-6-expo-export.log
+task-6-final-gates.log
+task-6-implementation-diff.txt
+task-6-jest.txt
+task-6-manual-qa-fallback-store.txt
+task-6-manual-qa.txt
+task-6-provider-store-error.txt
+task-6-provider-store.txt
+task-6-scope-audit.txt
+task-6-scope-guard.txt
+task-6-typecheck.txt
+task-7-campus-map-ble-error.txt
+task-7-campus-map-ble.txt
+task-7-glass-owned-audit.txt
+task-8-config-permissions-error.txt
+task-8-config-permissions.txt
+task-8-mapsheet-fusion.txt
+task-9-docs.txt
+task-9-e2e.txt
+task-9-mapscreen-flyto.txt
+task-9-typecheck.txt
+task-9-verification.txt
