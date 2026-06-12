@@ -13,6 +13,7 @@ module.exports = {
     },
     plugins: [
       "./plugins/withAndroidRttPermissions",
+      "./plugins/withAndroidBlePermissions",
       "./plugins/withIosBlePermissions",
       "@maplibre/maplibre-react-native",
     ],
