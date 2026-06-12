@@ -20,11 +20,20 @@ export function PlaceDetailSheetScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'PlaceDetailSheet'>>();
   const [currentDetentIndex, setCurrentDetentIndex] = useState(1);
   const lastMinimizedTickRef = useRef(minimizeSheetsTick);
+  const isMinimizedRef = useRef(false);
 
   // Track sheet detent position for collapsed vs expanded layout
   useEffect(() => {
     const unsubscribe = navigation.addListener('sheetDetentChange', (e) => {
       setCurrentDetentIndex(e.data.index);
+      if (isMinimizedRef.current) {
+        isMinimizedRef.current = false;
+        navigation.setOptions({
+          sheetAllowedDetents: [0.09, 0.3, 0.55, 1.0],
+          sheetLargestUndimmedDetentIndex: 3,
+          sheetInitialDetentIndex: e.data.index,
+        });
+      }
     });
     return unsubscribe;
   }, [navigation]);
@@ -35,12 +44,12 @@ export function PlaceDetailSheetScreen() {
     }
 
     lastMinimizedTickRef.current = minimizeSheetsTick;
+    isMinimizedRef.current = true;
     // Restrict to the two smallest detents. Sheet snaps to smallest (0.09)
     // and the user can drag up to 0.3 but no further while minimized.
     // No restore timer, no sheetInitialDetentIndex — the sheetDetentChange
     // listener still drives currentDetentIndex locally for the pill row
-    // style. Restricted detents stay in place until the next state
-    // transition (avoids snap-back bug).
+    // style. Restricted detents stay in place until the user drags.
     navigation.setOptions({
       sheetAllowedDetents: [0.09, 0.3],
       sheetLargestUndimmedDetentIndex: 1,

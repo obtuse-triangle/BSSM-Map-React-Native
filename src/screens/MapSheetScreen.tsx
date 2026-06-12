@@ -124,6 +124,7 @@ export function MapSheetScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList, 'MapSheet'>>();
   const [currentDetentIndex, setCurrentDetentIndex] = useState(1);
   const lastMinimizedTickRef = useRef(minimizeSheetsTick);
+  const isMinimizedRef = useRef(false);
   const prevBleVisibleRef = useRef(bleCardVisible);
   const prevSettingsVisibleRef = useRef(settingsVisible);
 
@@ -131,6 +132,17 @@ export function MapSheetScreen() {
   useEffect(() => {
     const unsubscribe = navigation.addListener('sheetDetentChange', (e) => {
       setCurrentDetentIndex(e.data.index);
+      if (isMinimizedRef.current) {
+        // User is dragging within the restricted-minimize range. Unlock
+        // by restoring full detent range. Pass current detent index so the
+        // sheet stays at its current position.
+        isMinimizedRef.current = false;
+        navigation.setOptions({
+          sheetAllowedDetents: [0.06, 0.12, 0.5, 1.0],
+          sheetLargestUndimmedDetentIndex: 3,
+          sheetInitialDetentIndex: e.data.index,
+        });
+      }
     });
     return unsubscribe;
   }, [navigation]);
@@ -141,10 +153,11 @@ export function MapSheetScreen() {
     }
 
     lastMinimizedTickRef.current = minimizeSheetsTick;
+    isMinimizedRef.current = true;
     // Restrict to the two smallest detents. Sheet snaps to the first (0.06)
     // and the user can drag up to 0.12 but no further while minimized.
     // No restore timer, no sheetInitialDetentIndex — the restricted detents
-    // stay in place until the next state transition.
+    // stay in place until the user drags (sheetDetentChange unlocks them).
     navigation.setOptions({
       sheetAllowedDetents: [0.06, 0.12],
       sheetLargestUndimmedDetentIndex: 1,
