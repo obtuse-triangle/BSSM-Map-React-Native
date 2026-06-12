@@ -11,7 +11,6 @@ module.exports = function withAndroidBlePermissions(config) {
     manifest.manifest['uses-permission'].push(
       { $: { 'android:name': 'android.permission.BLUETOOTH_SCAN' } },
       { $: { 'android:name': 'android.permission.BLUETOOTH_CONNECT' } },
-      { $: { 'android:name': 'android.permission.ACCESS_FINE_LOCATION' } },
       {
         $: {
           'android:name': 'android.permission.BLUETOOTH',
