@@ -74,13 +74,19 @@ export function MapSheetScreen() {
     setSettingsVisible,
     setPendingFlyToFeatureId,
     requestShowAttribution,
+    bleTrackingEnabled,
+    setBleTrackingEnabled,
+    clearLocationSource,
+    gpsTrackingEnabled,
+    userCoordinates,
   } = useMapStore();
 
   const allCategories = useMapStore((s) => s.allCategories);
   const { position, status: positionStatus, error: positionError } = usePositionStore();
 
   const levels = useMemo(() => getLevelKeys(campusData), []);
-  const isLocateDisabled = positionStatus === 'loading';
+  const gpsSearching = gpsTrackingEnabled && !userCoordinates;
+  const isLocateDisabled = positionStatus === 'loading' || gpsSearching;
   const baseLayerIcon = MAP_STYLES.find((s) => s.id === baseLayer)?.icon ?? '⚙';
 
   const handleLocate = useCallback(() => {
@@ -156,20 +162,25 @@ export function MapSheetScreen() {
   );
 
   const handleBleScan = useCallback(() => {
-    if (bleCardVisible) {
+    if (bleTrackingEnabled) {
+      // BLE OFF path
+      setBleTrackingEnabled(false);
       setBleCardVisible(false);
       dismissCard();
+      stopContinuousScan();
+      stopMotionTracking();
+      clearLocationSource('ble');
       return;
     }
-    // Mutual exclusion: close settings when opening BLE
+    // BLE ON path
+    setBleTrackingEnabled(true);
     setSettingsVisible(false);
     setBleCardVisible(true);
-
     if (!isContinuousScanning) {
       startContinuousScan();
       startMotionTracking();
     }
-  }, [bleCardVisible, setBleCardVisible, dismissCard, isContinuousScanning, startContinuousScan, startMotionTracking, setSettingsVisible]);
+  }, [bleTrackingEnabled, setBleTrackingEnabled, setBleCardVisible, dismissCard, stopContinuousScan, stopMotionTracking, clearLocationSource, setSettingsVisible, isContinuousScanning, startContinuousScan, startMotionTracking]);
 
   const handleToggleSettings = useCallback(() => {
     if (settingsVisible) {
@@ -202,10 +213,10 @@ export function MapSheetScreen() {
       <View style={styles.barRow}>
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel={isLocateDisabled ? '현재 위치 찾기 불가' : '현재 위치 찾기'}
+          accessibilityLabel={gpsSearching ? 'GPS 위치 찾는 중' : gpsTrackingEnabled ? 'GPS 위치 추적 끄기' : 'GPS 위치 추적 켜기'}
           disabled={isLocateDisabled}
           onPress={handleLocate}
-          style={({ pressed }) => [styles.barButton, pressed && { backgroundColor: sheetSystemFill }]}
+          style={({ pressed }) => [styles.barButton, pressed && { backgroundColor: sheetSystemFill }, gpsTrackingEnabled && styles.barButtonActive]}
         >
           <Text style={[styles.barButtonGlyph, { color: sheetLabel }, isLocateDisabled && { color: sheetTertiaryLabel, opacity: 0.55 }]}>⌖</Text>
         </Pressable>
@@ -216,12 +227,12 @@ export function MapSheetScreen() {
           <>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel={isContinuousScanning ? 'BLE WCL 실시간 스캔 중지' : 'BLE WCL 실시간 스캔 시작'}
+              accessibilityLabel={bleTrackingEnabled ? 'BLE WCL 실시간 스캔 중지' : 'BLE WCL 실시간 스캔 시작'}
               onPress={handleBleScan}
               style={({ pressed }) => [
                 styles.barButton,
                 pressed && { backgroundColor: sheetSystemFill },
-                bleCardVisible && styles.barButtonActive,
+                bleTrackingEnabled && styles.barButtonActive,
               ]}
             >
               <Text style={[styles.barButtonBleLabel, { color: sheetAccent(sheetScheme) }]}>BLE</Text>
