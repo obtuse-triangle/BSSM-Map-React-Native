@@ -1,0 +1,48 @@
+npm warn Unknown project config "node-linker". This will stop working in the next major version of npm. See `npm help npmrc` for supported config options.
+watchman warning:  Recrawled this watch 13 times, most recently because:
+MustScanSubDirs UserDroppedTo resolve, please review the information on
+https://facebook.github.io/watchman/docs/troubleshooting.html#recrawl
+To clear this warning, run:
+`watchman watch-del '/Users/obtuse/gitRepos/school-map-react-native' ; watchman watch-project '/Users/obtuse/gitRepos/school-map-react-native'`
+
+PASS src/services/routing/__tests__/graphBuilder.test.ts (8.884 s)
+PASS src/services/routing/__tests__/graphValidator.test.ts
+PASS src/services/routing/__tests__/graphInvalidFixture.test.ts
+  ● Console
+
+    console.log
+        Errors: ["Edge references non-existent target node: \"ghost\"","Orphan node: \"n1\" (level=1, type=polygon)"]
+
+      at log (src/services/routing/__tests__/graphInvalidFixture.test.ts:84:13)
+
+    console.log
+        Errors: ["Orphan node: \"orphan\" (level=2, type=polygon)"]
+
+      at log (src/services/routing/__tests__/graphInvalidFixture.test.ts:84:13)
+
+    console.log
+        Errors: ["Stair connector edge \"c0\"→\"c1\" (connectorId=\"connector-stair-bad\") has non-positive accessibilityPenalty: 0"]
+
+      at log (src/services/routing/__tests__/graphInvalidFixture.test.ts:84:13)
+
+    console.log
+        Errors: ["Polygon node \"n0\" has invalid level: 5 (must be 1-4)"]
+
+      at log (src/services/routing/__tests__/graphInvalidFixture.test.ts:84:13)
+
+    console.log
+        Nodes: 4543, Edges: 29636
+
+      at Object.log (src/services/routing/__tests__/graphInvalidFixture.test.ts:97:13)
+
+    console.log
+        Errors: []
+
+      at Object.log (src/services/routing/__tests__/graphInvalidFixture.test.ts:98:13)
+
+
+Test Suites: 3 passed, 3 total
+Tests:       33 passed, 33 total
+Snapshots:   0 total
+Time:        10.564 s, estimated 12 s
+Ran all test suites matching /src\/services\/routing\/__tests__\/graphBuilder.test.ts|src\/services\/routing\/__tests__\/graphValidator.test.ts|src\/services\/routing\/__tests__\/graphInvalidFixture.test.ts/i.
