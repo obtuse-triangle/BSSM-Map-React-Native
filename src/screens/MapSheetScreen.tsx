@@ -142,6 +142,7 @@ export function MapSheetScreen() {
     navigation.setOptions({
       sheetAllowedDetents: [0.06],
       sheetLargestUndimmedDetentIndex: 0,
+      sheetInitialDetentIndex: 0,
     });
     setCurrentDetentIndex(0);
 
@@ -149,6 +150,7 @@ export function MapSheetScreen() {
       navigation.setOptions({
         sheetAllowedDetents: [0.06, 0.12, 0.5, 1.0],
         sheetLargestUndimmedDetentIndex: 3,
+        sheetInitialDetentIndex: 0,
       });
     }, 400);
 
@@ -166,15 +168,17 @@ export function MapSheetScreen() {
 
     if (bleJustOpened || settingsJustOpened) {
       navigation.setOptions({
-        sheetAllowedDetents: [0.5, 1.0],
-        sheetLargestUndimmedDetentIndex: 1,
+        sheetAllowedDetents: [0.5],
+        sheetLargestUndimmedDetentIndex: 0,
+        sheetInitialDetentIndex: 0,
       });
-      setCurrentDetentIndex(2);
+      setCurrentDetentIndex(0);
 
       const restoreTimer = setTimeout(() => {
         navigation.setOptions({
           sheetAllowedDetents: [0.06, 0.12, 0.5, 1.0],
           sheetLargestUndimmedDetentIndex: 3,
+          sheetInitialDetentIndex: 2,
         });
       }, 400);
 
@@ -185,6 +189,7 @@ export function MapSheetScreen() {
       navigation.setOptions({
         sheetAllowedDetents: [0.06],
         sheetLargestUndimmedDetentIndex: 0,
+        sheetInitialDetentIndex: 0,
       });
       setCurrentDetentIndex(0);
 
@@ -192,6 +197,7 @@ export function MapSheetScreen() {
         navigation.setOptions({
           sheetAllowedDetents: [0.06, 0.12, 0.5, 1.0],
           sheetLargestUndimmedDetentIndex: 3,
+          sheetInitialDetentIndex: 0,
         });
       }, 400);
 

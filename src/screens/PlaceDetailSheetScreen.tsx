@@ -38,6 +38,7 @@ export function PlaceDetailSheetScreen() {
     navigation.setOptions({
       sheetAllowedDetents: [0.09],
       sheetLargestUndimmedDetentIndex: 0,
+      sheetInitialDetentIndex: 0,
     });
     setCurrentDetentIndex(0);
 
@@ -45,6 +46,7 @@ export function PlaceDetailSheetScreen() {
       navigation.setOptions({
         sheetAllowedDetents: [0.09, 0.3, 0.55, 1.0],
         sheetLargestUndimmedDetentIndex: 3,
+        sheetInitialDetentIndex: 0,
       });
     }, 400);
 
