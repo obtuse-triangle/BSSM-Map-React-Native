@@ -35,3 +35,27 @@ export function transformEpsg5183ToWgs84(
   const result = proj4(EPSG_5183, EPSG_4326, [x, y]) as [number, number];
   return result;
 }
+
+/**
+ * Transform a WGS84 [longitude, latitude] coordinate pair to EPSG:5183 (Korean TM).
+ *
+ * This is the exact inverse of {@link transformEpsg5183ToWgs84}.
+ *
+ * @param lon - Longitude in decimal degrees (WGS84)
+ * @param lat - Latitude in decimal degrees (WGS84)
+ * @returns A tuple of [x, y] in metres (EPSG:5183 easting, northing)
+ * @throws {Error} If either coordinate is NaN or non-finite
+ */
+export function transformWgs84ToEpsg5183(
+  lon: number,
+  lat: number,
+): [number, number] {
+  if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
+    throw new Error(
+      `CoordinateTransform: lon and lat must be finite numbers. Received lon=${lon}, lat=${lat}`,
+    );
+  }
+
+  const result = proj4(EPSG_4326, EPSG_5183, [lon, lat]) as [number, number];
+  return result;
+}
