@@ -473,8 +473,13 @@ export function MapSheetScreen() {
             <View style={styles.levelRowTrack}>
               <Animated.View
                 pointerEvents="none"
-                style={[styles.levelIndicator, { backgroundColor: sheetSelectionBg }, indicatorStyle]}
-              />
+                style={[styles.levelIndicator, indicatorStyle]}
+              >
+                <View
+                  pointerEvents="none"
+                  style={[StyleSheet.absoluteFill, { backgroundColor: sheetSelectionBg, borderRadius: 999 }]}
+                />
+              </Animated.View>
               <View style={styles.levelRow}>
                 {levels.map((level) => {
                   const selected = level === selectedLevel;
