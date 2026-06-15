@@ -82,6 +82,10 @@ export type RouteResult =
       usedStairsFallback: boolean;
       /** Optional warning (e.g. "partial route – destination unreachable"). */
       warning?: string;
+      /** Actual origin coordinates in EPSG:5183 (for rendering beyond last graph node). */
+      originPoint?: { x: number; y: number; level: number };
+      /** Actual destination coordinates in EPSG:5183 (for rendering beyond last graph node). */
+      destinationPoint?: { x: number; y: number; level: number };
     }
   | {
       ok: false;

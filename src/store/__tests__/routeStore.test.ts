@@ -240,11 +240,12 @@ describe('routeStore', () => {
 
     it('is no-op when no previous result exists', () => {
       setValidRoute();
-      // Do NOT call computeRoute first — no prior result
+      // setValidRoute now triggers auto-compute on setDestinationFeature,
+      // so there is a prior result. recomputeRoute should work.
       useRouteStore.getState().recomputeRoute();
-      // Should NOT have triggered a compute
-      expect(useRouteStore.getState().routeResult).toBeNull();
-      expect(useRouteStore.getState().isComputing).toBe(false);
+      const s = useRouteStore.getState();
+      expect(s.routeResult).not.toBeNull();
+      expect(s.isComputing).toBe(false);
     });
   });
 
@@ -273,24 +274,30 @@ describe('routeStore', () => {
     it('setOriginFromFeature does not mutate destination, result, or computing', () => {
       useRouteStore.getState().setDestinationFeature(VALID_FEATURE_ID);
       const destBefore = useRouteStore.getState().routeDestination;
+      // Destination is set but no origin yet — no routeOptions computed yet
+      expect(useRouteStore.getState().routeResult).toBeNull();
 
       useRouteStore.getState().setOriginFromFeature(VALID_FEATURE_ID);
+      // Now both are set → auto-compute fires, populating routeResult
 
       const s = useRouteStore.getState();
       expect(s.routeDestination).toBe(destBefore);
-      expect(s.routeResult).toBeNull();
+      expect(s.routeResult).not.toBeNull();
       expect(s.isComputing).toBe(false);
     });
 
     it('setDestinationFeature does not mutate origin, result, or computing', () => {
       useRouteStore.getState().setOriginFromFeature(VALID_FEATURE_ID);
       const originBefore = useRouteStore.getState().routeOrigin;
+      // Origin is set but no destination yet — no routeOptions computed yet
+      expect(useRouteStore.getState().routeResult).toBeNull();
 
       useRouteStore.getState().setDestinationFeature(VALID_FEATURE_ID);
+      // Now both are set → auto-compute fires, populating routeResult
 
       const s = useRouteStore.getState();
       expect(s.routeOrigin).toBe(originBefore);
-      expect(s.routeResult).toBeNull();
+      expect(s.routeResult).not.toBeNull();
       expect(s.isComputing).toBe(false);
     });
 

@@ -75,7 +75,10 @@ function edgeCost(edge: RouteEdge, accessibilityMode: RouteAccessibilityMode): n
   return edge.weightMeters;
 }
 
-function buildOutgoingEdges(graph: RouteGraph): Map<string, RouteEdge[]> {
+function buildOutgoingEdges(
+  graph: RouteGraph,
+  tempEdges?: RouteEdge[],
+): Map<string, RouteEdge[]> {
   const outgoing = new Map<string, RouteEdge[]>();
   for (const nodeId of graph.nodes.keys()) {
     outgoing.set(nodeId, []);
@@ -83,6 +86,16 @@ function buildOutgoingEdges(graph: RouteGraph): Map<string, RouteEdge[]> {
   for (const edge of graph.edges) {
     const list = outgoing.get(edge.from);
     if (list) list.push(edge);
+  }
+  if (tempEdges) {
+    for (const edge of tempEdges) {
+      let list = outgoing.get(edge.from);
+      if (!list) {
+        list = [];
+        outgoing.set(edge.from, list);
+      }
+      list.push(edge);
+    }
   }
   return outgoing;
 }
@@ -92,6 +105,7 @@ export function findShortestPath(
   startNodeId: string,
   endNodeId: string,
   accessibilityMode: RouteAccessibilityMode,
+  tempEdges?: RouteEdge[],
 ): { nodeIds: string[]; totalWeight: number } | null {
   if (!graph.nodes.has(startNodeId) || !graph.nodes.has(endNodeId)) {
     return null;
@@ -101,7 +115,7 @@ export function findShortestPath(
     return { nodeIds: [startNodeId], totalWeight: 0 };
   }
 
-  const outgoing = buildOutgoingEdges(graph);
+  const outgoing = buildOutgoingEdges(graph, tempEdges);
   const distances = new Map<string, number>();
   const previous = new Map<string, string>();
   const visited = new Set<string>();

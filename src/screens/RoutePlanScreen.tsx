@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Keyboard,
   Pressable,
@@ -18,6 +18,7 @@ import { useMapStore } from '../store/mapStore';
 import { useRouteStore } from '../store/routeStore';
 import type { RootStackParamList } from '../navigation/types';
 import type { CampusFeature } from '../types/geojson';
+import type { RouteResult } from '../types/routing';
 import {
   sheetAccent,
   sheetLabel,
@@ -30,7 +31,7 @@ import {
 } from '../theme/sheetSemanticColors';
 import campusDataUntyped from '../data/campus-wgs84.json';
 import type { CampusGeoJSON } from '../types/geojson';
-import { getFeatureById } from '../utils/geoJsonHelpers';
+import { getFeatureById, getLevelKeys } from '../utils/geoJsonHelpers';
 
 const campusData = campusDataUntyped as unknown as CampusGeoJSON;
 
@@ -41,6 +42,25 @@ type ActiveField = 'origin' | 'destination' | null;
 function featureDisplayName(feature: CampusFeature | undefined): string {
   if (!feature) return '';
   return feature.properties.name_ko || feature.properties.name;
+}
+
+/**
+ * Determine the stair/elevator badge text from the route's actual connector
+ * usage rather than `usedStairsFallback`, which is only true when an
+ * `elevator_priority` route still had to use stairs.
+ */
+function getRouteBadge(result: RouteResult): { text: string; isStair: boolean } {
+  if (!result.ok) return { text: '', isStair: false };
+  const hasStair = result.floorSegments.some(
+    seg => seg.connectorTransition?.connectorId.includes('stair'),
+  );
+  const hasElevator = result.floorSegments.some(
+    seg => seg.connectorTransition?.connectorId.includes('elevator'),
+  );
+  if (hasStair && hasElevator) return { text: '계단/엘리베이터', isStair: true };
+  if (hasStair) return { text: '계단 포함', isStair: true };
+  if (hasElevator) return { text: '엘리베이터', isStair: false };
+  return { text: '같은 층', isStair: false };
 }
 
 export function RoutePlanScreen() {
@@ -61,6 +81,23 @@ export function RoutePlanScreen() {
     computeRouteOptions,
     selectRoute,
   } = useRouteStore();
+
+  const selectedLevel = useMapStore((s) => s.selectedLevel);
+  const levels = useMemo(() => getLevelKeys(campusData), []);
+
+  useEffect(() => {
+    const state = useRouteStore.getState();
+    if (state.routeOrigin && state.routeDestination && state.routeOptions.length === 0) {
+      state.computeRouteOptions();
+    }
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', () => {
+      useRouteStore.getState().clearRoute();
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   const originSearch = useSearchBar();
   const destinationSearch = useSearchBar();
@@ -148,12 +185,16 @@ export function RoutePlanScreen() {
   };
 
   const handleClose = () => {
-    navigation.navigate('Map');
+    useRouteStore.getState().clearRoute();
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+    } else {
+      navigation.navigate('Map');
+    }
   };
 
   const handleSelectRoute = (index: number) => {
     selectRoute(index);
-    navigation.navigate('Map');
   };
 
   const showOriginResults =
@@ -193,6 +234,36 @@ export function RoutePlanScreen() {
             >
               <Text style={[styles.closeButtonText, { color: sheetSecondaryLabel }]}>✕</Text>
             </Pressable>
+          </View>
+
+          {/* Floor selector */}
+          <View style={styles.floorSelectorRow}>
+            {levels.map((level) => {
+              const selected = level === selectedLevel;
+              return (
+                <Pressable
+                  key={level}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${level}층 선택`}
+                  hitSlop={HIT_SLOP}
+                  onPress={() => useMapStore.getState().setSelectedLevel(level)}
+                  style={[
+                    styles.floorSelectorButton,
+                    selected && styles.floorSelectorButtonActive,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.floorSelectorButtonText,
+                      { color: sheetSecondaryLabel },
+                      selected && { color: sheetAccent(scheme), fontWeight: '800' },
+                    ]}
+                  >
+                    {level}F
+                  </Text>
+                </Pressable>
+              );
+            })}
           </View>
 
           {/* Origin / Destination inputs */}
@@ -318,76 +389,64 @@ export function RoutePlanScreen() {
           {/* Origin search results */}
           {showOriginResults && (
             <View style={styles.resultsContainer}>
-              <ScrollView
-                nestedScrollEnabled
-                keyboardShouldPersistTaps="handled"
-                style={styles.resultsScroll}
-              >
-                {originSearch.searchResults.map((feature: CampusFeature) => {
-                  const featureKey = feature.properties.id ?? String(feature.id);
-                  return (
-                    <Pressable
-                      key={featureKey}
-                      accessibilityRole="button"
-                      hitSlop={HIT_SLOP}
-                      onPress={() => handleSelectOrigin(featureKey)}
-                      style={({ pressed }) => [
-                        styles.searchResultRow,
-                        { borderColor: sheetSeparator },
-                        pressed && { opacity: 0.85 },
-                      ]}
+              {originSearch.searchResults.map((feature: CampusFeature) => {
+                const featureKey = feature.properties.id ?? String(feature.id);
+                return (
+                  <Pressable
+                    key={featureKey}
+                    accessibilityRole="button"
+                    hitSlop={HIT_SLOP}
+                    onPress={() => handleSelectOrigin(featureKey)}
+                    style={({ pressed }) => [
+                      styles.searchResultRow,
+                      { borderColor: sheetSeparator },
+                      pressed && { opacity: 0.85 },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.searchResultName, { color: sheetLabel }]}
+                      numberOfLines={1}
                     >
-                      <Text
-                        style={[styles.searchResultName, { color: sheetLabel }]}
-                        numberOfLines={1}
-                      >
-                        {feature.properties.name_ko || feature.properties.name}
-                      </Text>
-                      <Text style={[styles.searchResultMeta, { color: sheetSecondaryLabel }]}>
-                        {`${feature.properties.level}층 · ${feature.properties.category}`}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
+                      {feature.properties.name_ko || feature.properties.name}
+                    </Text>
+                    <Text style={[styles.searchResultMeta, { color: sheetSecondaryLabel }]}>
+                      {`${feature.properties.level}층 · ${feature.properties.category}`}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
           )}
 
           {/* Destination search results */}
           {showDestinationResults && (
             <View style={styles.resultsContainer}>
-              <ScrollView
-                nestedScrollEnabled
-                keyboardShouldPersistTaps="handled"
-                style={styles.resultsScroll}
-              >
-                {destinationSearch.searchResults.map((feature: CampusFeature) => {
-                  const featureKey = feature.properties.id ?? String(feature.id);
-                  return (
-                    <Pressable
-                      key={featureKey}
-                      accessibilityRole="button"
-                      hitSlop={HIT_SLOP}
-                      onPress={() => handleSelectDestination(featureKey)}
-                      style={({ pressed }) => [
-                        styles.searchResultRow,
-                        { borderColor: sheetSeparator },
-                        pressed && { opacity: 0.85 },
-                      ]}
+              {destinationSearch.searchResults.map((feature: CampusFeature) => {
+                const featureKey = feature.properties.id ?? String(feature.id);
+                return (
+                  <Pressable
+                    key={featureKey}
+                    accessibilityRole="button"
+                    hitSlop={HIT_SLOP}
+                    onPress={() => handleSelectDestination(featureKey)}
+                    style={({ pressed }) => [
+                      styles.searchResultRow,
+                      { borderColor: sheetSeparator },
+                      pressed && { opacity: 0.85 },
+                    ]}
+                  >
+                    <Text
+                      style={[styles.searchResultName, { color: sheetLabel }]}
+                      numberOfLines={1}
                     >
-                      <Text
-                        style={[styles.searchResultName, { color: sheetLabel }]}
-                        numberOfLines={1}
-                      >
-                        {feature.properties.name_ko || feature.properties.name}
-                      </Text>
-                      <Text style={[styles.searchResultMeta, { color: sheetSecondaryLabel }]}>
-                        {`${feature.properties.level}층 · ${feature.properties.category}`}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </ScrollView>
+                      {feature.properties.name_ko || feature.properties.name}
+                    </Text>
+                    <Text style={[styles.searchResultMeta, { color: sheetSecondaryLabel }]}>
+                      {`${feature.properties.level}층 · ${feature.properties.category}`}
+                    </Text>
+                  </Pressable>
+                );
+              })}
             </View>
           )}
 
@@ -444,29 +503,21 @@ export function RoutePlanScreen() {
                       >
                         {option.label}
                       </Text>
-                      {option.result.usedStairsFallback ? (
-                        <View
-                          style={[
-                            styles.warningBadge,
-                            { backgroundColor: sheetSystemFill },
-                          ]}
-                        >
-                          <Text style={[styles.warningBadgeText, { color: sheetSecondaryLabel }]}>
-                            계단 포함
-                          </Text>
-                        </View>
-                      ) : (
-                        <View
-                          style={[
-                            styles.warningBadge,
-                            { backgroundColor: sheetSystemFill },
-                          ]}
-                        >
-                          <Text style={[styles.warningBadgeText, { color: sheetSecondaryLabel }]}>
-                            엘리베이터
-                          </Text>
-                        </View>
-                      )}
+                      {(() => {
+                        const badge = getRouteBadge(option.result);
+                        return badge.text ? (
+                          <View
+                            style={[
+                              styles.warningBadge,
+                              { backgroundColor: sheetSystemFill },
+                            ]}
+                          >
+                            <Text style={[styles.warningBadgeText, { color: sheetSecondaryLabel }]}>
+                              {badge.text}
+                            </Text>
+                          </View>
+                        ) : null;
+                      })()}
                     </View>
                     <View style={styles.optionMetricsRow}>
                       <Text
@@ -554,6 +605,28 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     lineHeight: 16,
   },
+  floorSelectorRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 2,
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  floorSelectorButton: {
+    alignItems: 'center',
+    backgroundColor: 'transparent',
+    borderRadius: 999,
+    minWidth: 36,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  floorSelectorButtonActive: {
+    backgroundColor: sheetSelectionBg,
+  },
+  floorSelectorButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
   inputGroup: {
     flexDirection: 'row',
     alignItems: 'stretch',
@@ -632,11 +705,6 @@ const styles = StyleSheet.create({
   resultsContainer: {
     borderRadius: 12,
     marginBottom: 12,
-    maxHeight: 260,
-    overflow: 'hidden',
-  },
-  resultsScroll: {
-    flex: 1,
   },
   searchResultRow: {
     borderBottomWidth: 1,

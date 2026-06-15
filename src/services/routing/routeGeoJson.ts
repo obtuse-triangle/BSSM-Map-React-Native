@@ -96,7 +96,12 @@ export function routeResultToGeoJson(
   const features: RouteGeoJsonFeature[] = [];
 
   for (let i = 0; i < result.floorSegments.length; i++) {
-    const feature = segmentToFeature(result.floorSegments[i], i, nodeCoords, selectedLevel);
+    const feature = segmentToFeature(
+      result.floorSegments[i],
+      i,
+      nodeCoords,
+      selectedLevel,
+    );
     if (feature) {
       features.push(feature);
     }

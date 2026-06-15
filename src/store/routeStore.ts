@@ -44,13 +44,15 @@ export function setRouteComputer(
   fn: typeof computeIndoorRoute,
 ): void {
   computeIndoorRoute = fn
-  computeRouteOptionsService = null
+  useRouteOptionsService = false
 }
 
 let computeRouteOptionsService: ((input: {
   origin: RouteOrigin
   destination: RouteDestination
 }) => RouteOption[]) | null = null
+
+let useRouteOptionsService = true
 
 function computeRouteOptionsUsingIndoorRoute(input: {
   origin: RouteOrigin
@@ -138,6 +140,9 @@ export const useRouteStore = create<RouteStoreState>()((set, get) => ({
       },
       error: null,
     });
+    if (get().routeDestination) {
+      get().computeRouteOptions();
+    }
   },
 
   setOriginFromUserLocation: (
@@ -152,6 +157,9 @@ export const useRouteStore = create<RouteStoreState>()((set, get) => ({
       ...(accuracy !== undefined ? { accuracy } : {}),
     };
     set({ routeOrigin: origin, error: null });
+    if (get().routeDestination) {
+      get().computeRouteOptions();
+    }
   },
 
   setDestinationFeature: (featureId: string) => {
@@ -166,6 +174,9 @@ export const useRouteStore = create<RouteStoreState>()((set, get) => ({
       routeDestination: { featureId, coordinates: centroid, level },
       error: null,
     });
+    if (get().routeOrigin) {
+      get().computeRouteOptions();
+    }
   },
 
   computeRoute: () => {
@@ -187,7 +198,7 @@ export const useRouteStore = create<RouteStoreState>()((set, get) => ({
       let options: RouteOption[]
       let lastError: string | null = null
 
-      if (computeRouteOptionsService) {
+      if (useRouteOptionsService && computeRouteOptionsService) {
         options = computeRouteOptionsService({ origin: routeOrigin, destination: routeDestination })
       } else {
         const result = computeRouteOptionsUsingIndoorRoute({ origin: routeOrigin, destination: routeDestination })
@@ -196,6 +207,7 @@ export const useRouteStore = create<RouteStoreState>()((set, get) => ({
       }
 
       if (options.length === 0) {
+        console.warn('[RouteStore] computeRouteOptions returned 0 options. lastError:', lastError)
         set({
           routeResult: null,
           routeOptions: [],
@@ -213,6 +225,7 @@ export const useRouteStore = create<RouteStoreState>()((set, get) => ({
         })
       }
     } catch (_e) {
+      console.warn('[RouteStore] computeRouteOptions failed:', _e)
       set({
         isComputing: false,
         error: 'Route computation failed',
@@ -257,6 +270,7 @@ try {
   const { computeRoute, computeRouteOptions } = require('../services/routing/routeComputer');
   setRouteComputer(computeRoute);
   computeRouteOptionsService = computeRouteOptions;
+  useRouteOptionsService = true;
 } catch (_e) {
   // Tests or environments without routing data keep the mock
 }

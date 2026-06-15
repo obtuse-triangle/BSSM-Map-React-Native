@@ -327,24 +327,6 @@ export function PlaceDetailSheetScreen() {
           </Pressable>
         )}
 
-        {featureIdForSave && (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="길찾기"
-            onPress={handleFindRoute}
-            style={({ pressed }) => [
-              styles.routeButton,
-              { backgroundColor: sheetSystemFill },
-              pressed && styles.closeButtonPressed,
-            ]}
-            hitSlop={{ top: 7, bottom: 7, left: 7, right: 7 }}
-          >
-            <Text style={[styles.routeButtonText, { color: sheetAccent(accentScheme) }]}>
-              길찾기
-            </Text>
-          </Pressable>
-        )}
-
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="닫기"
@@ -359,6 +341,48 @@ export function PlaceDetailSheetScreen() {
           <Text style={[styles.closeButtonText, { color: sheetSecondaryLabel }]}>×</Text>
         </Pressable>
       </View>
+
+      {featureIdForSave && isMediumOrFull && (
+        <View style={styles.actionRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="출발지로 설정"
+            onPress={handleSetAsOrigin}
+            style={({ pressed }) => [
+              styles.originButton,
+              { borderColor: sheetSeparator },
+              originJustSet
+                ? { backgroundColor: sheetSelectionBg, borderColor: sheetAccent(accentScheme) }
+                : { backgroundColor: sheetSecondarySystemFill },
+              pressed && styles.closeButtonPressed,
+            ]}
+          >
+            <Text style={styles.actionButtonEmoji}>🟢</Text>
+            <Text
+              style={[
+                styles.actionButtonText,
+                { color: originJustSet ? sheetAccent(accentScheme) : sheetLabel },
+              ]}
+            >
+              {originJustSet ? '출발지로 설정됨' : '출발지로 설정'}
+            </Text>
+          </Pressable>
+
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="길찾기"
+            onPress={handleFindRoute}
+            style={({ pressed }) => [
+              styles.routeButton,
+              { backgroundColor: sheetAccent(accentScheme) },
+              pressed && styles.closeButtonPressed,
+            ]}
+          >
+            <Text style={styles.routeButtonEmoji}>🔍</Text>
+            <Text style={styles.routeButtonText}>길찾기</Text>
+          </Pressable>
+        </View>
+      )}
 
       {bottomSheetRoom && (
         <GlassSurface variant="sheet" cornerRadius={20} style={[styles.detailCard, { borderColor: sheetSeparator }]}>
@@ -379,24 +403,6 @@ export function PlaceDetailSheetScreen() {
             </View>
           )}
         </GlassSurface>
-      )}
-
-      {featureIdForSave && (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="출발지로 설정"
-          onPress={handleSetAsOrigin}
-          style={({ pressed }) => [
-            styles.setOriginButton,
-            { backgroundColor: sheetSystemFill, borderColor: sheetSeparator },
-            originJustSet && { backgroundColor: sheetSelectionBg },
-            pressed && styles.closeButtonPressed,
-          ]}
-        >
-          <Text style={[styles.setOriginButtonText, { color: originJustSet ? sheetAccent(accentScheme) : sheetSecondaryLabel }]}>
-            {originJustSet ? '✓ 출발지로 설정됨' : '출발지로 설정'}
-          </Text>
-        </Pressable>
       )}
 
       {!bottomSheetRoom && (
@@ -553,30 +559,54 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-  routeButton: {
-    alignItems: 'center',
-    alignSelf: 'center',
-    borderRadius: 15,
-    height: 30,
-    justifyContent: 'center',
-    paddingHorizontal: 10,
+  // ── Action row (출발지/길찾기) ──────────────────
+  actionRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginHorizontal: 16,
+    marginBottom: 12,
   },
-  routeButtonText: {
-    fontSize: 12,
-    fontWeight: '700',
-    includeFontPadding: false,
-    textAlign: 'center',
-  },
-  setOriginButton: {
+  originButton: {
     alignItems: 'center',
     alignSelf: 'stretch',
     borderRadius: 14,
     borderWidth: 1,
-    marginHorizontal: 16,
+    flexDirection: 'row',
+    gap: 6,
+    justifyContent: 'center',
     paddingVertical: 12,
+    flex: 1,
   },
-  setOriginButtonText: {
+  routeButton: {
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    borderRadius: 14,
+    flexDirection: 'row',
+    gap: 6,
+    justifyContent: 'center',
+    paddingVertical: 12,
+    flex: 1,
+  },
+  actionButtonEmoji: {
+    fontSize: 13,
+    includeFontPadding: false,
+    lineHeight: 16,
+  },
+  routeButtonEmoji: {
+    fontSize: 13,
+    includeFontPadding: false,
+    lineHeight: 16,
+  },
+  actionButtonText: {
     fontSize: 14,
     fontWeight: '700',
+    includeFontPadding: false,
+  },
+  routeButtonText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '700',
+    includeFontPadding: false,
+    textAlign: 'center',
   },
 });

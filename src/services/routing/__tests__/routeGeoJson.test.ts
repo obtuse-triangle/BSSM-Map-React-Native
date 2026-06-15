@@ -7,6 +7,7 @@
 
 import { routeResultToGeoJson } from '../routeGeoJson';
 import type { RouteResult } from '../../../types/routing';
+import { transformEpsg5183ToWgs84 } from '../../../utils/coordinateTransform';
 
 // ── Campus coordinate range (WGS84) ──────────────────────────────────
 // From learnings: CAMPUS_BOUNDS = [128.9028, 35.1876, 128.9041, 35.1893]
@@ -53,6 +54,8 @@ const successResult: RouteResult = {
   totalDistanceMeters: 170,
   estimatedTimeSeconds: 200,
   usedStairsFallback: false,
+  originPoint: { x: EPSG_X1 - 5, y: EPSG_Y1 - 5, level: 1 },
+  destinationPoint: { x: EPSG_X3 + 5, y: EPSG_Y3 + 5, level: 2 },
 };
 
 const failedResult: RouteResult = {
@@ -122,10 +125,23 @@ describe('routeResultToGeoJson', () => {
     const nodeCoords = makeNodeCoords();
     const geoJson = routeResultToGeoJson(successResult, nodeCoords, 1);
 
-    // Segment 0: n1, n2, n3 → 3 coordinate pairs
     expect(geoJson.features[0].geometry.coordinates).toHaveLength(3);
-    // Segment 1: n4, n5 → 2 coordinate pairs
     expect(geoJson.features[1].geometry.coordinates).toHaveLength(2);
+  });
+
+  it('renders only node coordinates from the route graph', () => {
+    const nodeCoords = makeNodeCoords();
+    const geoJson = routeResultToGeoJson(successResult, nodeCoords, 1);
+
+    expect(geoJson.features[0].geometry.coordinates).toEqual([
+      transformEpsg5183ToWgs84(EPSG_X1, EPSG_Y1),
+      transformEpsg5183ToWgs84(EPSG_X2, EPSG_Y2),
+      transformEpsg5183ToWgs84(EPSG_X3, EPSG_Y3),
+    ]);
+    expect(geoJson.features[1].geometry.coordinates).toEqual([
+      transformEpsg5183ToWgs84(EPSG_X1 + 50, EPSG_Y1 + 50),
+      transformEpsg5183ToWgs84(EPSG_X2 + 50, EPSG_Y2 + 50),
+    ]);
   });
 
   it('returns empty FeatureCollection for failed route (ok: false)', () => {
@@ -169,6 +185,23 @@ describe('routeResultToGeoJson', () => {
 
     const nodeCoords = makeNodeCoords();
     const geoJson = routeResultToGeoJson(resultOneNode, nodeCoords, 1);
+
+    expect(geoJson.features).toHaveLength(0);
+  });
+
+  it('skips single-node segments after endpoint extension is removed', () => {
+    const resultSameNode: RouteResult = {
+      ok: true,
+      floorSegments: [{ level: 1, nodeIds: ['n1'], distanceMeters: 0 }],
+      totalDistanceMeters: 0,
+      estimatedTimeSeconds: 0,
+      usedStairsFallback: false,
+      originPoint: { x: EPSG_X1 - 5, y: EPSG_Y1 - 5, level: 1 },
+      destinationPoint: { x: EPSG_X1 + 5, y: EPSG_Y1 + 5, level: 1 },
+    };
+
+    const nodeCoords = makeNodeCoords();
+    const geoJson = routeResultToGeoJson(resultSameNode, nodeCoords, 1);
 
     expect(geoJson.features).toHaveLength(0);
   });

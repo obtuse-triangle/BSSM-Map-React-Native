@@ -18,6 +18,18 @@ const WALKING_SPEED_MPS = 1.4;
 
 type GraphWithTemps = RouteGraph;
 
+let _routingGraphCache: RouteGraph | null = null;
+
+function getCachedRoutingGraph(): RouteGraph {
+  if (process.env.NODE_ENV === 'test') {
+    return buildRoutingGraph();
+  }
+  if (!_routingGraphCache) {
+    _routingGraphCache = buildRoutingGraph();
+  }
+  return _routingGraphCache;
+}
+
 function cloneGraph(graph: RouteGraph): GraphWithTemps {
   const nodes = new Map<string, RouteNode>();
   for (const [id, node] of graph.nodes) {
@@ -87,34 +99,31 @@ function addTempNode(
   return node;
 }
 
-function connectTempNodeToSnap(
+function connectTempNodeToArea(
   graph: RouteGraph,
   tempNode: RouteNode,
   snappedNodeId: string,
-  tempX: number,
-  tempY: number,
+  x: number,
+  y: number,
+  level: number,
+  radius: number = 15.0,
 ): void {
+  // Always connect to the snapped node (guaranteed graph integration point)
   const snappedNode = graph.nodes.get(snappedNodeId);
-  if (!snappedNode) return;
+  if (snappedNode) {
+    const snappedDist = euclidean(x, y, snappedNode.x, snappedNode.y);
+    addBidirectionalWalkEdge(graph, tempNode, snappedNode, level, snappedDist);
+  }
 
-  const snappedDistance = euclidean(tempX, tempY, snappedNode.x, snappedNode.y);
-  addBidirectionalWalkEdge(graph, tempNode, snappedNode, snappedNode.level, snappedDistance);
-
-  const neighbours = graph.adjacency.get(snappedNodeId) ?? [];
-  const sameFloorNeighbours = neighbours
-    .map((id) => graph.nodes.get(id))
-    .filter((node): node is RouteNode => {
-      if (!node) return false;
-      return (
-        node.level === snappedNode.level &&
-        node.nodeType !== 'temp_origin' &&
-        node.nodeType !== 'temp_destination'
-      );
-    });
-
-  for (const neighbour of sameFloorNeighbours) {
-    const neighbourDistance = euclidean(tempX, tempY, neighbour.x, neighbour.y);
-    addBidirectionalWalkEdge(graph, tempNode, neighbour, snappedNode.level, neighbourDistance);
+  // Connect to all nearby nodes on the same level for better graph integration
+  for (const [nodeId, node] of graph.nodes) {
+    if (node.level !== level) continue;
+    if (node.nodeType === 'temp_origin' || node.nodeType === 'temp_destination') continue;
+    if (nodeId === snappedNodeId) continue;
+    const dist = euclidean(x, y, node.x, node.y);
+    if (dist <= radius) {
+      addBidirectionalWalkEdge(graph, tempNode, node, level, dist);
+    }
   }
 }
 
@@ -174,11 +183,51 @@ function buildFloorSegments(
         fromLevel: currentNode.level,
         toLevel: nextNode.level,
       };
-      currentSegment = null;
     }
   }
 
   return { floorSegments: segments, totalDistanceMeters, connectorTraversalSeconds, usedStairConnector };
+}
+
+function stripTempNodes(
+  segments: RouteFloorSegment[],
+): RouteFloorSegment[] {
+  return segments
+    .map((seg) => ({
+      ...seg,
+      nodeIds: seg.nodeIds.filter(
+        (id) => !id.startsWith('temp_origin') && !id.startsWith('temp_destination'),
+      ),
+    }))
+    .filter((seg) => seg.nodeIds.length > 0);
+}
+
+function finalizeFloorSegments(
+  rawSegments: RouteFloorSegment[],
+  originSnap: { nodeId: string },
+  destinationSnap: { nodeId: string },
+  fallbackLevel: number,
+  totalDistanceMeters: number,
+): RouteFloorSegment[] {
+  const floorSegments = stripTempNodes(rawSegments);
+
+  if (floorSegments.length === 0) {
+    floorSegments.push({
+      level: fallbackLevel,
+      nodeIds: [originSnap.nodeId, destinationSnap.nodeId],
+      distanceMeters: totalDistanceMeters,
+    });
+  }
+
+  for (const seg of floorSegments) {
+    if (seg.nodeIds.length === 1) {
+      if (!seg.nodeIds.includes(originSnap.nodeId)) seg.nodeIds.push(originSnap.nodeId);
+      else if (!seg.nodeIds.includes(destinationSnap.nodeId)) seg.nodeIds.push(destinationSnap.nodeId);
+      if (seg.nodeIds.length === 1) seg.nodeIds.push(seg.nodeIds[0]);
+    }
+  }
+
+  return floorSegments;
 }
 
 function resolveAndSnap(
@@ -204,7 +253,7 @@ export function computeRoute(input: {
     return { ok: false, reason: destinationSnap.reason };
   }
 
-  const graph = cloneGraph(buildRoutingGraph());
+  const graph = cloneGraph(getCachedRoutingGraph());
   const [originX, originY] = transformWgs84ToEpsg5183(...input.origin.coordinates);
   const [destinationX, destinationY] = transformWgs84ToEpsg5183(
     ...input.destination.coordinates,
@@ -225,13 +274,14 @@ export function computeRoute(input: {
     input.destination.level,
   );
 
-  connectTempNodeToSnap(graph, originTemp, originSnap.nodeId, originX, originY);
-  connectTempNodeToSnap(
+  connectTempNodeToArea(graph, originTemp, originSnap.nodeId, originX, originY, originTemp.level);
+  connectTempNodeToArea(
     graph,
     destinationTemp,
     destinationSnap.nodeId,
     destinationX,
     destinationY,
+    destinationTemp.level,
   );
 
   const shortest = findShortestPath(
@@ -245,8 +295,19 @@ export function computeRoute(input: {
     return { ok: false, reason: 'NO_PATH_FOUND' };
   }
 
-  const { floorSegments, totalDistanceMeters, connectorTraversalSeconds, usedStairConnector } =
-    buildFloorSegments(graph, shortest.nodeIds);
+  const {
+    floorSegments: rawSegments,
+    totalDistanceMeters,
+    connectorTraversalSeconds,
+    usedStairConnector,
+  } = buildFloorSegments(graph, shortest.nodeIds);
+  const floorSegments = finalizeFloorSegments(
+    rawSegments,
+    originSnap,
+    destinationSnap,
+    input.origin.level,
+    totalDistanceMeters,
+  );
 
   const estimatedTimeSeconds = totalDistanceMeters / WALKING_SPEED_MPS + connectorTraversalSeconds;
   const usedStairsFallback = input.accessibilityMode === 'elevator_priority' && usedStairConnector;
@@ -257,6 +318,8 @@ export function computeRoute(input: {
     totalDistanceMeters,
     estimatedTimeSeconds,
     usedStairsFallback,
+    originPoint: { x: originX, y: originY, level: input.origin.level },
+    destinationPoint: { x: destinationX, y: destinationY, level: input.destination.level },
     ...(usedStairsFallback
       ? {
           warning: '이 경로는 계단을 포함합니다. 엘리베이터 경로를 찾을 수 없습니다.',
@@ -271,16 +334,125 @@ export function computeRouteOptions(input: {
   origin: RouteOrigin
   destination: RouteDestination
 }): RouteOption[] {
+  // Snap origin and destination once (mode-independent)
+  const baseGraph = getCachedRoutingGraph()
+  if (baseGraph.nodes.size === 0) {
+    console.warn('[routeComputer] Graph is EMPTY — buildRoutingGraph may have failed')
+    return []
+  }
+  console.log('[routeComputer] Graph stats:', baseGraph.nodes.size, 'nodes,', baseGraph.edges.length, 'edges')
+
+  const [originX, originY] = transformWgs84ToEpsg5183(...input.origin.coordinates)
+  const [destinationX, destinationY] = transformWgs84ToEpsg5183(
+    ...input.destination.coordinates,
+  )
+
+  const originSnap = resolveAndSnap(input.origin)
+  if (!originSnap.ok) {
+    console.warn('[routeComputer] Origin snap failed:', originSnap.reason, {
+      level: input.origin.level,
+      coordinates: input.origin.coordinates,
+    })
+    return []
+  }
+
+  const destinationSnap = resolveAndSnap(input.destination)
+  if (!destinationSnap.ok) {
+    console.warn('[routeComputer] Destination snap failed:', destinationSnap.reason, {
+      level: input.destination.level,
+      coordinates: input.destination.coordinates,
+    })
+    return []
+  }
+
+  const originSnappedNode = baseGraph.nodes.get(originSnap.nodeId)
+  const destinationSnappedNode = baseGraph.nodes.get(destinationSnap.nodeId)
+  console.log(
+    '[routeComputer] Snap OK — origin:',
+    originSnap.nodeId,
+    'dest:',
+    destinationSnap.nodeId,
+    'originDistanceM:',
+    originSnappedNode ? euclidean(originX, originY, originSnappedNode.x, originSnappedNode.y) : 'unknown',
+    'destDistanceM:',
+    destinationSnappedNode
+      ? euclidean(destinationX, destinationY, destinationSnappedNode.x, destinationSnappedNode.y)
+      : 'unknown',
+  )
+
   const options: RouteOption[] = []
   const modes: RouteAccessibilityMode[] = ['normal', 'elevator_priority']
 
   for (const mode of modes) {
-    const result = computeRoute({
-      ...input,
-      accessibilityMode: mode,
-    })
+    try {
+      const graph = cloneGraph(baseGraph)
 
-    if (result.ok) {
+      const originTemp = addTempNode(graph, 'temp_origin', originX, originY, input.origin.level)
+      const destinationTemp = addTempNode(
+        graph,
+        'temp_destination',
+        destinationX,
+        destinationY,
+        input.destination.level,
+      )
+
+      connectTempNodeToArea(
+        graph,
+        originTemp,
+        originSnap.nodeId,
+        originX,
+        originY,
+        originTemp.level,
+      )
+      connectTempNodeToArea(
+        graph,
+        destinationTemp,
+        destinationSnap.nodeId,
+        destinationX,
+        destinationY,
+        destinationTemp.level,
+      )
+
+      const shortest = findShortestPath(graph, originTemp.id, destinationTemp.id, mode)
+
+      if (!shortest) {
+        continue
+      }
+
+      const {
+        floorSegments: rawSegments,
+        totalDistanceMeters,
+        connectorTraversalSeconds,
+        usedStairConnector,
+      } = buildFloorSegments(graph, shortest.nodeIds)
+
+      const floorSegments = finalizeFloorSegments(
+        rawSegments,
+        originSnap,
+        destinationSnap,
+        input.origin.level,
+        totalDistanceMeters,
+      )
+
+      const estimatedTimeSeconds =
+        totalDistanceMeters / WALKING_SPEED_MPS + connectorTraversalSeconds
+      const usedStairsFallback = mode === 'elevator_priority' && usedStairConnector
+
+      const result: RouteResult = {
+        ok: true,
+        floorSegments,
+        totalDistanceMeters,
+        estimatedTimeSeconds,
+        usedStairsFallback,
+        originPoint: { x: originX, y: originY, level: input.origin.level },
+        destinationPoint: { x: destinationX, y: destinationY, level: input.destination.level },
+        ...(usedStairsFallback
+          ? {
+              warning: '이 경로는 계단을 포함합니다. 엘리베이터 경로를 찾을 수 없습니다.',
+            }
+          : {}),
+      }
+
       const isDuplicate = options.some(
         (o) =>
           o.result.ok &&
@@ -296,6 +468,9 @@ export function computeRouteOptions(input: {
           result,
         })
       }
+    } catch (_e) {
+      console.warn(`[routeComputer] computeRouteOptions mode ${mode} failed:`, _e)
+      continue
     }
   }
 
