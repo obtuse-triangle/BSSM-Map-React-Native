@@ -1,7 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { cancelAnimation, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Animated, {
+  cancelAnimation,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
 import { runOnJS } from 'react-native-worklets';
 import { MAP_STYLES } from '../constants/mapStyles';
 import campusDataUntyped from '../data/campus-wgs84.json';
@@ -38,6 +43,10 @@ const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
 // math is: nearestIndex = clamp(round(translateX / LEVEL_BUTTON_WIDTH), 0, len-1).
 // Adding wider level labels would break this; keep labels ≤ 2 chars (1F/2F/3F/4F).
 const LEVEL_BUTTON_WIDTH = 36;
+
+// iOS tab-bar-style squishy spring — underdamped for a soft, organic feel.
+// Slight overshoot gives the "말랑말랑한 물방울" sensation the user wants.
+const SPRING_CONFIG = { mass: 1, damping: 16, stiffness: 200, overshootClamping: false };
 
 const CATEGORY_LABELS: Record<CampusFeatureCategory, string> = {
   classroom: '교실',
@@ -115,11 +124,11 @@ export function MapSheetScreen() {
   const panStartX = useSharedValue(indicatorX.value);
 
   // Always runs: during an active pan, onUpdate assigns indicatorX.value
-  // directly every frame, implicitly cancelling this withTiming. No guard.
+  // directly every frame, implicitly cancelling this spring. No guard.
   useEffect(() => {
     const target = selectedIndex * LEVEL_BUTTON_WIDTH;
     cancelAnimation(indicatorX);
-    indicatorX.value = withTiming(target, { duration: 180 });
+    indicatorX.value = withSpring(target, SPRING_CONFIG);
   }, [selectedIndex, indicatorX]);
 
   const applyLevelByIndex = useCallback(
@@ -153,7 +162,7 @@ export function MapSheetScreen() {
           'worklet';
           const nearestIndex = Math.round(indicatorX.value / LEVEL_BUTTON_WIDTH);
           const clamped = Math.max(0, Math.min(levels.length - 1, nearestIndex));
-          indicatorX.value = withTiming(clamped * LEVEL_BUTTON_WIDTH, { duration: 160 });
+          indicatorX.value = withSpring(clamped * LEVEL_BUTTON_WIDTH, SPRING_CONFIG);
           runOnJS(applyLevelByIndex)(clamped);
         }),
     [applyLevelByIndex, indicatorX, levels.length, panStartX],
