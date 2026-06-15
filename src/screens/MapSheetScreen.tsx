@@ -113,16 +113,14 @@ export function MapSheetScreen() {
   );
   const indicatorX = useSharedValue(selectedIndex * LEVEL_BUTTON_WIDTH);
   const panStartX = useSharedValue(indicatorX.value);
-  const isPanning = useSharedValue(0);
 
-  // Sync indicator to externally-driven selectedLevel (taps/search/saved).
-  // Skip while panning so the finger stays authoritative.
+  // Always runs: during an active pan, onUpdate assigns indicatorX.value
+  // directly every frame, implicitly cancelling this withTiming. No guard.
   useEffect(() => {
-    if (isPanning.value === 1) return;
     const target = selectedIndex * LEVEL_BUTTON_WIDTH;
     cancelAnimation(indicatorX);
     indicatorX.value = withTiming(target, { duration: 180 });
-  }, [selectedIndex, indicatorX, isPanning]);
+  }, [selectedIndex, indicatorX]);
 
   const applyLevelByIndex = useCallback(
     (index: number) => {
@@ -142,7 +140,6 @@ export function MapSheetScreen() {
         .maxPointers(1)
         .onBegin(() => {
           'worklet';
-          isPanning.value = 1;
           panStartX.value = indicatorX.value;
           cancelAnimation(indicatorX);
         })
@@ -158,12 +155,8 @@ export function MapSheetScreen() {
           const clamped = Math.max(0, Math.min(levels.length - 1, nearestIndex));
           indicatorX.value = withTiming(clamped * LEVEL_BUTTON_WIDTH, { duration: 160 });
           runOnJS(applyLevelByIndex)(clamped);
-        })
-        .onFinalize(() => {
-          'worklet';
-          isPanning.value = 0;
         }),
-    [applyLevelByIndex, indicatorX, isPanning, levels.length, panStartX],
+    [applyLevelByIndex, indicatorX, levels.length, panStartX],
   );
 
   const indicatorStyle = useAnimatedStyle(() => ({
@@ -470,6 +463,7 @@ export function MapSheetScreen() {
           <GlassSurface
             variant="control"
             cornerRadius={18}
+            glassEffectStyle="regular"
             colorScheme={sheetScheme === 'dark' || sheetScheme === 'light' ? sheetScheme : undefined}
             style={styles.levelRowGlass}
           >
@@ -478,16 +472,11 @@ export function MapSheetScreen() {
                 pointerEvents="none"
                 style={[styles.levelIndicator, indicatorStyle]}
               >
-                <View
-                  pointerEvents="none"
-                  style={[
-                    StyleSheet.absoluteFill,
-                    {
-                      backgroundColor: sheetAccent(sheetScheme),
-                      borderRadius: 999,
-                      opacity: 0.85,
-                    },
-                  ]}
+                <GlassSurface
+                  variant="control"
+                  cornerRadius={999}
+                  colorScheme={sheetScheme === 'dark' || sheetScheme === 'light' ? sheetScheme : undefined}
+                  style={StyleSheet.absoluteFill}
                 />
               </Animated.View>
               <View style={styles.levelRow}>
@@ -503,7 +492,7 @@ export function MapSheetScreen() {
                       onPress={() => setSelectedLevel(level)}
                       style={styles.levelButton}
                     >
-                      <Text style={[styles.levelButtonText, { color: sheetLabel }, selected && { color: '#FFFFFF' }]}>
+                      <Text style={[styles.levelButtonText, { color: sheetLabel }, selected && { color: sheetAccent(sheetScheme) }]}>
                         {level}F
                       </Text>
                     </Pressable>
@@ -798,6 +787,8 @@ const styles = StyleSheet.create({
   levelRowGlass: {
     paddingVertical: 3,
     paddingHorizontal: 3,
+    borderColor: sheetSeparator,
+    borderWidth: 0.5,
   },
   levelRowTrack: {
     position: 'relative',

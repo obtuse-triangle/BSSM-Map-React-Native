@@ -4,7 +4,7 @@ import { GlassView, isGlassEffectAPIAvailable, type GlassColorScheme } from 'exp
 
 export type GlassVariant = 'floating' | 'control' | 'sheet' | 'search' | 'modal' | 'status';
 
-type StableGlassEffectStyle = 'clear' | 'none';
+type StableGlassEffectStyle = 'clear' | 'regular' | 'none';
 type EffectiveColorScheme = 'light' | 'dark';
 
 export interface GlassSurfaceProps {
