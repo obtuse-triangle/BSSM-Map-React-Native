@@ -8,6 +8,7 @@ import type {
   RouteEdge,
   RouteGraph,
   RouteNode,
+  RouteOption,
   RouteOrigin,
   RouteResult,
   RouteFloorSegment,
@@ -264,4 +265,39 @@ export function computeRoute(input: {
   };
 
   return result;
+}
+
+export function computeRouteOptions(input: {
+  origin: RouteOrigin
+  destination: RouteDestination
+}): RouteOption[] {
+  const options: RouteOption[] = []
+  const modes: RouteAccessibilityMode[] = ['normal', 'elevator_priority']
+
+  for (const mode of modes) {
+    const result = computeRoute({
+      ...input,
+      accessibilityMode: mode,
+    })
+
+    if (result.ok) {
+      const isDuplicate = options.some(
+        (o) =>
+          o.result.ok &&
+          Math.abs(o.result.totalDistanceMeters - result.totalDistanceMeters) < 0.1 &&
+          o.result.floorSegments.length === result.floorSegments.length,
+      )
+
+      if (!isDuplicate) {
+        options.push({
+          id: mode === 'normal' ? 'shortest' : 'elevator_priority',
+          label: mode === 'normal' ? '최단 경로' : '엘리베이터 우선',
+          accessibilityMode: mode,
+          result,
+        })
+      }
+    }
+  }
+
+  return options
 }

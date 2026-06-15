@@ -43,7 +43,47 @@ export let computeIndoorRoute: (input: {
 export function setRouteComputer(
   fn: typeof computeIndoorRoute,
 ): void {
-  computeIndoorRoute = fn;
+  computeIndoorRoute = fn
+  computeRouteOptionsService = null
+}
+
+let computeRouteOptionsService: ((input: {
+  origin: RouteOrigin
+  destination: RouteDestination
+}) => RouteOption[]) | null = null
+
+function computeRouteOptionsUsingIndoorRoute(input: {
+  origin: RouteOrigin
+  destination: RouteDestination
+}): { options: RouteOption[]; lastError: string | null } {
+  const options: RouteOption[] = []
+  let lastError: string | null = null
+  const modes: RouteAccessibilityMode[] = ['normal', 'elevator_priority']
+  for (const mode of modes) {
+    const result = computeIndoorRoute({
+      ...input,
+      accessibilityMode: mode,
+    })
+    if (result.ok) {
+      const isDuplicate = options.some(
+        (o) =>
+          o.result.ok &&
+          Math.abs(o.result.totalDistanceMeters - result.totalDistanceMeters) < 0.1 &&
+          o.result.floorSegments.length === result.floorSegments.length,
+      )
+      if (!isDuplicate) {
+        options.push({
+          id: mode === 'normal' ? 'shortest' : 'elevator_priority',
+          label: mode === 'normal' ? '최단 경로' : '엘리베이터 우선',
+          accessibilityMode: mode,
+          result,
+        })
+      }
+    } else {
+      lastError = result.reason
+    }
+  }
+  return { options, lastError }
 }
 
 export interface RouteStoreState {
@@ -144,34 +184,17 @@ export const useRouteStore = create<RouteStoreState>()((set, get) => ({
     }
     set({ isComputing: true, error: null });
     try {
-      const options: RouteOption[] = [];
-      let lastError: string | null = null;
-      const modes: RouteAccessibilityMode[] = ['normal', 'elevator_priority'];
-      for (const mode of modes) {
-        const result = computeIndoorRoute({
-          origin: routeOrigin,
-          destination: routeDestination,
-          accessibilityMode: mode,
-        });
-        if (result.ok) {
-          const isDuplicate = options.some(
-            (o) =>
-              o.result.ok &&
-              Math.abs(o.result.totalDistanceMeters - result.totalDistanceMeters) < 0.1 &&
-              o.result.floorSegments.length === result.floorSegments.length,
-          );
-          if (!isDuplicate) {
-            options.push({
-              id: mode === 'normal' ? 'shortest' : 'elevator_priority',
-              label: mode === 'normal' ? '최단 경로' : '엘리베이터 우선',
-              accessibilityMode: mode,
-              result,
-            });
-          }
-        } else {
-          lastError = result.reason;
-        }
+      let options: RouteOption[]
+      let lastError: string | null = null
+
+      if (computeRouteOptionsService) {
+        options = computeRouteOptionsService({ origin: routeOrigin, destination: routeDestination })
+      } else {
+        const result = computeRouteOptionsUsingIndoorRoute({ origin: routeOrigin, destination: routeDestination })
+        options = result.options
+        lastError = result.lastError
       }
+
       if (options.length === 0) {
         set({
           routeResult: null,
@@ -179,7 +202,7 @@ export const useRouteStore = create<RouteStoreState>()((set, get) => ({
           selectedRouteIndex: 0,
           isComputing: false,
           error: lastError ?? 'Route computation failed',
-        });
+        })
       } else {
         set({
           routeOptions: options,
@@ -187,7 +210,7 @@ export const useRouteStore = create<RouteStoreState>()((set, get) => ({
           routeResult: options[0].result,
           isComputing: false,
           error: null,
-        });
+        })
       }
     } catch (_e) {
       set({
@@ -195,7 +218,7 @@ export const useRouteStore = create<RouteStoreState>()((set, get) => ({
         error: 'Route computation failed',
         routeOptions: [],
         routeResult: null,
-      });
+      })
     }
   },
 
@@ -231,8 +254,9 @@ export const useRouteStore = create<RouteStoreState>()((set, get) => ({
 }));
 
 try {
-  const { computeRoute } = require('../services/routing/routeComputer');
+  const { computeRoute, computeRouteOptions } = require('../services/routing/routeComputer');
   setRouteComputer(computeRoute);
+  computeRouteOptionsService = computeRouteOptions;
 } catch (_e) {
   // Tests or environments without routing data keep the mock
 }
