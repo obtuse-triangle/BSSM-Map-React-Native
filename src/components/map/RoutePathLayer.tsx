@@ -64,11 +64,22 @@ type FeatureCollection = {
   features: RouteGeoJsonFeature[];
 };
 
+type PointFeatureCollection = {
+  type: 'FeatureCollection';
+  features: {
+    type: 'Feature';
+    geometry: { type: 'Point'; coordinates: [number, number] };
+    properties: Record<string, never>;
+  }[];
+};
+
 // ── Component ─────────────────────────────────────────────────────────
 
 function RoutePathLayer() {
   const [activeData, setActiveData] = useState<FeatureCollection | null>(null);
   const [dimmedData, setDimmedData] = useState<FeatureCollection | null>(null);
+  const [originData, setOriginData] = useState<PointFeatureCollection | null>(null);
+  const [destinationData, setDestinationData] = useState<PointFeatureCollection | null>(null);
   const lastRouteResultRef = useRef<unknown>(null);
   const lastSelectedLevelRef = useRef<number>(-1);
 
@@ -104,6 +115,39 @@ function RoutePathLayer() {
           ? { type: 'FeatureCollection', features: dimmedFeatures }
           : null,
       );
+
+      const origin = useRouteStore.getState().routeOrigin;
+      const dest = useRouteStore.getState().routeDestination;
+
+      setOriginData(
+        origin && origin.level === selectedLevel
+          ? {
+              type: 'FeatureCollection',
+              features: [
+                {
+                  type: 'Feature',
+                  geometry: { type: 'Point', coordinates: origin.coordinates },
+                  properties: {},
+                },
+              ],
+            }
+          : null,
+      );
+
+      setDestinationData(
+        dest && dest.level === selectedLevel
+          ? {
+              type: 'FeatureCollection',
+              features: [
+                {
+                  type: 'Feature',
+                  geometry: { type: 'Point', coordinates: dest.coordinates },
+                  properties: {},
+                },
+              ],
+            }
+          : null,
+      );
     };
 
     // Initial data load
@@ -125,7 +169,7 @@ function RoutePathLayer() {
   }, []);
 
   // If no route data at all, render nothing
-  if (!activeData && !dimmedData) {
+  if (!activeData && !dimmedData && !originData && !destinationData) {
     return null;
   }
 
@@ -156,6 +200,38 @@ function RoutePathLayer() {
               'line-color': '#2979FF',
               'line-opacity': 1.0,
               'line-width': 4,
+            }}
+          />
+        </GeoJSONSource>
+      )}
+
+      {originData && (
+        <GeoJSONSource id="route-origin-source" data={originData}>
+          <Layer
+            id="route-origin-marker"
+            type="circle"
+            paint={{
+              'circle-radius': 8,
+              'circle-color': '#34C759',
+              'circle-opacity': 1.0,
+              'circle-stroke-width': 2,
+              'circle-stroke-color': '#FFFFFF',
+            }}
+          />
+        </GeoJSONSource>
+      )}
+
+      {destinationData && (
+        <GeoJSONSource id="route-destination-source" data={destinationData}>
+          <Layer
+            id="route-destination-marker"
+            type="circle"
+            paint={{
+              'circle-radius': 8,
+              'circle-color': '#FF3B30',
+              'circle-opacity': 1.0,
+              'circle-stroke-width': 2,
+              'circle-stroke-color': '#FFFFFF',
             }}
           />
         </GeoJSONSource>
