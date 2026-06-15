@@ -64,13 +64,15 @@ type FeatureCollection = {
   features: RouteGeoJsonFeature[];
 };
 
+type PointFeature = {
+  type: 'Feature';
+  geometry: { type: 'Point'; coordinates: [number, number] };
+  properties: { label: string };
+};
+
 type PointFeatureCollection = {
   type: 'FeatureCollection';
-  features: {
-    type: 'Feature';
-    geometry: { type: 'Point'; coordinates: [number, number] };
-    properties: Record<string, never>;
-  }[];
+  features: PointFeature[];
 };
 
 // ── Component ─────────────────────────────────────────────────────────
@@ -127,7 +129,7 @@ function RoutePathLayer() {
                 {
                   type: 'Feature',
                   geometry: { type: 'Point', coordinates: origin.coordinates },
-                  properties: {},
+                  properties: { label: '출' },
                 },
               ],
             }
@@ -142,7 +144,7 @@ function RoutePathLayer() {
                 {
                   type: 'Feature',
                   geometry: { type: 'Point', coordinates: dest.coordinates },
-                  properties: {},
+                  properties: { label: '도' },
                 },
               ],
             }
@@ -211,11 +213,23 @@ function RoutePathLayer() {
             id="route-origin-marker"
             type="circle"
             paint={{
-              'circle-radius': 8,
+              'circle-radius': 10,
               'circle-color': '#34C759',
               'circle-opacity': 1.0,
               'circle-stroke-width': 2,
               'circle-stroke-color': '#FFFFFF',
+            }}
+          />
+          <Layer
+            id="route-origin-label"
+            type="symbol"
+            layout={{
+              'text-field': ['get', 'label'],
+              'text-size': 12,
+              'text-allow-overlap': true,
+            }}
+            paint={{
+              'text-color': '#FFFFFF',
             }}
           />
         </GeoJSONSource>
@@ -227,11 +241,23 @@ function RoutePathLayer() {
             id="route-destination-marker"
             type="circle"
             paint={{
-              'circle-radius': 8,
+              'circle-radius': 10,
               'circle-color': '#FF3B30',
               'circle-opacity': 1.0,
               'circle-stroke-width': 2,
               'circle-stroke-color': '#FFFFFF',
+            }}
+          />
+          <Layer
+            id="route-destination-label"
+            type="symbol"
+            layout={{
+              'text-field': ['get', 'label'],
+              'text-size': 12,
+              'text-allow-overlap': true,
+            }}
+            paint={{
+              'text-color': '#FFFFFF',
             }}
           />
         </GeoJSONSource>
