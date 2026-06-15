@@ -2,7 +2,7 @@ import { buildRoutingGraph } from "./graphBuilder";
 import { transformWgs84ToEpsg5183 } from "../../utils/coordinateTransform";
 import type { RouteGraph } from "../../types/routing";
 
-const DEFAULT_SNAP_THRESHOLD_METERS = 10;
+const DEFAULT_SNAP_THRESHOLD_METERS = 30;
 const HIGH_ACCURACY_THRESHOLD_METERS = 25;
 
 let cachedGraph = buildRoutingGraph();
