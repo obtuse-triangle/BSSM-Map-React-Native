@@ -23,9 +23,10 @@ import type { RouteGraph, RouteNode, RouteEdge } from '../../types/routing';
 // ── Constants ────────────────────────────────────────────────────────
 
 const DEFAULT_SPACING = 2.0;
-const K_NEAREST = 8;
-const MAX_EDGE_DISTANCE_MULTIPLIER = 3;
+const K_NEAREST = 6;
+const MAX_EDGE_DISTANCE_MULTIPLIER = 2;
 const CONNECTOR_POLYGON_LINKS = 3;
+const BRIDGE_MAX_DISTANCE_M = 8;
 
 // ── Internal types ───────────────────────────────────────────────────
 
@@ -211,6 +212,7 @@ function generateEdgesForLevel(
     hasEdge.add(e.to);
   }
 
+  const orphanRescueMaxDistSq = 10 ** 2;
   for (let i = 0; i < nodes.length; i++) {
     const a = nodes[i];
     if (hasEdge.has(a.id)) continue;
@@ -222,7 +224,7 @@ function generateEdgesForLevel(
       const dx = nodes[j].x - a.x;
       const dy = nodes[j].y - a.y;
       const dSq = dx * dx + dy * dy;
-      if (dSq > 0 && dSq < bestDSq) {
+      if (dSq > 0 && dSq <= orphanRescueMaxDistSq && dSq < bestDSq) {
         bestDSq = dSq;
         bestIdx = j;
       }
@@ -292,7 +294,7 @@ function generatePolygonBridgesForLevel(
         }
       }
 
-      if (bestFrom && bestTo) {
+      if (bestFrom && bestTo && bestWeight <= BRIDGE_MAX_DISTANCE_M) {
         candidates.push({
           from: bestFrom,
           to: bestTo,
@@ -406,10 +408,12 @@ function generateComponentBridgesForLevel(
   for (let i = 0; i < nodes.length; i++) {
     for (let j = i + 1; j < nodes.length; j++) {
       if (find(nodes[i].id) === find(nodes[j].id)) continue;
+      const weight = euclidean(nodes[i].x, nodes[i].y, nodes[j].x, nodes[j].y);
+      if (weight > BRIDGE_MAX_DISTANCE_M) continue;
       candidates.push({
         from: nodes[i],
         to: nodes[j],
-        weight: euclidean(nodes[i].x, nodes[i].y, nodes[j].x, nodes[j].y),
+        weight,
       });
     }
   }
@@ -626,7 +630,7 @@ export function buildRoutingGraph(
           id: n.id,
           d: euclidean(x, y, n.x, n.y),
         }))
-        .filter((n) => n.d > 0)
+        .filter((n) => n.d > 0 && n.d <= BRIDGE_MAX_DISTANCE_M)
         .sort((a, b) => a.d - b.d);
 
       const nearest = withDist.slice(0, CONNECTOR_POLYGON_LINKS);
@@ -675,6 +679,17 @@ export function buildRoutingGraph(
       accessibilityPenalty,
       edgeType: 'connector',
     });
+  }
+
+  const incidentNodeIds = new Set<string>();
+  for (const e of edges) {
+    incidentNodeIds.add(e.from);
+    incidentNodeIds.add(e.to);
+  }
+  for (const nodeId of [...nodes.keys()]) {
+    if (!incidentNodeIds.has(nodeId)) {
+      nodes.delete(nodeId);
+    }
   }
 
   // ── 4. Build adjacency list ──────────────────────────────────────
