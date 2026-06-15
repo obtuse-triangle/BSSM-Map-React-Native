@@ -6,6 +6,7 @@ import type { CampusGeoJSON } from '../types/geojson';
 import type {
   RouteAccessibilityMode,
   RouteDestination,
+  RouteOption,
   RouteOrigin,
   RouteResult,
 } from '../types/routing';
@@ -49,6 +50,8 @@ export interface RouteStoreState {
   routeOrigin: RouteOrigin | null;
   routeDestination: RouteDestination | null;
   routeResult: RouteResult | null;
+  routeOptions: RouteOption[];
+  selectedRouteIndex: number;
   accessibilityMode: RouteAccessibilityMode;
   isComputing: boolean;
   error: string | null;
@@ -61,6 +64,8 @@ export interface RouteStoreState {
   ) => void;
   setDestinationFeature: (featureId: string) => void;
   computeRoute: () => void;
+  computeRouteOptions: () => void;
+  selectRoute: (index: number) => void;
   clearRoute: () => void;
   setAccessibilityMode: (mode: RouteAccessibilityMode) => void;
   recomputeRoute: () => void;
@@ -70,6 +75,8 @@ export const useRouteStore = create<RouteStoreState>()((set, get) => ({
   routeOrigin: null,
   routeDestination: null,
   routeResult: null,
+  routeOptions: [],
+  selectedRouteIndex: 0,
   accessibilityMode: 'normal',
   isComputing: false,
   error: null,
@@ -122,6 +129,10 @@ export const useRouteStore = create<RouteStoreState>()((set, get) => ({
   },
 
   computeRoute: () => {
+    get().computeRouteOptions();
+  },
+
+  computeRouteOptions: () => {
     const { routeOrigin, routeDestination } = get();
     if (!routeOrigin) {
       set({ error: 'ROUTE_ORIGIN_REQUIRED', isComputing: false });
@@ -133,21 +144,65 @@ export const useRouteStore = create<RouteStoreState>()((set, get) => ({
     }
     set({ isComputing: true, error: null });
     try {
-      const result = computeIndoorRoute({
-        origin: routeOrigin,
-        destination: routeDestination,
-        accessibilityMode: get().accessibilityMode,
-      });
-      if (result.ok) {
-        set({ routeResult: result, isComputing: false, error: null });
+      const options: RouteOption[] = [];
+      let lastError: string | null = null;
+      const modes: RouteAccessibilityMode[] = ['normal', 'elevator_priority'];
+      for (const mode of modes) {
+        const result = computeIndoorRoute({
+          origin: routeOrigin,
+          destination: routeDestination,
+          accessibilityMode: mode,
+        });
+        if (result.ok) {
+          const isDuplicate = options.some(
+            (o) =>
+              o.result.ok &&
+              Math.abs(o.result.totalDistanceMeters - result.totalDistanceMeters) < 0.1 &&
+              o.result.floorSegments.length === result.floorSegments.length,
+          );
+          if (!isDuplicate) {
+            options.push({
+              id: mode === 'normal' ? 'shortest' : 'elevator_priority',
+              label: mode === 'normal' ? '최단 경로' : '엘리베이터 우선',
+              accessibilityMode: mode,
+              result,
+            });
+          }
+        } else {
+          lastError = result.reason;
+        }
+      }
+      if (options.length === 0) {
+        set({
+          routeResult: null,
+          routeOptions: [],
+          selectedRouteIndex: 0,
+          isComputing: false,
+          error: lastError ?? 'Route computation failed',
+        });
       } else {
-        set({ routeResult: null, isComputing: false, error: result.reason });
+        set({
+          routeOptions: options,
+          selectedRouteIndex: 0,
+          routeResult: options[0].result,
+          isComputing: false,
+          error: null,
+        });
       }
     } catch (_e) {
       set({
         isComputing: false,
         error: 'Route computation failed',
+        routeOptions: [],
+        routeResult: null,
       });
+    }
+  },
+
+  selectRoute: (index: number) => {
+    const { routeOptions } = get();
+    if (index >= 0 && index < routeOptions.length) {
+      set({ selectedRouteIndex: index, routeResult: routeOptions[index].result });
     }
   },
 
@@ -156,6 +211,8 @@ export const useRouteStore = create<RouteStoreState>()((set, get) => ({
       routeOrigin: null,
       routeDestination: null,
       routeResult: null,
+      routeOptions: [],
+      selectedRouteIndex: 0,
       error: null,
       isComputing: false,
     });

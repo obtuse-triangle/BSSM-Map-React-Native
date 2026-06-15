@@ -151,3 +151,15 @@ export interface RouteDestination {
   coordinates: [number, number];
   level: number;
 }
+
+/** A single route option presented to the user (e.g. shortest path, elevator-priority). */
+export interface RouteOption {
+  /** Unique identifier for this option: 'shortest' | 'elevator_priority'. */
+  id: string;
+  /** Korean display label: '최단 경로', '엘리베이터 우선'. */
+  label: string;
+  /** The accessibility mode that produced this result. */
+  accessibilityMode: RouteAccessibilityMode;
+  /** The computed route result. */
+  result: RouteResult;
+}
