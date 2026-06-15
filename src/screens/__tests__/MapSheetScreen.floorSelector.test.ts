@@ -61,11 +61,24 @@ describe('MapSheetScreen Liquid Glass floor selector (static invariants)', () =>
     });
 
     it('calls setSelectedLevel exactly once via runOnJS in .onEnd', () => {
-      const onEndBlock = screenSource.match(/\.onEnd\(\(\)\s*=>\s*\{([\s\S]*?)\}\s*\),\s*\n\s*\[/);
+      // .onEnd is followed by .onFinalize (which resets isPanning on ALL
+      // terminal states including FAIL — critical for tap-to-select).
+      // Greedy [\\s\\S]* because the body contains nested { duration: 160 }).
+      const onEndBlock = screenSource.match(/\.onEnd\(\(\)\s*=>\s*\{([\s\S]*)\}\s*\)\s*\.onFinalize/);
       expect(onEndBlock).not.toBeNull();
       const body = onEndBlock![1];
       expect(body).toMatch(/runOnJS\(applyLevelByIndex\)/);
       expect(body).not.toMatch(/setSelectedLevel\s*\(/);
+      // isPanning reset must live in onFinalize (covers FAIL/CANCEL), not onEnd.
+      expect(body).not.toMatch(/isPanning\.value\s*=\s*0/);
+    });
+
+    it('resets isPanning to 0 in .onFinalize (covers tap FAIL state)', () => {
+      const onFinalizeBlock = screenSource.match(
+        /\.onFinalize\(\(\)\s*=>\s*\{([\s\S]*?)\}\s*\)\s*,\s*\n\s*\[/,
+      );
+      expect(onFinalizeBlock).not.toBeNull();
+      expect(onFinalizeBlock![1]).toMatch(/isPanning\.value\s*=\s*0/);
     });
 
     it('clamps the snap index to the valid level range', () => {

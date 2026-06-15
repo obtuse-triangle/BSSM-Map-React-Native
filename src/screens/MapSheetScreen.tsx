@@ -157,8 +157,11 @@ export function MapSheetScreen() {
           const nearestIndex = Math.round(indicatorX.value / LEVEL_BUTTON_WIDTH);
           const clamped = Math.max(0, Math.min(levels.length - 1, nearestIndex));
           indicatorX.value = withTiming(clamped * LEVEL_BUTTON_WIDTH, { duration: 160 });
-          isPanning.value = 0;
           runOnJS(applyLevelByIndex)(clamped);
+        })
+        .onFinalize(() => {
+          'worklet';
+          isPanning.value = 0;
         }),
     [applyLevelByIndex, indicatorX, isPanning, levels.length, panStartX],
   );
@@ -477,7 +480,14 @@ export function MapSheetScreen() {
               >
                 <View
                   pointerEvents="none"
-                  style={[StyleSheet.absoluteFill, { backgroundColor: sheetSelectionBg, borderRadius: 999 }]}
+                  style={[
+                    StyleSheet.absoluteFill,
+                    {
+                      backgroundColor: sheetAccent(sheetScheme),
+                      borderRadius: 999,
+                      opacity: 0.85,
+                    },
+                  ]}
                 />
               </Animated.View>
               <View style={styles.levelRow}>
@@ -493,7 +503,7 @@ export function MapSheetScreen() {
                       onPress={() => setSelectedLevel(level)}
                       style={styles.levelButton}
                     >
-                      <Text style={[styles.levelButtonText, { color: sheetLabel }, selected && { color: sheetAccent(sheetScheme) }]}>
+                      <Text style={[styles.levelButtonText, { color: sheetLabel }, selected && { color: '#FFFFFF' }]}>
                         {level}F
                       </Text>
                     </Pressable>
