@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { cancelAnimation, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import { runOnJS } from 'react-native-worklets';
 import { MAP_STYLES } from '../constants/mapStyles';
 import campusDataUntyped from '../data/campus-wgs84.json';
 import { FeedbackStateCard } from '../components/feedback/FeedbackStateCard';
@@ -30,6 +33,11 @@ import type { RootStackParamList } from '../navigation/types';
 const campusData = campusDataUntyped as unknown as CampusGeoJSON;
 
 const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
+
+// Fixed per-button width for the Liquid Glass floor selector. The drag snap
+// math is: nearestIndex = clamp(round(translateX / LEVEL_BUTTON_WIDTH), 0, len-1).
+// Adding wider level labels would break this; keep labels ≤ 2 chars (1F/2F/3F/4F).
+const LEVEL_BUTTON_WIDTH = 36;
 
 const CATEGORY_LABELS: Record<CampusFeatureCategory, string> = {
   classroom: '교실',
@@ -94,6 +102,70 @@ export function MapSheetScreen() {
   const gpsSearching = gpsTrackingEnabled && !userCoordinates;
   const isLocateDisabled = positionStatus === 'loading' || gpsSearching;
   const baseLayerIcon = MAP_STYLES.find((s) => s.id === baseLayer)?.icon ?? '⚙';
+
+  // ── Liquid Glass floor selector ──────────────────────────────────────
+  // indicatorX drives the floating bubble (worklet thread). onUpdate only
+  // mutates shared values; onEnd snaps + calls setSelectedLevel once via
+  // runOnJS. NEVER call React state setters inside onUpdate (would crash).
+  const selectedIndex = useMemo(
+    () => Math.max(0, levels.indexOf(selectedLevel)),
+    [levels, selectedLevel],
+  );
+  const indicatorX = useSharedValue(selectedIndex * LEVEL_BUTTON_WIDTH);
+  const panStartX = useSharedValue(indicatorX.value);
+  const isPanning = useSharedValue(0);
+
+  // Sync indicator to externally-driven selectedLevel (taps/search/saved).
+  // Skip while panning so the finger stays authoritative.
+  useEffect(() => {
+    if (isPanning.value === 1) return;
+    const target = selectedIndex * LEVEL_BUTTON_WIDTH;
+    cancelAnimation(indicatorX);
+    indicatorX.value = withTiming(target, { duration: 180 });
+  }, [selectedIndex, indicatorX, isPanning]);
+
+  const applyLevelByIndex = useCallback(
+    (index: number) => {
+      const clamped = Math.max(0, Math.min(levels.length - 1, index));
+      const next = levels[clamped];
+      if (next !== undefined && next !== selectedLevel) {
+        setSelectedLevel(next);
+      }
+    },
+    [levels, selectedLevel, setSelectedLevel],
+  );
+
+  const floorPanGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .minDistance(4)
+        .maxPointers(1)
+        .onBegin(() => {
+          'worklet';
+          isPanning.value = 1;
+          panStartX.value = indicatorX.value;
+          cancelAnimation(indicatorX);
+        })
+        .onUpdate((event) => {
+          'worklet';
+          const next = panStartX.value + event.translationX;
+          const max = (levels.length - 1) * LEVEL_BUTTON_WIDTH;
+          indicatorX.value = Math.max(0, Math.min(max, next));
+        })
+        .onEnd(() => {
+          'worklet';
+          const nearestIndex = Math.round(indicatorX.value / LEVEL_BUTTON_WIDTH);
+          const clamped = Math.max(0, Math.min(levels.length - 1, nearestIndex));
+          indicatorX.value = withTiming(clamped * LEVEL_BUTTON_WIDTH, { duration: 160 });
+          isPanning.value = 0;
+          runOnJS(applyLevelByIndex)(clamped);
+        }),
+    [applyLevelByIndex, indicatorX, isPanning, levels.length, panStartX],
+  );
+
+  const indicatorStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: indicatorX.value }],
+  }));
 
   const handleLocate = useCallback(() => {
     setPendingFlyToFeatureId('__locate__');
@@ -391,25 +463,41 @@ export function MapSheetScreen() {
 
         <View style={[styles.barDivider, { backgroundColor: sheetSeparator }]} />
 
-        <View style={styles.levelRow}>
-          {levels.map((level) => {
-            const selected = level === selectedLevel;
-            return (
-              <Pressable
-                key={level}
-                accessibilityRole="button"
-                accessibilityLabel={`${level}층 선택`}
-                hitSlop={HIT_SLOP}
-                onPress={() => setSelectedLevel(level)}
-                style={[styles.levelButton, selected && styles.levelButtonSelected]}
-              >
-                    <Text style={[styles.levelButtonText, { color: sheetLabel }, selected && { color: sheetAccent(sheetScheme) }]}>
-                    {level}F
-                  </Text>
-                </Pressable>
-            );
-          })}
-        </View>
+        <GestureDetector gesture={floorPanGesture}>
+          <GlassSurface
+            variant="control"
+            cornerRadius={18}
+            colorScheme={sheetScheme === 'dark' || sheetScheme === 'light' ? sheetScheme : undefined}
+            style={styles.levelRowGlass}
+          >
+            <View style={styles.levelRowTrack}>
+              <Animated.View
+                pointerEvents="none"
+                style={[styles.levelIndicator, { backgroundColor: sheetSelectionBg }, indicatorStyle]}
+              />
+              <View style={styles.levelRow}>
+                {levels.map((level) => {
+                  const selected = level === selectedLevel;
+                  return (
+                    <Pressable
+                      key={level}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${level}층 선택`}
+                      accessibilityState={{ selected }}
+                      hitSlop={HIT_SLOP}
+                      onPress={() => setSelectedLevel(level)}
+                      style={styles.levelButton}
+                    >
+                      <Text style={[styles.levelButtonText, { color: sheetLabel }, selected && { color: sheetAccent(sheetScheme) }]}>
+                        {level}F
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          </GlassSurface>
+        </GestureDetector>
 
         <View style={styles.infoGroup}>
           <View style={[styles.barDivider, { backgroundColor: sheetSeparator }]} />
@@ -692,21 +780,36 @@ const styles = StyleSheet.create({
     height: 24,
     width: 1,
   },
+  levelRowGlass: {
+    paddingVertical: 3,
+    paddingHorizontal: 3,
+  },
+  levelRowTrack: {
+    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  levelIndicator: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: LEVEL_BUTTON_WIDTH,
+    borderRadius: 999,
+  },
   levelRow: {
     alignItems: 'center',
     flexDirection: 'row',
-    gap: 2,
+    gap: 0,
+    zIndex: 1,
   },
   levelButton: {
     alignItems: 'center',
     backgroundColor: 'transparent',
     borderRadius: 999,
-    minWidth: 36,
-    paddingHorizontal: 8,
-    paddingVertical: 5,
-  },
-  levelButtonSelected: {
-    backgroundColor: sheetSelectionBg,
+    height: 34,
+    justifyContent: 'center',
+    width: LEVEL_BUTTON_WIDTH,
   },
   levelButtonText: {
     fontSize: 12,

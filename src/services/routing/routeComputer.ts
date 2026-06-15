@@ -108,9 +108,8 @@ function connectTempNodeToArea(
   level: number,
   radius: number = 15.0,
 ): void {
-  // Always connect to the snapped node (guaranteed graph integration point)
   const snappedNode = graph.nodes.get(snappedNodeId);
-  if (snappedNode) {
+  if (snappedNode && snappedNode.nodeType !== 'connector') {
     const snappedDist = euclidean(x, y, snappedNode.x, snappedNode.y);
     addBidirectionalWalkEdge(graph, tempNode, snappedNode, level, snappedDist);
   }
@@ -119,6 +118,7 @@ function connectTempNodeToArea(
   for (const [nodeId, node] of graph.nodes) {
     if (node.level !== level) continue;
     if (node.nodeType === 'temp_origin' || node.nodeType === 'temp_destination') continue;
+    if (node.nodeType === 'connector') continue;
     if (nodeId === snappedNodeId) continue;
     const dist = euclidean(x, y, node.x, node.y);
     if (dist <= radius) {
