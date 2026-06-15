@@ -25,6 +25,7 @@ import CampusBleMarker from './CampusBleMarker';
 import CampusApMarkers from './CampusApMarkers';
 import SavedPinsLayer from './SavedPinsLayer';
 import RoutePathLayer from './RoutePathLayer';
+import { getCampusOverlayPaints } from './campusOverlayPaints';
 import { getDetectedBuildingId } from '../../utils/buildingDetection';
 import type { CampusGeoJSON } from '../../types/geojson';
 import { getFeatureById } from '../../utils/geoJsonHelpers';
@@ -336,6 +337,8 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false, onUserMap
     [selectedFeatureId],
   );
 
+  const overlayPaints = useMemo(() => getCampusOverlayPaints(baseLayer), [baseLayer]);
+
   const showDesign = baseLayer === 'design';
 
   const tileStyles = useMemo(() => MAP_STYLES.filter((s) => s.id !== 'design'), []);
@@ -366,12 +369,12 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false, onUserMap
           <Layer
             id="outline-fill"
             type="fill"
-            paint={{ 'fill-color': '#E0E0E0', 'fill-opacity': 0.3 }}
+            paint={overlayPaints.schoolOutlineFill}
           />
           <Layer
             id="outline-line"
             type="line"
-            paint={{ 'line-color': '#666666', 'line-width': 1.5 }}
+            paint={overlayPaints.schoolOutlineLine}
           />
         </GeoJSONSource>
 
@@ -383,34 +386,22 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false, onUserMap
             type="fill"
             filter={categoryFilter}
             paint={{
-              'fill-color': [
-                'match',
-                ['get', 'category'],
-                'classroom', '#D4E8FC',
-                'room', '#FFF9C4',
-                'facility', '#C8E6C9',
-                'restroom', '#B3E5FC',
-                'stair', '#D7CCC8',
-                'elevator', '#CFD8DC',
-                'corridor', '#F5F5F5',
-                'structural', '#EEEEEE',
-                '#F9F9F9',
-              ],
-              'fill-opacity': 0.85,
+              'fill-color': overlayPaints.campusFillMatch,
+              'fill-opacity': overlayPaints.campusFillOpacity,
             }}
           />
           <Layer
             id="room-highlight"
             type="fill"
             filter={selectedFeatureFilter}
-            paint={{ 'fill-color': '#2979FF', 'fill-opacity': 0.6 }}
+            paint={overlayPaints.roomHighlight}
             afterId="campus-fill"
           />
           <Layer
             id="campus-outline"
             type="line"
             filter={categoryFilter}
-            paint={{ 'line-color': '#333333', 'line-width': 1 }}
+            paint={overlayPaints.campusOutline}
           />
           <Layer
             id="room-labels"
@@ -427,9 +418,7 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false, onUserMap
               'text-font': ['Open Sans Regular', 'Arial Unicode MS Regular'],
             }}
             paint={{
-              'text-color': '#333333',
-              'text-halo-color': '#ffffff',
-              'text-halo-width': 1.5,
+              ...overlayPaints.roomLabel,
             }}
             minzoom={16}
           />
