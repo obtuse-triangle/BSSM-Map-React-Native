@@ -96,6 +96,31 @@ describe('buildRoutingGraph', () => {
     }
   });
 
+  it('level 1 graph is mostly connected', () => {
+    const level1Nodes = [...graph.nodes.values()].filter((n) => n.level === 1);
+    if (level1Nodes.length === 0) return;
+
+    const startId = level1Nodes[0].id;
+    const visited = new Set<string>([startId]);
+    const queue = [startId];
+
+    while (queue.length > 0) {
+      const cur = queue.shift()!;
+      const neighbors = graph.adjacency.get(cur) || [];
+      for (const next of neighbors) {
+        if (!visited.has(next) && graph.nodes.get(next)?.level === 1) {
+          visited.add(next);
+          queue.push(next);
+        }
+      }
+    }
+
+    const reachable = [...visited].filter(
+      (id) => graph.nodes.get(id)?.level === 1,
+    ).length;
+    expect(reachable / level1Nodes.length).toBeGreaterThan(0.9);
+  });
+
   // ── Edge integrity ───────────────────────────────────────────────
 
   it('all edge.from and edge.to reference existing nodes', () => {

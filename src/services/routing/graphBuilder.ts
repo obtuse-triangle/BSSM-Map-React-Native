@@ -8,8 +8,7 @@
  *   2. Load routing-connectors.geojson (static import)
  *   3. Project all WGS84 coordinates → EPSG:5183 for planar math
  *   4. Per walkable polygon: add ring vertices + sampled interior grid nodes
- *   5. Per level: connect each node to K nearest neighbours within 2×spacing,
- *      keeping edges where the segment midpoint lies inside walkable area(s)
+ *   5. Per level: connect each node to K nearest neighbours within 3×spacing
  *   6. Per connector: add two connector nodes (fromLevel / toLevel),
  *      connect each to nearest polygon nodes, add cross-floor connector edge
  *
@@ -24,8 +23,8 @@ import type { RouteGraph, RouteNode, RouteEdge } from '../../types/routing';
 // ── Constants ────────────────────────────────────────────────────────
 
 const DEFAULT_SPACING = 2.0;
-const K_NEAREST = 6;
-const MAX_EDGE_DISTANCE_MULTIPLIER = 2;
+const K_NEAREST = 8;
+const MAX_EDGE_DISTANCE_MULTIPLIER = 3;
 const CONNECTOR_POLYGON_LINKS = 3;
 
 // ── Internal types ───────────────────────────────────────────────────
@@ -65,7 +64,7 @@ function isInsidePolygon(x: number, y: number, poly: PolygonData): boolean {
   return true;
 }
 
-/** True if (x,y) is inside at least one polygon from a list (used for midpoint check). */
+/** True if (x,y) is inside at least one polygon from a list. */
 function isInsideAnyPolygon(
   x: number,
   y: number,
@@ -138,10 +137,9 @@ function sampleGrid(poly: PolygonData, spacing: number): [number, number][] {
  * Generate walk edges for all polygon nodes on one floor level.
  *
  * Two-phase approach:
- *   1. Primary edges — K nearest neighbours within maxDist (midpoint must be
- *      inside a walkable polygon so the edge stays within walkable areas).
+ *   1. Primary edges — K nearest neighbours within maxDist.
  *   2. Orphan rescue — any node left with zero edges gets connected to its
- *      nearest neighbour regardless of distance (still checking midpoint).
+ *      nearest neighbour regardless of distance.
  *
  * Performance: uses squared distances for filtering and sorting to avoid
  * expensive sqrt calls — only the final edge weight uses the real distance.
@@ -179,12 +177,6 @@ function generateEdgesForLevel(
       const key = a.id < b.id ? `${a.id}|${b.id}` : `${b.id}|${a.id}`;
       if (seen.has(key)) continue;
       seen.add(key);
-
-      // Midpoint containment check — ensures the connecting segment
-      // stays inside a walkable area
-      const midX = (a.x + b.x) / 2;
-      const midY = (a.y + b.y) / 2;
-      if (!isInsideAnyPolygon(midX, midY, polygons)) continue;
 
       const weight = Math.sqrt(c.dSq);
 
@@ -264,6 +256,195 @@ function generateEdgesForLevel(
   return edges;
 }
 
+/**
+ * Bridge separate walkable polygons on the same level by connecting the
+ * closest node pair between polygons, using a minimum-spanning-tree pass so we
+ * add the fewest possible cross-polygon links.
+ */
+function generatePolygonBridgesForLevel(
+  polygonNodeGroups: NodeEntry[][],
+  level: number,
+): RouteEdge[] {
+  if (polygonNodeGroups.length <= 1) return [];
+
+  const candidates: {
+    from: NodeEntry;
+    to: NodeEntry;
+    weight: number;
+    i: number;
+    j: number;
+  }[] = [];
+
+  for (let i = 0; i < polygonNodeGroups.length; i++) {
+    for (let j = i + 1; j < polygonNodeGroups.length; j++) {
+      let bestFrom: NodeEntry | null = null;
+      let bestTo: NodeEntry | null = null;
+      let bestWeight = Infinity;
+
+      for (const a of polygonNodeGroups[i]) {
+        for (const b of polygonNodeGroups[j]) {
+          const weight = euclidean(a.x, a.y, b.x, b.y);
+          if (weight < bestWeight) {
+            bestWeight = weight;
+            bestFrom = a;
+            bestTo = b;
+          }
+        }
+      }
+
+      if (bestFrom && bestTo) {
+        candidates.push({
+          from: bestFrom,
+          to: bestTo,
+          weight: bestWeight,
+          i,
+          j,
+        });
+      }
+    }
+  }
+
+  candidates.sort((a, b) => a.weight - b.weight);
+
+  const parent = polygonNodeGroups.map((_, idx) => idx);
+  const find = (idx: number): number => {
+    let cur = idx;
+    while (parent[cur] !== cur) {
+      parent[cur] = parent[parent[cur]];
+      cur = parent[cur];
+    }
+    return cur;
+  };
+  const union = (a: number, b: number): boolean => {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra === rb) return false;
+    parent[rb] = ra;
+    return true;
+  };
+
+  const bridgeEdges: RouteEdge[] = [];
+  const seen = new Set<string>();
+
+  for (const c of candidates) {
+    if (!union(c.i, c.j)) continue;
+
+    const key = c.from.id < c.to.id ? `${c.from.id}|${c.to.id}` : `${c.to.id}|${c.from.id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    bridgeEdges.push({
+      from: c.from.id,
+      to: c.to.id,
+      weightMeters: c.weight,
+      level,
+      accessibilityPenalty: 0,
+      edgeType: 'walk',
+    });
+    bridgeEdges.push({
+      from: c.to.id,
+      to: c.from.id,
+      weightMeters: c.weight,
+      level,
+      accessibilityPenalty: 0,
+      edgeType: 'walk',
+    });
+  }
+
+  return bridgeEdges;
+}
+
+/**
+ * If walkable polygons still end up fragmented into multiple components after
+ * local KNN edges and polygon bridges, add the closest remaining inter-component
+ * links until the level becomes connected.
+ */
+function generateComponentBridgesForLevel(
+  nodes: NodeEntry[],
+  existingEdges: RouteEdge[],
+  level: number,
+): RouteEdge[] {
+  if (nodes.length <= 1) return [];
+
+  const nodeIds = new Set(nodes.map((n) => n.id));
+  const parent = new Map<string, string>();
+  for (const node of nodes) parent.set(node.id, node.id);
+
+  const find = (id: string): string => {
+    const p = parent.get(id);
+    if (!p || p === id) return id;
+    const root = find(p);
+    parent.set(id, root);
+    return root;
+  };
+
+  const union = (a: string, b: string): boolean => {
+    const ra = find(a);
+    const rb = find(b);
+    if (ra === rb) return false;
+    parent.set(rb, ra);
+    return true;
+  };
+
+  for (const edge of existingEdges) {
+    if (edge.edgeType !== 'walk') continue;
+    if (!nodeIds.has(edge.from) || !nodeIds.has(edge.to)) continue;
+    union(edge.from, edge.to);
+  }
+
+  const seen = new Set<string>();
+  for (const edge of existingEdges) {
+    const key = edge.from < edge.to ? `${edge.from}|${edge.to}` : `${edge.to}|${edge.from}`;
+    seen.add(key);
+  }
+
+  const candidates: {
+    from: NodeEntry;
+    to: NodeEntry;
+    weight: number;
+  }[] = [];
+  for (let i = 0; i < nodes.length; i++) {
+    for (let j = i + 1; j < nodes.length; j++) {
+      if (find(nodes[i].id) === find(nodes[j].id)) continue;
+      candidates.push({
+        from: nodes[i],
+        to: nodes[j],
+        weight: euclidean(nodes[i].x, nodes[i].y, nodes[j].x, nodes[j].y),
+      });
+    }
+  }
+
+  candidates.sort((a, b) => a.weight - b.weight);
+
+  const bridgeEdges: RouteEdge[] = [];
+  for (const c of candidates) {
+    if (!union(c.from.id, c.to.id)) continue;
+
+    const key = c.from.id < c.to.id ? `${c.from.id}|${c.to.id}` : `${c.to.id}|${c.from.id}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    bridgeEdges.push({
+      from: c.from.id,
+      to: c.to.id,
+      weightMeters: c.weight,
+      level,
+      accessibilityPenalty: 0,
+      edgeType: 'walk',
+    });
+    bridgeEdges.push({
+      from: c.to.id,
+      to: c.from.id,
+      weightMeters: c.weight,
+      level,
+      accessibilityPenalty: 0,
+      edgeType: 'walk',
+    });
+  }
+
+  return bridgeEdges;
+}
+
 // ── Connector helpers ────────────────────────────────────────────────
 
 /** Sort connectors for deterministic iteration order. */
@@ -309,11 +490,13 @@ export function buildRoutingGraph(
   // Per-level working data (needed later for connector → polygon links)
   const polygonDataByLevel = new Map<number, PolygonData[]>();
   const levelNodeEntries = new Map<number, NodeEntry[]>();
+  const polygonNodeGroupsByLevel = new Map<number, NodeEntry[][]>();
 
   // ── 2. Process each floor level ──────────────────────────────────
   for (const [level, features] of featuresByLevel) {
     const polys: PolygonData[] = [];
     const allNodes: NodeEntry[] = [];
+    const polygonNodeGroups: NodeEntry[][] = [];
     let ringGroupIndex = 0; // global per-level ring-group counter for determinism
 
     for (const feat of features) {
@@ -332,6 +515,7 @@ export function buildRoutingGraph(
         );
 
       polys.push({ exteriorRing, interiorRings });
+      const polygonNodes: NodeEntry[] = [];
 
       // 2a. Ring vertex nodes
       for (let pi = 0; pi < exteriorRing.length; pi++) {
@@ -345,7 +529,9 @@ export function buildRoutingGraph(
             level,
             nodeType: 'polygon',
           });
-          allNodes.push({ id, x, y });
+          const entry = { id, x, y };
+          allNodes.push(entry);
+          polygonNodes.push(entry);
         }
       }
       ringGroupIndex++;
@@ -364,17 +550,32 @@ export function buildRoutingGraph(
             level,
             nodeType: 'polygon',
           });
-          allNodes.push({ id, x, y });
+          const entry = { id, x, y };
+          allNodes.push(entry);
+          polygonNodes.push(entry);
         }
       }
+
+      polygonNodeGroups.push(polygonNodes);
     }
 
     polygonDataByLevel.set(level, polys);
     levelNodeEntries.set(level, allNodes);
+    polygonNodeGroupsByLevel.set(level, polygonNodeGroups);
 
     // 2c. Generate walk edges for this level
     const levelEdges = generateEdgesForLevel(allNodes, spacing, polys, level);
     edges.push(...levelEdges);
+
+    // 2d. Bridge adjacent walkable polygons so disconnected floor fragments
+    //      become a single routing component.
+    const bridgeEdges = generatePolygonBridgesForLevel(polygonNodeGroups, level);
+    edges.push(...bridgeEdges);
+
+    // 2e. Final connectivity pass across any remaining disconnected level-
+    //      local components.
+    const componentBridgeEdges = generateComponentBridgesForLevel(allNodes, edges, level);
+    edges.push(...componentBridgeEdges);
   }
 
   // ── 3. Connector nodes & edges ───────────────────────────────────
