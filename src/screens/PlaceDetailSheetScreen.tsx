@@ -132,20 +132,8 @@ export function PlaceDetailSheetScreen() {
 
   const handleFindRoute = useCallback(() => {
     if (!featureIdForSave) return;
-    const routeStore = useRouteStore.getState();
-    const mapState = useMapStore.getState();
-
-    if (mapState.userCoordinates) {
-      routeStore.setOriginFromUserLocation(
-        [mapState.userCoordinates.longitude, mapState.userCoordinates.latitude],
-        mapState.selectedLevel,
-      );
-    }
-
-    routeStore.setDestinationFeature(featureIdForSave);
-    routeStore.computeRoute();
-    useMapStore.getState().requestMinimizeSheets();
-    navigation.goBack();
+    useRouteStore.getState().setDestinationFeature(featureIdForSave);
+    navigation.navigate('RoutePlan');
   }, [featureIdForSave, navigation]);
 
   const [originJustSet, setOriginJustSet] = useState(false);
