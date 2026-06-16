@@ -226,6 +226,8 @@ function RoutePathLayer() {
             layout={{
               'text-field': ['get', 'label'],
               'text-size': 12,
+              'text-anchor': 'center',
+              'text-justify': 'center',
               'text-allow-overlap': true,
             }}
             paint={{
@@ -254,6 +256,8 @@ function RoutePathLayer() {
             layout={{
               'text-field': ['get', 'label'],
               'text-size': 12,
+              'text-anchor': 'center',
+              'text-justify': 'center',
               'text-allow-overlap': true,
             }}
             paint={{
