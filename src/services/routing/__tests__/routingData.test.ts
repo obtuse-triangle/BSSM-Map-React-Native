@@ -217,7 +217,10 @@ describe('routing-connectors.geojson', () => {
       const f = feat as ConnectorFeature;
       if (f.properties.connectorType === 'elevator') {
         expect(f.properties.accessibilityPenalty).toBe(0);
-        expect(f.properties.traversalTimeSeconds).toBe(30);
+        const [from, to] = f.properties.connectsLevels;
+        const span = to - from;
+        const expected = span === 1 ? 35 : span === 2 ? 45 : span === 3 ? 55 : undefined;
+        expect(f.properties.traversalTimeSeconds).toBe(expected);
       }
     }
   });
