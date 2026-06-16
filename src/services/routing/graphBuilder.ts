@@ -26,7 +26,8 @@ const DEFAULT_SPACING = 2.0;
 const K_NEAREST = 6;
 const MAX_EDGE_DISTANCE_MULTIPLIER = 2;
 const CONNECTOR_POLYGON_LINKS = 3;
-const BRIDGE_MAX_DISTANCE_M = 8;
+const BRIDGE_MAX_DISTANCE_M = 15;
+const CONNECTOR_POLYGON_MAX_DISTANCE_M = 30;
 
 // ── Internal types ───────────────────────────────────────────────────
 
@@ -630,7 +631,7 @@ export function buildRoutingGraph(
           id: n.id,
           d: euclidean(x, y, n.x, n.y),
         }))
-        .filter((n) => n.d > 0 && n.d <= BRIDGE_MAX_DISTANCE_M)
+        .filter((n) => n.d > 0 && n.d <= CONNECTOR_POLYGON_MAX_DISTANCE_M)
         .sort((a, b) => a.d - b.d);
 
       const nearest = withDist.slice(0, CONNECTOR_POLYGON_LINKS);

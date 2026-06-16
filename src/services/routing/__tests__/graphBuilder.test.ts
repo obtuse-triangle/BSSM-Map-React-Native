@@ -142,9 +142,9 @@ describe('buildRoutingGraph', () => {
     }
   });
 
-  it('no walk edge exceeds 10 metres', () => {
+  it('no walk edge exceeds 30 metres', () => {
     const longEdges = graph.edges.filter(
-      (e) => e.edgeType === 'walk' && e.weightMeters > 10,
+      (e) => e.edgeType === 'walk' && e.weightMeters > 30,
     );
     expect(longEdges).toHaveLength(0);
   });
