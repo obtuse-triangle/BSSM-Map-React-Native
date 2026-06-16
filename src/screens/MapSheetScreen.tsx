@@ -121,7 +121,7 @@ export function MapSheetScreen() {
     [levels, selectedLevel],
   );
   const indicatorX = useSharedValue(selectedIndex * LEVEL_BUTTON_WIDTH);
-  const panStartX = useSharedValue(indicatorX.value);
+  const touchOffsetX = useSharedValue(0);
 
   // Always runs: during an active pan, onUpdate assigns indicatorX.value
   // directly every frame, implicitly cancelling this spring. No guard.
@@ -147,14 +147,14 @@ export function MapSheetScreen() {
       Gesture.Pan()
         .minDistance(4)
         .maxPointers(1)
-        .onBegin(() => {
+        .onBegin((event) => {
           'worklet';
-          panStartX.value = indicatorX.value;
+          touchOffsetX.value = event.x - indicatorX.value;
           cancelAnimation(indicatorX);
         })
         .onUpdate((event) => {
           'worklet';
-          const next = panStartX.value + event.translationX;
+          const next = event.x - touchOffsetX.value;
           const max = (levels.length - 1) * LEVEL_BUTTON_WIDTH;
           indicatorX.value = Math.max(0, Math.min(max, next));
         })
@@ -165,7 +165,7 @@ export function MapSheetScreen() {
           indicatorX.value = withSpring(clamped * LEVEL_BUTTON_WIDTH, SPRING_CONFIG);
           runOnJS(applyLevelByIndex)(clamped);
         }),
-    [applyLevelByIndex, indicatorX, levels.length, panStartX],
+    [applyLevelByIndex, indicatorX, levels.length, touchOffsetX],
   );
 
   const indicatorStyle = useAnimatedStyle(() => ({
@@ -469,13 +469,7 @@ export function MapSheetScreen() {
         <View style={[styles.barDivider, { backgroundColor: sheetSeparator }]} />
 
         <GestureDetector gesture={floorPanGesture}>
-          <GlassSurface
-            variant="control"
-            cornerRadius={18}
-            glassEffectStyle="regular"
-            colorScheme={sheetScheme === 'dark' || sheetScheme === 'light' ? sheetScheme : undefined}
-            style={styles.levelRowGlass}
-          >
+          <View style={styles.levelRowGlass}>
             <View style={styles.levelRowTrack}>
               <Animated.View
                 pointerEvents="none"
@@ -484,8 +478,8 @@ export function MapSheetScreen() {
                 <GlassSurface
                   variant="control"
                   cornerRadius={999}
+                  glassEffectStyle="clear"
                   colorScheme={sheetScheme === 'dark' || sheetScheme === 'light' ? sheetScheme : undefined}
-                  style={StyleSheet.absoluteFill}
                 />
               </Animated.View>
               <View style={styles.levelRow}>
@@ -509,7 +503,7 @@ export function MapSheetScreen() {
                 })}
               </View>
             </View>
-          </GlassSurface>
+          </View>
         </GestureDetector>
 
         <View style={styles.infoGroup}>
@@ -796,8 +790,6 @@ const styles = StyleSheet.create({
   levelRowGlass: {
     paddingVertical: 3,
     paddingHorizontal: 3,
-    borderColor: sheetSeparator,
-    borderWidth: 0.5,
   },
   levelRowTrack: {
     position: 'relative',
