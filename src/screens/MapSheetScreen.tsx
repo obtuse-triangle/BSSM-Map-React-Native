@@ -3,6 +3,8 @@ import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, useColorSc
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
+  interpolate,
+  type SharedValue,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -471,34 +473,31 @@ export function MapSheetScreen() {
         <View style={[styles.barDivider, { backgroundColor: sheetSeparator }]} />
 
         <GestureDetector gesture={floorPanGesture}>
-          <GlassSurface
-            variant="control"
-            cornerRadius={18}
-            glassEffectStyle="regular"
-            colorScheme={sheetScheme === 'dark' || sheetScheme === 'light' ? sheetScheme : undefined}
-            style={styles.wheelContainer}
-          >
+          <View style={styles.wheelContainer}>
+            {/* Liquid Glass droplet over the centered (selected) floor. Rendered
+                as a standalone GlassView against the sheet — NOT nested inside
+                another glass surface, which would fail to composite. */}
+            <View style={styles.wheelIndicatorWrap} pointerEvents="none">
+              {isGlassEffectAPIAvailable() ? (
+                <GlassView
+                  glassEffectStyle="regular"
+                  isInteractive
+                  colorScheme={
+                    sheetScheme === 'dark' || sheetScheme === 'light' ? sheetScheme : 'auto'
+                  }
+                  style={styles.wheelIndicator}
+                />
+              ) : (
+                <View style={[styles.wheelIndicator, { backgroundColor: sheetSelectionBg }]} />
+              )}
+            </View>
             <View style={styles.wheelClip}>
-              <View style={styles.wheelIndicatorWrap} pointerEvents="none">
-                {isGlassEffectAPIAvailable() ? (
-                  <GlassView
-                    glassEffectStyle="regular"
-                    isInteractive
-                    colorScheme={
-                      sheetScheme === 'dark' || sheetScheme === 'light' ? sheetScheme : 'auto'
-                    }
-                    style={styles.wheelIndicator}
-                  />
-                ) : (
-                  <View
-                    style={[styles.wheelIndicator, { backgroundColor: sheetSelectionBg }]}
-                  />
-                )}
-              </View>
               <Animated.View style={[styles.wheelRow, rowStyle]} pointerEvents="none">
-                {levels.map((level) => (
+                {levels.map((level, index) => (
                   <WheelItem
                     key={level}
+                    index={index}
+                    scrollX={scrollX}
                     level={level}
                     selected={level === selectedLevel}
                     accentColor={sheetAccent(sheetScheme)}
@@ -507,7 +506,7 @@ export function MapSheetScreen() {
                 ))}
               </Animated.View>
             </View>
-          </GlassSurface>
+          </View>
         </GestureDetector>
 
         <View style={styles.infoGroup}>
@@ -978,18 +977,40 @@ const styles = StyleSheet.create({
 });
 
 type WheelItemProps = {
+  index: number;
+  scrollX: SharedValue<number>;
   level: number;
   selected: boolean;
   accentColor: ColorValue;
   labelColor: ColorValue;
 };
 
-function WheelItem({ level, selected, accentColor, labelColor }: WheelItemProps) {
+function WheelItem({ index, scrollX, level, selected, accentColor, labelColor }: WheelItemProps) {
+  // Distance (in px) of this item from the centered selection. Items toward the
+  // edges fade and shrink, so the row reads as a scrolling wheel rather than a
+  // static strip — the "약간 블러" edge falloff the picker is missing.
+  const animatedStyle = useAnimatedStyle(() => {
+    const distance = Math.abs(index * LEVEL_BUTTON_WIDTH - scrollX.value);
+    const opacity = interpolate(
+      distance,
+      [0, LEVEL_BUTTON_WIDTH, LEVEL_BUTTON_WIDTH * 2],
+      [1, 0.4, 0.12],
+      'clamp',
+    );
+    const scale = interpolate(
+      distance,
+      [0, LEVEL_BUTTON_WIDTH, LEVEL_BUTTON_WIDTH * 2],
+      [1, 0.82, 0.66],
+      'clamp',
+    );
+    return { opacity, transform: [{ scale }] };
+  });
+
   return (
-    <View style={styles.wheelItem}>
+    <Animated.View style={[styles.wheelItem, animatedStyle]}>
       <Text style={[styles.wheelItemText, { color: selected ? accentColor : labelColor }]}>
         {level}F
       </Text>
-    </View>
+    </Animated.View>
   );
 }
