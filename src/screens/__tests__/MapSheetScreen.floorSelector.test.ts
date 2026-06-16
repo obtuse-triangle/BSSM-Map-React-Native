@@ -4,37 +4,8 @@ import * as path from 'node:path';
 const SCREEN_PATH = path.resolve(__dirname, '../MapSheetScreen.tsx');
 const screenSource = fs.readFileSync(SCREEN_PATH, 'utf8');
 
-describe('MapSheetScreen Liquid Glass floor selector (static invariants)', () => {
-  describe('accessibility contract', () => {
-    it('exposes accessibilityState={{ selected }} on each floor Pressable', () => {
-      expect(screenSource).toMatch(/accessibilityState=\{\{\s*selected\s*\}\}/);
-    });
-
-    it('keeps accessibilityLabel={`${level}층 선택`} on floor Pressables', () => {
-      expect(screenSource).toContain('accessibilityLabel={`${level}층 선택`}');
-    });
-
-    it('keeps accessibilityRole="button" on floor Pressables', () => {
-      expect(screenSource).toMatch(/accessibilityRole="button"/);
-    });
-  });
-
-  describe('Liquid Glass wrapper', () => {
-    it('wraps the level row in GlassSurface (not raw GlassView)', () => {
-      expect(screenSource).toMatch(/<GlassSurface\b/);
-      expect(screenSource).not.toMatch(/<GlassView\b/);
-    });
-
-    it('uses GlassSurface variant="control" for the interactive selector', () => {
-      expect(screenSource).toMatch(/variant="control"/);
-    });
-
-    it('passes the resolved sheet colorScheme to GlassSurface', () => {
-      expect(screenSource).toMatch(/colorScheme=\{sheetScheme/);
-    });
-  });
-
-  describe('drag-to-select threading contract (CRITICAL)', () => {
+describe('MapSheetScreen wheel floor selector (static invariants)', () => {
+  describe('threading contract (CRITICAL)', () => {
     it('uses Gesture.Pan() from react-native-gesture-handler', () => {
       expect(screenSource).toMatch(/Gesture\.Pan\(\)/);
       expect(screenSource).toMatch(/from 'react-native-gesture-handler'/);
@@ -57,7 +28,7 @@ describe('MapSheetScreen Liquid Glass floor selector (static invariants)', () =>
       const body = onUpdateBlock![1];
       expect(body).not.toMatch(/setSelectedLevel/);
       expect(body).not.toMatch(/runOnJS/);
-      expect(body).toMatch(/indicatorX\.value/);
+      expect(body).toMatch(/scrollX\.value/);
     });
 
     it('calls setSelectedLevel exactly once via runOnJS in .onEnd', () => {
@@ -79,6 +50,34 @@ describe('MapSheetScreen Liquid Glass floor selector (static invariants)', () =>
 
     it('uses LEVEL_BUTTON_WIDTH for the snap divisor', () => {
       expect(screenSource).toMatch(/LEVEL_BUTTON_WIDTH/);
+    });
+  });
+
+  describe('wheel selector structure', () => {
+    it('renders an animated levels row driven by scrollX', () => {
+      expect(screenSource).toMatch(/scrollX/);
+      expect(screenSource).toMatch(/useAnimatedStyle/);
+      expect(screenSource).toMatch(/translateX/);
+    });
+
+    it('uses spring physics for snap', () => {
+      expect(screenSource).toMatch(/withSpring/);
+      expect(screenSource).toMatch(/SPRING_CONFIG/);
+    });
+
+    it('renders a WheelItem component for each level', () => {
+      expect(screenSource).toMatch(/function WheelItem/);
+      expect(screenSource).toMatch(/<WheelItem/);
+    });
+
+    it('applies distance-based opacity/scale to wheel items', () => {
+      expect(screenSource).toMatch(/Math\.abs\(scrollX\.value/);
+      expect(screenSource).toMatch(/opacity/);
+      expect(screenSource).toMatch(/scale/);
+    });
+
+    it('has a center highlight slot', () => {
+      expect(screenSource).toMatch(/wheelCenterHighlight/);
     });
   });
 });

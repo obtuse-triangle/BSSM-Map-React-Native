@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native';
+import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, Text, useColorScheme, View, type ColorValue } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
+  type SharedValue,
 } from 'react-native-reanimated';
 import { runOnJS } from 'react-native-worklets';
 import { MAP_STYLES } from '../constants/mapStyles';
@@ -112,24 +113,22 @@ export function MapSheetScreen() {
   const isLocateDisabled = positionStatus === 'loading' || gpsSearching;
   const baseLayerIcon = MAP_STYLES.find((s) => s.id === baseLayer)?.icon ?? '⚙';
 
-  // ── Liquid Glass floor selector ──────────────────────────────────────
-  // indicatorX drives the floating bubble (worklet thread). onUpdate only
-  // mutates shared values; onEnd snaps + calls setSelectedLevel once via
-  // runOnJS. NEVER call React state setters inside onUpdate (would crash).
+  // ── Wheel floor selector (iOS camera-mode style) ─────────────────────
+  // The levels row translates horizontally; the center slot is the active
+  // selection. scrollX = selectedIndex * LEVEL_BUTTON_WIDTH. onUpdate
+  // tracks the finger 1:1 via absolute coordinates; onEnd snaps.
   const selectedIndex = useMemo(
     () => Math.max(0, levels.indexOf(selectedLevel)),
     [levels, selectedLevel],
   );
-  const indicatorX = useSharedValue(selectedIndex * LEVEL_BUTTON_WIDTH);
+  const scrollX = useSharedValue(selectedIndex * LEVEL_BUTTON_WIDTH);
   const touchOffsetX = useSharedValue(0);
 
-  // Always runs: during an active pan, onUpdate assigns indicatorX.value
-  // directly every frame, implicitly cancelling this spring. No guard.
   useEffect(() => {
     const target = selectedIndex * LEVEL_BUTTON_WIDTH;
-    cancelAnimation(indicatorX);
-    indicatorX.value = withSpring(target, SPRING_CONFIG);
-  }, [selectedIndex, indicatorX]);
+    cancelAnimation(scrollX);
+    scrollX.value = withSpring(target, SPRING_CONFIG);
+  }, [selectedIndex, scrollX]);
 
   const applyLevelByIndex = useCallback(
     (index: number) => {
@@ -149,27 +148,28 @@ export function MapSheetScreen() {
         .maxPointers(1)
         .onBegin((event) => {
           'worklet';
-          touchOffsetX.value = event.x - indicatorX.value;
-          cancelAnimation(indicatorX);
+          touchOffsetX.value = event.x - scrollX.value;
+          cancelAnimation(scrollX);
         })
         .onUpdate((event) => {
           'worklet';
           const next = event.x - touchOffsetX.value;
           const max = (levels.length - 1) * LEVEL_BUTTON_WIDTH;
-          indicatorX.value = Math.max(0, Math.min(max, next));
+          scrollX.value = Math.max(0, Math.min(max, next));
         })
         .onEnd(() => {
           'worklet';
-          const nearestIndex = Math.round(indicatorX.value / LEVEL_BUTTON_WIDTH);
+          const nearestIndex = Math.round(scrollX.value / LEVEL_BUTTON_WIDTH);
           const clamped = Math.max(0, Math.min(levels.length - 1, nearestIndex));
-          indicatorX.value = withSpring(clamped * LEVEL_BUTTON_WIDTH, SPRING_CONFIG);
+          scrollX.value = withSpring(clamped * LEVEL_BUTTON_WIDTH, SPRING_CONFIG);
           runOnJS(applyLevelByIndex)(clamped);
         }),
-    [applyLevelByIndex, indicatorX, levels.length, touchOffsetX],
+    [applyLevelByIndex, levels.length, scrollX, touchOffsetX],
   );
 
-  const indicatorStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: indicatorX.value }],
+  // Move levels row so the selected index sits at center.
+  const rowStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: -scrollX.value }],
   }));
 
   const handleLocate = useCallback(() => {
@@ -469,39 +469,22 @@ export function MapSheetScreen() {
         <View style={[styles.barDivider, { backgroundColor: sheetSeparator }]} />
 
         <GestureDetector gesture={floorPanGesture}>
-          <View style={styles.levelRowGlass}>
-            <View style={styles.levelRowTrack}>
-              <Animated.View
-                pointerEvents="none"
-                style={[styles.levelIndicator, indicatorStyle]}
-              >
-                <GlassSurface
-                  variant="control"
-                  cornerRadius={999}
-                  glassEffectStyle="clear"
-                  colorScheme={sheetScheme === 'dark' || sheetScheme === 'light' ? sheetScheme : undefined}
+          <View style={styles.wheelContainer}>
+            <Animated.View style={[styles.wheelRow, rowStyle]} pointerEvents="none">
+              {levels.map((level, i) => (
+                <WheelItem
+                  key={level}
+                  index={i}
+                  scrollX={scrollX}
+                  level={level}
+                  selected={level === selectedLevel}
+                  accentColor={sheetAccent(sheetScheme)}
+                  labelColor={sheetLabel}
                 />
-              </Animated.View>
-              <View style={styles.levelRow}>
-                {levels.map((level) => {
-                  const selected = level === selectedLevel;
-                  return (
-                    <Pressable
-                      key={level}
-                      accessibilityRole="button"
-                      accessibilityLabel={`${level}층 선택`}
-                      accessibilityState={{ selected }}
-                      hitSlop={HIT_SLOP}
-                      onPress={() => setSelectedLevel(level)}
-                      style={styles.levelButton}
-                    >
-                      <Text style={[styles.levelButtonText, { color: sheetLabel }, selected && { color: sheetAccent(sheetScheme) }]}>
-                        {level}F
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
+              ))}
+            </Animated.View>
+            <View style={styles.wheelCenterSlot} pointerEvents="none">
+              <View style={[styles.wheelCenterHighlight, { backgroundColor: sheetAccent(sheetScheme) }]} />
             </View>
           </View>
         </GestureDetector>
@@ -787,40 +770,41 @@ const styles = StyleSheet.create({
     height: 24,
     width: 1,
   },
-  levelRowGlass: {
-    paddingVertical: 3,
-    paddingHorizontal: 3,
-  },
-  levelRowTrack: {
-    position: 'relative',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  levelIndicator: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: 0,
+  wheelContainer: {
     width: LEVEL_BUTTON_WIDTH,
-    borderRadius: 999,
-  },
-  levelRow: {
+    height: 36,
     alignItems: 'center',
-    flexDirection: 'row',
-    gap: 0,
-    zIndex: 1,
-  },
-  levelButton: {
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-    borderRadius: 999,
-    height: 34,
     justifyContent: 'center',
-    width: LEVEL_BUTTON_WIDTH,
+    overflow: 'visible',
   },
-  levelButtonText: {
-    fontSize: 12,
+  wheelRow: {
+    position: 'absolute',
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 36,
+  },
+  wheelItem: {
+    width: LEVEL_BUTTON_WIDTH,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  wheelItemText: {
+    fontSize: 13,
     fontWeight: '800',
+  },
+  wheelCenterSlot: {
+    width: LEVEL_BUTTON_WIDTH,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  wheelCenterHighlight: {
+    position: 'absolute',
+    width: LEVEL_BUTTON_WIDTH,
+    height: 32,
+    borderRadius: 999,
+    opacity: 0.18,
   },
   scrollContent: {
     gap: 12,
@@ -967,3 +951,36 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
+type WheelItemProps = {
+  index: number;
+  scrollX: SharedValue<number>;
+  level: number;
+  selected: boolean;
+  accentColor: ColorValue;
+  labelColor: ColorValue;
+};
+
+function WheelItem({ index, scrollX, level, selected, accentColor, labelColor }: WheelItemProps) {
+  const itemX = index * LEVEL_BUTTON_WIDTH;
+
+  const animStyle = useAnimatedStyle(() => {
+    'worklet';
+    const distance = Math.abs(scrollX.value - itemX);
+    const t = Math.min(distance / LEVEL_BUTTON_WIDTH, 1);
+    const opacity = 1 - t * 0.7;
+    const scale = 1 - t * 0.3;
+    return {
+      opacity,
+      transform: [{ scale }],
+    };
+  });
+
+  return (
+    <Animated.View style={[styles.wheelItem, animStyle]}>
+      <Text style={[styles.wheelItemText, { color: selected ? accentColor : labelColor }]}>
+        {level}F
+      </Text>
+    </Animated.View>
+  );
+}
