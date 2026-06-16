@@ -163,8 +163,12 @@ export function MapSheetScreen() {
     [applyLevelByIndex, levels.length, panStartScrollX, scrollX],
   );
 
+  // translateX centers the selected item: container center minus item center.
+  const WHEEL_CONTAINER_WIDTH = LEVEL_BUTTON_WIDTH * 3;
   const rowStyle = useAnimatedStyle(() => ({
-    transform: [{ translateX: -scrollX.value }],
+    transform: [{
+      translateX: (WHEEL_CONTAINER_WIDTH - LEVEL_BUTTON_WIDTH) / 2 - scrollX.value,
+    }],
   }));
 
   const handleLocate = useCallback(() => {
@@ -464,19 +468,27 @@ export function MapSheetScreen() {
         <View style={[styles.barDivider, { backgroundColor: sheetSeparator }]} />
 
         <GestureDetector gesture={floorPanGesture}>
-          <View style={styles.wheelContainer}>
-            <Animated.View style={[styles.wheelRow, rowStyle]} pointerEvents="none">
-              {levels.map((level, i) => (
-                <WheelItem
-                  key={level}
-                  level={level}
-                  selected={level === selectedLevel}
-                  accentColor={sheetAccent(sheetScheme)}
-                  labelColor={sheetLabel}
-                />
-              ))}
-            </Animated.View>
-          </View>
+          <GlassSurface
+            variant="control"
+            cornerRadius={18}
+            glassEffectStyle="regular"
+            colorScheme={sheetScheme === 'dark' || sheetScheme === 'light' ? sheetScheme : undefined}
+            style={styles.wheelContainer}
+          >
+            <View style={styles.wheelClip}>
+              <Animated.View style={[styles.wheelRow, rowStyle]} pointerEvents="none">
+                {levels.map((level) => (
+                  <WheelItem
+                    key={level}
+                    level={level}
+                    selected={level === selectedLevel}
+                    accentColor={sheetAccent(sheetScheme)}
+                    labelColor={sheetLabel}
+                  />
+                ))}
+              </Animated.View>
+            </View>
+          </GlassSurface>
         </GestureDetector>
 
         <View style={styles.infoGroup}>
@@ -765,7 +777,13 @@ const styles = StyleSheet.create({
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'visible',
+  },
+  wheelClip: {
+    width: LEVEL_BUTTON_WIDTH * 3,
+    height: 40,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   wheelRow: {
     flexDirection: 'row',
