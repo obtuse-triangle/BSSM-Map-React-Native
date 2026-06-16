@@ -85,7 +85,7 @@ export function PlaceDetailBottomSheet({ floor, room, colorScheme = 'light' }: P
     <GestureDetector gesture={gesture}>
       <Animated.View style={[styles.sheet, sheetStyle]}>
         <GlassSurface variant="sheet" cornerRadius={24} colorScheme={colorScheme} style={styles.sheetGlass}>
-          <View style={styles.handleBar} />
+          <View importantForAccessibility="no" style={styles.handleBar} />
 
           <View style={styles.headerRow}>
             <View style={styles.headerCopy}>
@@ -98,7 +98,7 @@ export function PlaceDetailBottomSheet({ floor, room, colorScheme = 'light' }: P
             </View>
 
             {room ? (
-              <View style={styles.floorPill}>
+              <View importantForAccessibility="no" style={styles.floorPill}>
                 <Text style={styles.floorPillText}>{floorLabel}</Text>
               </View>
             ) : null}

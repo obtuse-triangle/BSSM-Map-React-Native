@@ -38,7 +38,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
           <Text style={styles.subtitle}>
             앱을 계속 사용하려면 아래 버튼을 눌러주세요
           </Text>
-          <Pressable style={styles.retryButton} onPress={this.handleRetry}>
+          <Pressable accessibilityHint="오류가 발생했을 때 앱을 다시 시작합니다" accessibilityLabel="다시 시도" accessibilityRole="button" style={styles.retryButton} onPress={this.handleRetry}>
             <Text style={styles.retryText}>다시 시도</Text>
           </Pressable>
           {this.state.error && (

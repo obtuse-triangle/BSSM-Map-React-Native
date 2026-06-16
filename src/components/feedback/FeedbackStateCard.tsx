@@ -43,13 +43,13 @@ export function FeedbackStateCard({
       <Text style={styles.message}>{message}</Text>
 
       {actionLabel && onAction ? (
-        <Pressable accessibilityRole="button" hitSlop={HIT_SLOP} onPress={onAction} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
+        <Pressable accessibilityLabel={actionLabel} accessibilityHint="작업을 실행합니다" accessibilityRole="button" hitSlop={HIT_SLOP} onPress={onAction} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
           <Text style={styles.primaryButtonText}>{actionLabel}</Text>
         </Pressable>
       ) : null}
 
       {secondaryActionLabel && onSecondaryAction ? (
-        <Pressable accessibilityRole="button" hitSlop={HIT_SLOP} onPress={onSecondaryAction} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
+        <Pressable accessibilityLabel={secondaryActionLabel} accessibilityRole="button" hitSlop={HIT_SLOP} onPress={onSecondaryAction} style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
           <Text style={styles.secondaryButtonText}>{secondaryActionLabel}</Text>
         </Pressable>
       ) : null}
