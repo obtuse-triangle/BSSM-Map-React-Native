@@ -26,7 +26,7 @@ const DEFAULT_SPACING = 2.0;
 const K_NEAREST = 6;
 const MAX_EDGE_DISTANCE_MULTIPLIER = 2;
 const CONNECTOR_POLYGON_LINKS = 3;
-const BRIDGE_MAX_DISTANCE_M = 15;
+const BRIDGE_MAX_DISTANCE_M = 20;
 const CONNECTOR_POLYGON_MAX_DISTANCE_M = 30;
 
 // ── Internal types ───────────────────────────────────────────────────
