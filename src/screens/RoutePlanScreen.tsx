@@ -20,6 +20,11 @@ import type { RootStackParamList } from '../navigation/types';
 import type { CampusFeature } from '../types/geojson';
 import type { RouteResult } from '../types/routing';
 import {
+  formatRouteSummary,
+  formatSearchResultLabel,
+  getRouteBadgeText,
+} from '../utils/accessibilityLabels';
+import {
   sheetAccent,
   sheetLabel,
   sheetSecondaryLabel,
@@ -42,25 +47,6 @@ type ActiveField = 'origin' | 'destination' | null;
 function featureDisplayName(feature: CampusFeature | undefined): string {
   if (!feature) return '';
   return feature.properties.name_ko || feature.properties.name;
-}
-
-/**
- * Determine the stair/elevator badge text from the route's actual connector
- * usage rather than `usedStairsFallback`, which is only true when an
- * `elevator_priority` route still had to use stairs.
- */
-function getRouteBadge(result: RouteResult): { text: string; isStair: boolean } {
-  if (!result.ok) return { text: '', isStair: false };
-  const hasStair = result.floorSegments.some(
-    seg => seg.connectorTransition?.connectorId.includes('stair'),
-  );
-  const hasElevator = result.floorSegments.some(
-    seg => seg.connectorTransition?.connectorId.includes('elevator'),
-  );
-  if (hasStair && hasElevator) return { text: '계단/엘리베이터', isStair: true };
-  if (hasStair) return { text: '계단 포함', isStair: true };
-  if (hasElevator) return { text: '엘리베이터', isStair: false };
-  return { text: '같은 층', isStair: false };
 }
 
 export function RoutePlanScreen() {
@@ -245,6 +231,7 @@ export function RoutePlanScreen() {
                   key={level}
                   accessibilityRole="button"
                   accessibilityLabel={`${level}층 선택`}
+                  accessibilityState={{ selected }}
                   hitSlop={HIT_SLOP}
                   onPress={() => useMapStore.getState().setSelectedLevel(level)}
                   style={[
@@ -395,6 +382,7 @@ export function RoutePlanScreen() {
                   <Pressable
                     key={featureKey}
                     accessibilityRole="button"
+                    accessibilityLabel={formatSearchResultLabel(feature)}
                     hitSlop={HIT_SLOP}
                     onPress={() => handleSelectOrigin(featureKey)}
                     style={({ pressed }) => [
@@ -427,6 +415,7 @@ export function RoutePlanScreen() {
                   <Pressable
                     key={featureKey}
                     accessibilityRole="button"
+                    accessibilityLabel={formatSearchResultLabel(feature)}
                     hitSlop={HIT_SLOP}
                     onPress={() => handleSelectDestination(featureKey)}
                     style={({ pressed }) => [
@@ -482,6 +471,8 @@ export function RoutePlanScreen() {
                   <Pressable
                     key={option.id}
                     accessibilityRole="button"
+                    accessibilityLabel={`${option.label}, ${formatRouteSummary(option.result)}`}
+                    accessibilityState={{ selected: isSelected }}
                     hitSlop={HIT_SLOP}
                     onPress={() => handleSelectRoute(index)}
                     style={({ pressed }) => [
@@ -504,8 +495,8 @@ export function RoutePlanScreen() {
                         {option.label}
                       </Text>
                       {(() => {
-                        const badge = getRouteBadge(option.result);
-                        return badge.text ? (
+                        const badgeText = getRouteBadgeText(option.result);
+                        return badgeText ? (
                           <View
                             style={[
                               styles.warningBadge,
@@ -513,7 +504,7 @@ export function RoutePlanScreen() {
                             ]}
                           >
                             <Text style={[styles.warningBadgeText, { color: sheetSecondaryLabel }]}>
-                              {badge.text}
+                              {badgeText}
                             </Text>
                           </View>
                         ) : null;
