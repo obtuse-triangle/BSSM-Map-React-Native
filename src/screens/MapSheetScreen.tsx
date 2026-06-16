@@ -37,6 +37,13 @@ import { getFeatureById, getLevelKeys } from '../utils/geoJsonHelpers';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
+import {
+  CATEGORY_LABELS,
+  formatSavedPlaceLabel,
+  formatSavedPlaceSubtitle,
+  formatSearchResultLabel,
+  formatToggleLabel,
+} from '../utils/accessibilityLabels';
 
 const campusData = campusDataUntyped as unknown as CampusGeoJSON;
 
@@ -50,17 +57,6 @@ const LEVEL_BUTTON_WIDTH = 36;
 // iOS tab-bar-style squishy spring — underdamped for a soft, organic feel.
 // Slight overshoot gives the "말랑말랑한 물방울" sensation the user wants.
 const SPRING_CONFIG = { mass: 1, damping: 16, stiffness: 200, overshootClamping: false };
-
-const CATEGORY_LABELS: Record<CampusFeatureCategory, string> = {
-  classroom: '교실',
-  corridor: '복도',
-  elevator: '엘리베이터',
-  facility: '시설',
-  restroom: '화장실',
-  room: '방',
-  stair: '계단',
-  structural: '구조',
-};
 
 const CATEGORY_COLORS: Record<CampusFeatureCategory, string> = {
   classroom: '#D4E8FC',
@@ -412,13 +408,14 @@ export function MapSheetScreen() {
     <>
       {/* Row 1: Bar buttons */}
       <View style={styles.barRow}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={gpsSearching ? 'GPS 위치 찾는 중' : gpsTrackingEnabled ? 'GPS 위치 추적 끄기' : 'GPS 위치 추적 켜기'}
-          disabled={isLocateDisabled}
-          onPress={handleLocate}
-          style={({ pressed }) => [styles.barButton, pressed && { backgroundColor: sheetSystemFill }, gpsTrackingEnabled && styles.barButtonActive]}
-        >
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={gpsSearching ? 'GPS 위치 찾는 중' : gpsTrackingEnabled ? 'GPS 위치 추적 끄기' : 'GPS 위치 추적 켜기'}
+              accessibilityState={{ disabled: isLocateDisabled }}
+              disabled={isLocateDisabled}
+              onPress={handleLocate}
+              style={({ pressed }) => [styles.barButton, pressed && { backgroundColor: sheetSystemFill }, gpsTrackingEnabled && styles.barButtonActive]}
+            >
           <Text style={[styles.barButtonGlyph, { color: sheetLabel }, isLocateDisabled && { color: sheetTertiaryLabel, opacity: 0.55 }]}>⌖</Text>
         </Pressable>
 
@@ -429,6 +426,7 @@ export function MapSheetScreen() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={bleTrackingEnabled ? 'BLE WCL 실시간 스캔 중지' : 'BLE WCL 실시간 스캔 시작'}
+              accessibilityState={{ selected: bleTrackingEnabled }}
               onPress={handleBleScan}
               style={({ pressed }) => [
                 styles.barButton,
@@ -445,6 +443,7 @@ export function MapSheetScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel={showApMarkers ? 'AP 위치 표시 끄기' : 'AP 위치 표시 켜기'}
+          accessibilityState={{ selected: showApMarkers }}
           onPress={toggleApMarkers}
           style={({ pressed }) => [
             styles.barButton,
@@ -460,6 +459,7 @@ export function MapSheetScreen() {
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="지도 설정"
+          accessibilityState={{ selected: settingsVisible }}
           onPress={handleToggleSettings}
           style={({ pressed }) => [
             styles.barButton,
@@ -583,7 +583,9 @@ export function MapSheetScreen() {
                 <Pressable
                   key={place.id}
                   accessibilityRole="button"
-                  accessibilityLabel={`저장된 장소 ${place.name}`}
+                  accessibilityLabel={formatSavedPlaceLabel(place)}
+                  accessibilityHint={formatSavedPlaceSubtitle(place)}
+                  accessibilityState={{ selected: place.id === selectedSavedPlaceId }}
                   hitSlop={HIT_SLOP}
                   onPress={onPress}
                   style={({ pressed }) => [
@@ -627,11 +629,13 @@ export function MapSheetScreen() {
           <>
             {searchResults.map((feature: CampusFeature) => {
               const featureKey = feature.properties.id ?? String(feature.id);
-              const selected = featureKey === String(selectedFeatureId);
+              const selected = featureKey === selectedFeatureId;
               return (
                 <Pressable
                   key={featureKey}
                   accessibilityRole="button"
+                  accessibilityLabel={formatSearchResultLabel(feature)}
+                  accessibilityState={{ selected }}
                   hitSlop={HIT_SLOP}
                   onPress={() => handleSelectSearchResult(featureKey)}
                   style={({ pressed }) => [
@@ -668,6 +672,9 @@ export function MapSheetScreen() {
                 return (
                   <Pressable
                     key={opt.key}
+                    accessibilityRole="button"
+                    accessibilityLabel={opt.label}
+                    accessibilityState={{ selected: baseLayer === opt.key }}
                     onPress={() => setBaseLayer(opt.key)}
                     style={[
                       styles.baseLayerButton,
@@ -689,6 +696,9 @@ export function MapSheetScreen() {
                 return (
                   <Pressable
                     key={cat}
+                    accessibilityRole="button"
+                    accessibilityLabel={formatToggleLabel(CATEGORY_LABELS[cat], !hidden)}
+                    accessibilityState={{ selected: !hidden }}
                     hitSlop={HIT_SLOP}
                     onPress={() => toggleCategory(cat)}
                     style={[
