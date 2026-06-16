@@ -25,7 +25,7 @@ import type { RouteGraph, RouteNode, RouteEdge } from '../../types/routing';
 const DEFAULT_SPACING = 2.0;
 const K_NEAREST = 6;
 const MAX_EDGE_DISTANCE_MULTIPLIER = 2;
-const CONNECTOR_POLYGON_LINKS = 10;
+const CONNECTOR_POLYGON_LINKS = 5;
 const BRIDGE_MAX_DISTANCE_M = 20;
 const CONNECTOR_POLYGON_MAX_DISTANCE_M = 30;
 
@@ -259,6 +259,21 @@ function generateEdgesForLevel(
   return edges;
 }
 
+function segmentInsidePolygons(
+  x1: number, y1: number,
+  x2: number, y2: number,
+  polygons: PolygonData[],
+  samples: number = 2,
+): boolean {
+  for (let s = 1; s < samples; s++) {
+    const t = s / samples;
+    const mx = x1 + (x2 - x1) * t;
+    const my = y1 + (y2 - y1) * t;
+    if (!isInsideAnyPolygon(mx, my, polygons)) return false;
+  }
+  return true;
+}
+
 /**
  * Bridge separate walkable polygons on the same level by connecting the
  * closest node pair between polygons, using a minimum-spanning-tree pass so we
@@ -267,6 +282,7 @@ function generateEdgesForLevel(
 function generatePolygonBridgesForLevel(
   polygonNodeGroups: NodeEntry[][],
   level: number,
+  polygons: PolygonData[],
 ): RouteEdge[] {
   if (polygonNodeGroups.length <= 1) return [];
 
@@ -287,11 +303,11 @@ function generatePolygonBridgesForLevel(
       for (const a of polygonNodeGroups[i]) {
         for (const b of polygonNodeGroups[j]) {
           const weight = euclidean(a.x, a.y, b.x, b.y);
-          if (weight < bestWeight) {
-            bestWeight = weight;
-            bestFrom = a;
-            bestTo = b;
-          }
+          if (weight >= bestWeight) continue;
+          if (!segmentInsidePolygons(a.x, a.y, b.x, b.y, polygons)) continue;
+          bestWeight = weight;
+          bestFrom = a;
+          bestTo = b;
         }
       }
 
@@ -366,6 +382,7 @@ function generateComponentBridgesForLevel(
   nodes: NodeEntry[],
   existingEdges: RouteEdge[],
   level: number,
+  polygons: PolygonData[],
 ): RouteEdge[] {
   if (nodes.length <= 1) return [];
 
@@ -411,6 +428,7 @@ function generateComponentBridgesForLevel(
       if (find(nodes[i].id) === find(nodes[j].id)) continue;
       const weight = euclidean(nodes[i].x, nodes[i].y, nodes[j].x, nodes[j].y);
       if (weight > BRIDGE_MAX_DISTANCE_M) continue;
+      if (!segmentInsidePolygons(nodes[i].x, nodes[i].y, nodes[j].x, nodes[j].y, polygons)) continue;
       candidates.push({
         from: nodes[i],
         to: nodes[j],
@@ -574,13 +592,8 @@ export function buildRoutingGraph(
 
     // 2d. Bridge adjacent walkable polygons so disconnected floor fragments
     //      become a single routing component.
-    const bridgeEdges = generatePolygonBridgesForLevel(polygonNodeGroups, level);
+    const bridgeEdges = generatePolygonBridgesForLevel(polygonNodeGroups, level, polys);
     edges.push(...bridgeEdges);
-
-    // 2e. Final connectivity pass across any remaining disconnected level-
-    //      local components.
-    const componentBridgeEdges = generateComponentBridgesForLevel(allNodes, edges, level);
-    edges.push(...componentBridgeEdges);
   }
 
   // ── 3. Connector nodes & edges ───────────────────────────────────
@@ -625,13 +638,17 @@ export function buildRoutingGraph(
     const linkConnectorToLevel = (connNodeId: string, level: number) => {
       const polyNodes = levelNodeEntries.get(level);
       if (!polyNodes || polyNodes.length === 0) return;
+      const levelPolys = polygonDataByLevel.get(level) ?? [];
 
       const withDist = polyNodes
         .map((n) => ({
           id: n.id,
+          x: n.x,
+          y: n.y,
           d: euclidean(x, y, n.x, n.y),
         }))
         .filter((n) => n.d > 0 && n.d <= CONNECTOR_POLYGON_MAX_DISTANCE_M)
+        .filter((n) => segmentInsidePolygons(x, y, n.x, n.y, levelPolys))
         .sort((a, b) => a.d - b.d);
 
       const nearest = withDist.slice(0, CONNECTOR_POLYGON_LINKS);
