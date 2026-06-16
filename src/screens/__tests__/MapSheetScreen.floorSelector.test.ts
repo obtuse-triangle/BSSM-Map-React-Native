@@ -31,8 +31,9 @@ describe('MapSheetScreen wheel floor selector (static invariants)', () => {
       expect(body).toMatch(/scrollX\.value/);
     });
 
-    it('uses relative translation (translationX) for tracking', () => {
-      expect(screenSource).toMatch(/panStartScrollX\.value\s*\+\s*event\.translationX/);
+    it('uses relative translation (translationX) for tracking, finger-following', () => {
+      // scrollX moves opposite the finger so the row tracks the drag direction.
+      expect(screenSource).toMatch(/panStartScrollX\.value\s*-\s*event\.translationX/);
     });
 
     it('calls setSelectedLevel exactly once via runOnJS in .onEnd', () => {

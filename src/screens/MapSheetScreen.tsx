@@ -13,6 +13,7 @@ import campusDataUntyped from '../data/campus-wgs84.json';
 import { FeedbackStateCard } from '../components/feedback/FeedbackStateCard';
 import { BleWclStatusCard } from '../components/map/BleWclStatusCard';
 import { GlassSurface } from '../components/glass';
+import { GlassView, isGlassEffectAPIAvailable } from 'expo-glass-effect';
 import { SearchBar } from '../components/map/SearchBar';
 import { useSearchBar } from '../hooks/useSearchBar';
 import { useMapStore, type CampusFeatureCategory } from '../store/mapStore';
@@ -149,7 +150,9 @@ export function MapSheetScreen() {
         })
         .onUpdate((event) => {
           'worklet';
-          const next = panStartScrollX.value + event.translationX;
+          // Drag follows the finger: dragging right should pull the row right,
+          // so scrollX (which translateX subtracts) moves opposite the finger.
+          const next = panStartScrollX.value - event.translationX;
           const max = (levels.length - 1) * LEVEL_BUTTON_WIDTH;
           scrollX.value = Math.max(0, Math.min(max, next));
         })
@@ -476,6 +479,22 @@ export function MapSheetScreen() {
             style={styles.wheelContainer}
           >
             <View style={styles.wheelClip}>
+              <View style={styles.wheelIndicatorWrap} pointerEvents="none">
+                {isGlassEffectAPIAvailable() ? (
+                  <GlassView
+                    glassEffectStyle="regular"
+                    isInteractive
+                    colorScheme={
+                      sheetScheme === 'dark' || sheetScheme === 'light' ? sheetScheme : 'auto'
+                    }
+                    style={styles.wheelIndicator}
+                  />
+                ) : (
+                  <View
+                    style={[styles.wheelIndicator, { backgroundColor: sheetSelectionBg }]}
+                  />
+                )}
+              </View>
               <Animated.View style={[styles.wheelRow, rowStyle]} pointerEvents="none">
                 {levels.map((level) => (
                   <WheelItem
@@ -782,13 +801,25 @@ const styles = StyleSheet.create({
     width: LEVEL_BUTTON_WIDTH * 3,
     height: 40,
     overflow: 'hidden',
+    justifyContent: 'center',
+  },
+  wheelIndicatorWrap: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  wheelIndicator: {
+    width: LEVEL_BUTTON_WIDTH - 4,
+    height: 32,
+    borderRadius: 14,
+  },
   wheelRow: {
+    position: 'absolute',
+    left: 0,
+    top: 0,
+    bottom: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    height: 40,
   },
   wheelItem: {
     width: LEVEL_BUTTON_WIDTH,
