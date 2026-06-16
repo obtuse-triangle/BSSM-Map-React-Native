@@ -40,6 +40,12 @@ export interface RouteEdge {
    */
   accessibilityPenalty: number;
   edgeType: 'walk' | 'connector';
+  /**
+   * True for connectivity-guarantee bridges added to link otherwise-isolated
+   * floor fragments. These may exceed the normal local-edge length limit and so
+   * are exempt from the ≤30 m walk-edge invariant.
+   */
+  isBridge?: boolean;
 }
 
 /** Full routing graph assembled per building or floor-set. */

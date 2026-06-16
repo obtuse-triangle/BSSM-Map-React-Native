@@ -121,26 +121,31 @@ describe('routeResultToGeoJson', () => {
     expect(geoJson.features[1].properties.opacityClass).toBe('dimmed');
   });
 
-  it('LineString coordinates match the node count (3 nodes → 3 coords)', () => {
+  it('anchors first segment to origin and last segment to destination', () => {
     const nodeCoords = makeNodeCoords();
     const geoJson = routeResultToGeoJson(successResult, nodeCoords, 1);
 
-    expect(geoJson.features[0].geometry.coordinates).toHaveLength(3);
-    expect(geoJson.features[1].geometry.coordinates).toHaveLength(2);
+    // First segment: origin point + 3 nodes. Last segment: 2 nodes + destination.
+    expect(geoJson.features[0].geometry.coordinates).toHaveLength(4);
+    expect(geoJson.features[1].geometry.coordinates).toHaveLength(3);
   });
 
-  it('renders only node coordinates from the route graph', () => {
+  it('prepends the origin point and appends the destination point', () => {
     const nodeCoords = makeNodeCoords();
     const geoJson = routeResultToGeoJson(successResult, nodeCoords, 1);
 
+    // originPoint = (EPSG_X1 - 5, EPSG_Y1 - 5) on level 1 → starts the first line.
     expect(geoJson.features[0].geometry.coordinates).toEqual([
+      transformEpsg5183ToWgs84(EPSG_X1 - 5, EPSG_Y1 - 5),
       transformEpsg5183ToWgs84(EPSG_X1, EPSG_Y1),
       transformEpsg5183ToWgs84(EPSG_X2, EPSG_Y2),
       transformEpsg5183ToWgs84(EPSG_X3, EPSG_Y3),
     ]);
+    // destinationPoint = (EPSG_X3 + 5, EPSG_Y3 + 5) on level 2 → ends the last line.
     expect(geoJson.features[1].geometry.coordinates).toEqual([
       transformEpsg5183ToWgs84(EPSG_X1 + 50, EPSG_Y1 + 50),
       transformEpsg5183ToWgs84(EPSG_X2 + 50, EPSG_Y2 + 50),
+      transformEpsg5183ToWgs84(EPSG_X3 + 5, EPSG_Y3 + 5),
     ]);
   });
 
@@ -189,7 +194,7 @@ describe('routeResultToGeoJson', () => {
     expect(geoJson.features).toHaveLength(0);
   });
 
-  it('skips single-node segments after endpoint extension is removed', () => {
+  it('anchors a single-node segment to origin and destination endpoints', () => {
     const resultSameNode: RouteResult = {
       ok: true,
       floorSegments: [{ level: 1, nodeIds: ['n1'], distanceMeters: 0 }],
@@ -203,6 +208,12 @@ describe('routeResultToGeoJson', () => {
     const nodeCoords = makeNodeCoords();
     const geoJson = routeResultToGeoJson(resultSameNode, nodeCoords, 1);
 
-    expect(geoJson.features).toHaveLength(0);
+    // origin + node + destination → a drawable line anchored at both endpoints.
+    expect(geoJson.features).toHaveLength(1);
+    expect(geoJson.features[0].geometry.coordinates).toEqual([
+      transformEpsg5183ToWgs84(EPSG_X1 - 5, EPSG_Y1 - 5),
+      transformEpsg5183ToWgs84(EPSG_X1, EPSG_Y1),
+      transformEpsg5183ToWgs84(EPSG_X1 + 5, EPSG_Y1 + 5),
+    ]);
   });
 });

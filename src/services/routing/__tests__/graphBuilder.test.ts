@@ -96,7 +96,7 @@ describe('buildRoutingGraph', () => {
     }
   });
 
-  it('level 1 graph has a large connected component', () => {
+  it('level 1 graph is fully connected (single component)', () => {
     const level1Nodes = [...graph.nodes.values()].filter((n) => n.level === 1);
     if (level1Nodes.length === 0) return;
 
@@ -124,7 +124,28 @@ describe('buildRoutingGraph', () => {
       largestComponent = Math.max(largestComponent, visited.size);
     }
 
-    expect(largestComponent / level1Nodes.length).toBeGreaterThan(0.6);
+    // Every walkable node on the level must be routable from any other — a
+    // fragmented level silently breaks routing for origins in small fragments.
+    expect(largestComponent).toBe(level1Nodes.length);
+  });
+
+  it('whole graph is a single connected component', () => {
+    const ids = [...graph.nodes.keys()];
+    if (ids.length === 0) return;
+
+    const visited = new Set<string>([ids[0]]);
+    const queue = [ids[0]];
+    while (queue.length > 0) {
+      const cur = queue.shift()!;
+      for (const next of graph.adjacency.get(cur) || []) {
+        if (!visited.has(next)) {
+          visited.add(next);
+          queue.push(next);
+        }
+      }
+    }
+
+    expect(visited.size).toBe(graph.nodes.size);
   });
 
   // ── Edge integrity ───────────────────────────────────────────────
@@ -142,11 +163,20 @@ describe('buildRoutingGraph', () => {
     }
   });
 
-  it('no walk edge exceeds 30 metres', () => {
+  it('no local (non-bridge) walk edge exceeds 30 metres', () => {
     const longEdges = graph.edges.filter(
-      (e) => e.edgeType === 'walk' && e.weightMeters > 30,
+      (e) => e.edgeType === 'walk' && !e.isBridge && e.weightMeters > 30,
     );
     expect(longEdges).toHaveLength(0);
+  });
+
+  it('connectivity bridges stay within a sane length bound', () => {
+    // Bridges may exceed the local 30 m limit to reach isolated fragments, but
+    // an excessively long bridge signals a real gap in the walkable-area data.
+    const bridges = graph.edges.filter((e) => e.edgeType === 'walk' && e.isBridge);
+    for (const e of bridges) {
+      expect(e.weightMeters).toBeLessThanOrEqual(80);
+    }
   });
 
   it('all connector edges have positive finite weightMeters', () => {

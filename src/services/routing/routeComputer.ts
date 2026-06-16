@@ -99,31 +99,33 @@ function addTempNode(
   return node;
 }
 
+/** How many nearest walkable nodes a temp origin/destination links into. */
+const TEMP_NODE_LINKS = 5;
+
 function connectTempNodeToArea(
   graph: RouteGraph,
   tempNode: RouteNode,
-  snappedNodeId: string,
   x: number,
   y: number,
   level: number,
-  radius: number = 15.0,
 ): void {
-  const snappedNode = graph.nodes.get(snappedNodeId);
-  if (snappedNode && snappedNode.nodeType !== 'connector') {
-    const snappedDist = euclidean(x, y, snappedNode.x, snappedNode.y);
-    addBidirectionalWalkEdge(graph, tempNode, snappedNode, level, snappedDist);
-  }
-
-  // Connect to all nearby nodes on the same level for better graph integration
-  for (const [nodeId, node] of graph.nodes) {
+  // Link the temp node only to its few NEAREST walkable nodes — not to every
+  // node within a wide radius. Connecting to far nodes gave Dijkstra straight
+  // "shortcut" edges that (a) made the route visibly start at a corridor node
+  // metres past the room instead of the one right in front of it, and (b) cut
+  // across walls. A small nearest-neighbour set forces the path to enter the
+  // graph at the closest point and then follow real corridor edges.
+  const candidates: { node: RouteNode; dist: number }[] = [];
+  for (const node of graph.nodes.values()) {
     if (node.level !== level) continue;
     if (node.nodeType === 'temp_origin' || node.nodeType === 'temp_destination') continue;
     if (node.nodeType === 'connector') continue;
-    if (nodeId === snappedNodeId) continue;
-    const dist = euclidean(x, y, node.x, node.y);
-    if (dist <= radius) {
-      addBidirectionalWalkEdge(graph, tempNode, node, level, dist);
-    }
+    candidates.push({ node, dist: euclidean(x, y, node.x, node.y) });
+  }
+  candidates.sort((a, b) => a.dist - b.dist);
+
+  for (const { node, dist } of candidates.slice(0, TEMP_NODE_LINKS)) {
+    addBidirectionalWalkEdge(graph, tempNode, node, level, dist);
   }
 }
 
@@ -274,11 +276,10 @@ export function computeRoute(input: {
     input.destination.level,
   );
 
-  connectTempNodeToArea(graph, originTemp, originSnap.nodeId, originX, originY, originTemp.level);
+  connectTempNodeToArea(graph, originTemp, originX, originY, originTemp.level);
   connectTempNodeToArea(
     graph,
     destinationTemp,
-    destinationSnap.nodeId,
     destinationX,
     destinationY,
     destinationTemp.level,
@@ -399,7 +400,6 @@ export function computeRouteOptions(input: {
       connectTempNodeToArea(
         graph,
         originTemp,
-        originSnap.nodeId,
         originX,
         originY,
         originTemp.level,
@@ -407,7 +407,6 @@ export function computeRouteOptions(input: {
       connectTempNodeToArea(
         graph,
         destinationTemp,
-        destinationSnap.nodeId,
         destinationX,
         destinationY,
         destinationTemp.level,

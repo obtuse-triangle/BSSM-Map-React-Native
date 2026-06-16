@@ -40,8 +40,17 @@ function segmentToFeature(
   segmentIndex: number,
   nodeCoords: Map<string, [number, number]>,
   selectedLevel?: number,
+  prependPoint?: { x: number; y: number },
+  appendPoint?: { x: number; y: number },
 ): RouteGeoJsonFeature | null {
   const coords: [number, number][] = [];
+
+  // Anchor the drawn line at the real origin (e.g. the selected room) so the
+  // route visibly starts there and connects to the nearest corridor node it
+  // enters the graph at, instead of leaving a gap.
+  if (prependPoint) {
+    coords.push(transformEpsg5183ToWgs84(prependPoint.x, prependPoint.y));
+  }
 
   for (const nodeId of segment.nodeIds) {
     const epsg = nodeCoords.get(nodeId);
@@ -52,6 +61,11 @@ function segmentToFeature(
     const [x, y] = epsg;
     const wgs84 = transformEpsg5183ToWgs84(x, y);
     coords.push(wgs84);
+  }
+
+  // Likewise anchor the end at the real destination point.
+  if (appendPoint) {
+    coords.push(transformEpsg5183ToWgs84(appendPoint.x, appendPoint.y));
   }
 
   // A LineString needs at least 2 coordinates
@@ -94,13 +108,27 @@ export function routeResultToGeoJson(
   }
 
   const features: RouteGeoJsonFeature[] = [];
+  const lastIndex = result.floorSegments.length - 1;
 
   for (let i = 0; i < result.floorSegments.length; i++) {
+    const segment = result.floorSegments[i];
+    // Anchor the first segment to the origin and the last to the destination,
+    // but only when they share that segment's floor (a cross-floor route's
+    // origin/destination live on the first/last segment respectively).
+    const prependPoint =
+      i === 0 && result.originPoint?.level === segment.level ? result.originPoint : undefined;
+    const appendPoint =
+      i === lastIndex && result.destinationPoint?.level === segment.level
+        ? result.destinationPoint
+        : undefined;
+
     const feature = segmentToFeature(
-      result.floorSegments[i],
+      segment,
       i,
       nodeCoords,
       selectedLevel,
+      prependPoint,
+      appendPoint,
     );
     if (feature) {
       features.push(feature);
