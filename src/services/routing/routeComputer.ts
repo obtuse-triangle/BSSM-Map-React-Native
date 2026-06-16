@@ -1,6 +1,7 @@
 import { buildRoutingGraph } from './graphBuilder';
 import { snapToGraph } from './coordinateSnap';
 import { findShortestPath } from './pathfinder';
+import { WALKING_SPEED_MPS } from './constants';
 import { transformWgs84ToEpsg5183 } from '../../utils/coordinateTransform';
 import type {
   RouteAccessibilityMode,
@@ -13,8 +14,6 @@ import type {
   RouteResult,
   RouteFloorSegment,
 } from '../../types/routing';
-
-const WALKING_SPEED_MPS = 1.4;
 
 type GraphWithTemps = RouteGraph;
 

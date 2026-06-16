@@ -146,7 +146,7 @@ describe('computeRoute', () => {
     });
     expect(result.usedStairsFallback).toBe(false);
     expect(result.totalDistanceMeters).toBeCloseTo(5);
-    expect(result.estimatedTimeSeconds).toBeCloseTo(5 / 1.4 + 15);
+    expect(result.estimatedTimeSeconds).toBeCloseTo(5 / 1.2 + 15);
   });
 
   it('prefers elevator paths when accessibility mode is elevator_priority', () => {
