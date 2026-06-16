@@ -1,4 +1,5 @@
 import type { RouteAccessibilityMode, RouteGraph, RouteEdge } from '../../types/routing';
+import { WALKING_SPEED_MPS } from './constants';
 
 interface QueueItem {
   nodeId: string;
@@ -69,10 +70,14 @@ class MinHeap<T extends { priority: number; nodeId: string }> {
 }
 
 function edgeCost(edge: RouteEdge, accessibilityMode: RouteAccessibilityMode): number {
+  const baseSeconds =
+    edge.edgeType === 'walk'
+      ? edge.weightMeters / WALKING_SPEED_MPS
+      : edge.weightMeters;
   if (accessibilityMode === 'elevator_priority') {
-    return edge.weightMeters + edge.accessibilityPenalty;
+    return baseSeconds + edge.accessibilityPenalty;
   }
-  return edge.weightMeters;
+  return baseSeconds;
 }
 
 function buildOutgoingEdges(

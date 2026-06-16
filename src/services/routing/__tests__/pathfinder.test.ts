@@ -36,7 +36,7 @@ describe('findShortestPath', () => {
     const result = findShortestPath(graph, 's', 't', 'normal');
     expect(result).not.toBeNull();
     expect(result?.nodeIds).toEqual(['s', 'b', 't']);
-    expect(result?.totalWeight).toBe(4);
+    expect(result?.totalWeight).toBeCloseTo((2 + 2) / 1.2, 2);
   });
 
   it('returns null for disconnected graphs', () => {
@@ -76,9 +76,9 @@ describe('findShortestPath', () => {
     const priority = findShortestPath(graph, 's', 't', 'elevator_priority');
 
     expect(normal?.nodeIds).toEqual(['s', 'stair1', 'stair2', 't']);
-    expect(normal?.totalWeight).toBe(4);
+    expect(normal?.totalWeight).toBeCloseTo(1 / 1.2 + 2 + 1 / 1.2, 2);
     expect(priority?.nodeIds).toEqual(['s', 'e1', 'e2', 't']);
-    expect(priority?.totalWeight).toBe(5);
+    expect(priority?.totalWeight).toBeCloseTo(2 / 1.2 + 2 + 1 / 1.2, 2);
   });
 
   it('is deterministic for equal-cost alternatives', () => {
