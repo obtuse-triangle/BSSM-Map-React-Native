@@ -1,6 +1,7 @@
 import type { StyleProp, ViewStyle } from 'react-native';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { GlassSurface } from '../glass';
+import { formatMapControlLabel } from '../../utils/accessibilityLabels';
 
 type ZoomControlsProps = {
   onZoomIn: () => void;
@@ -13,13 +14,28 @@ type ZoomControlsProps = {
 export function ZoomControls({ onZoomIn, onZoomOut, onReset, colorScheme = 'light', style }: ZoomControlsProps) {
   return (
     <GlassSurface variant="control" cornerRadius={18} colorScheme={colorScheme} pointerEvents="box-none" style={[styles.container, style]}>
-      <Pressable onPress={onZoomIn} style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}>
+      <Pressable
+        accessibilityLabel={formatMapControlLabel('zoomIn')}
+        accessibilityRole="button"
+        onPress={onZoomIn}
+        style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+      >
         <Text style={styles.buttonText}>+</Text>
       </Pressable>
-      <Pressable onPress={onZoomOut} style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}>
+      <Pressable
+        accessibilityLabel={formatMapControlLabel('zoomOut')}
+        accessibilityRole="button"
+        onPress={onZoomOut}
+        style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+      >
         <Text style={styles.buttonText}>−</Text>
       </Pressable>
-      <Pressable onPress={onReset} style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}>
+      <Pressable
+        accessibilityLabel={formatMapControlLabel('reset')}
+        accessibilityRole="button"
+        onPress={onReset}
+        style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
+      >
         <Text style={styles.resetText}>⌂</Text>
       </Pressable>
     </GlassSurface>

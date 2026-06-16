@@ -2,17 +2,19 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { FloorElement } from '../../types/floorMap';
 import type { LayoutRect } from '../../utils/coordinate';
+import { formatRoomA11yLabel } from '../../utils/accessibilityLabels';
 
 const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
 
 type RoomBlockProps = {
   element: FloorElement;
+  floorKey?: string | number | null;
   layout: LayoutRect;
   selected: boolean;
   onPress: (element: FloorElement) => void;
 };
 
-export function RoomBlock({ element, layout, selected, onPress }: RoomBlockProps) {
+export function RoomBlock({ element, floorKey, layout, selected, onPress }: RoomBlockProps) {
   const label = element.name.trim();
   const interactive = element.interactive === true;
   const labelStyle = [styles.label, selected && styles.labelSelected];
@@ -42,6 +44,8 @@ export function RoomBlock({ element, layout, selected, onPress }: RoomBlockProps
 
   return (
     <Pressable
+      accessibilityLabel={formatRoomA11yLabel(element, floorKey)}
+      accessibilityState={{ selected }}
       accessibilityRole="button"
       hitSlop={HIT_SLOP}
       onPress={() => onPress(element)}

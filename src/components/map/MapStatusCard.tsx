@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { IndoorPositionStatus } from '../../types/position';
 import type { IndoorPosition } from '../../types/position';
+import { formatMapControlLabel, formatToggleLabel } from '../../utils/accessibilityLabels';
 
 const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
 
@@ -65,6 +66,8 @@ export function MapStatusCard({
 
       <View style={styles.actionsRow}>
         <Pressable
+          accessibilityLabel={formatMapControlLabel('locate')}
+          accessibilityState={{ disabled: status === 'loading' || apCount === 0 }}
           accessibilityRole="button"
           hitSlop={HIT_SLOP}
           disabled={status === 'loading' || apCount === 0}
@@ -75,6 +78,8 @@ export function MapStatusCard({
         </Pressable>
 
         <Pressable
+          accessibilityLabel={formatToggleLabel('AP 위치 표시', showApMarkers)}
+          accessibilityState={{ selected: showApMarkers }}
           accessibilityRole="button"
           hitSlop={HIT_SLOP}
           onPress={onToggleApMarkers}
