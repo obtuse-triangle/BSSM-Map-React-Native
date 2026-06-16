@@ -344,7 +344,13 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false, onUserMap
   const tileStyles = useMemo(() => MAP_STYLES.filter((s) => s.id !== 'design'), []);
 
   return (
-    <View style={styles.container}>
+    <View
+      style={styles.container}
+      accessibilityLabel="학교 실내 지도"
+      accessibilityRole="none"
+      importantForAccessibility="yes"
+      accessible
+    >
       <Map ref={mapRef} mapStyle={BASE_STYLE} style={styles.map} onPress={handleMapPress} onLongPress={handleMapLongPress} onRegionWillChange={handleRegionWillChange} onRegionDidChange={handleRegionDidChange} logo={false} attribution={false}>
         <Camera
           ref={cameraRef}
