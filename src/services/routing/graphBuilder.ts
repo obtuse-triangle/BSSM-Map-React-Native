@@ -638,8 +638,6 @@ export function buildRoutingGraph(
     const linkConnectorToLevel = (connNodeId: string, level: number) => {
       const polyNodes = levelNodeEntries.get(level);
       if (!polyNodes || polyNodes.length === 0) return;
-      const levelPolys = polygonDataByLevel.get(level) ?? [];
-
       const withDist = polyNodes
         .map((n) => ({
           id: n.id,
@@ -648,7 +646,6 @@ export function buildRoutingGraph(
           d: euclidean(x, y, n.x, n.y),
         }))
         .filter((n) => n.d > 0 && n.d <= CONNECTOR_POLYGON_MAX_DISTANCE_M)
-        .filter((n) => segmentInsidePolygons(x, y, n.x, n.y, levelPolys))
         .sort((a, b) => a.d - b.d);
 
       const nearest = withDist.slice(0, CONNECTOR_POLYGON_LINKS);
