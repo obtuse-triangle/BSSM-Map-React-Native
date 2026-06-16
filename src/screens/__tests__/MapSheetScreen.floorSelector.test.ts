@@ -31,6 +31,10 @@ describe('MapSheetScreen wheel floor selector (static invariants)', () => {
       expect(body).toMatch(/scrollX\.value/);
     });
 
+    it('uses relative translation (translationX) for tracking', () => {
+      expect(screenSource).toMatch(/panStartScrollX\.value\s*\+\s*event\.translationX/);
+    });
+
     it('calls setSelectedLevel exactly once via runOnJS in .onEnd', () => {
       const onEndBlock = screenSource.match(/\.onEnd\(\(\)\s*=>\s*\{([\s\S]*?)\}\s*\),\s*\n\s*\[/);
       expect(onEndBlock).not.toBeNull();
@@ -70,14 +74,9 @@ describe('MapSheetScreen wheel floor selector (static invariants)', () => {
       expect(screenSource).toMatch(/<WheelItem/);
     });
 
-    it('applies distance-based opacity/scale to wheel items', () => {
-      expect(screenSource).toMatch(/Math\.abs\(scrollX\.value/);
-      expect(screenSource).toMatch(/opacity/);
-      expect(screenSource).toMatch(/scale/);
-    });
-
-    it('has a center highlight slot', () => {
-      expect(screenSource).toMatch(/wheelCenterHighlight/);
+    it('uses relative translation tracking (not absolute coords)', () => {
+      expect(screenSource).toMatch(/translationX/);
+      expect(screenSource).not.toMatch(/event\.x\s*-\s*touchOffsetX/);
     });
   });
 });
