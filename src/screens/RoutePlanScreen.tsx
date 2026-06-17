@@ -18,7 +18,7 @@ import { useMapStore } from '../store/mapStore';
 import { useRouteStore } from '../store/routeStore';
 import type { RootStackParamList } from '../navigation/types';
 import type { CampusFeature } from '../types/geojson';
-import type { RouteResult } from '../types/routing';
+
 import {
   formatRouteSummary,
   formatSearchResultLabel,
@@ -47,6 +47,46 @@ type ActiveField = 'origin' | 'destination' | null;
 function featureDisplayName(feature: CampusFeature | undefined): string {
   if (!feature) return '';
   return feature.properties.name_ko || feature.properties.name;
+}
+
+function SearchResultList({
+  results,
+  onSelect,
+}: {
+  results: CampusFeature[];
+  onSelect: (featureId: string) => void;
+}) {
+  return (
+    <View style={styles.resultsContainer}>
+      {results.map((feature: CampusFeature) => {
+        const featureKey = feature.properties.id ?? String(feature.id);
+        return (
+          <Pressable
+            key={featureKey}
+            accessibilityRole="button"
+            accessibilityLabel={formatSearchResultLabel(feature)}
+            hitSlop={HIT_SLOP}
+            onPress={() => onSelect(featureKey)}
+            style={({ pressed }) => [
+              styles.searchResultRow,
+              { borderColor: sheetSeparator },
+              pressed && { opacity: 0.85 },
+            ]}
+          >
+            <Text
+              style={[styles.searchResultName, { color: sheetLabel }]}
+              numberOfLines={1}
+            >
+              {feature.properties.name_ko || feature.properties.name}
+            </Text>
+            <Text style={[styles.searchResultMeta, { color: sheetSecondaryLabel }]}>
+              {`${feature.properties.level}층 · ${feature.properties.category}`}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
 }
 
 export function RoutePlanScreen() {
@@ -204,7 +244,6 @@ export function RoutePlanScreen() {
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Header */}
           <View style={styles.header}>
             <Text style={[styles.headerTitle, { color: sheetLabel }]}>경로 찾기</Text>
             <Pressable
@@ -222,7 +261,6 @@ export function RoutePlanScreen() {
             </Pressable>
           </View>
 
-          {/* Floor selector */}
           <View style={styles.floorSelectorRow}>
             {levels.map((level) => {
               const selected = level === selectedLevel;
@@ -253,10 +291,8 @@ export function RoutePlanScreen() {
             })}
           </View>
 
-          {/* Origin / Destination inputs */}
           <View style={styles.inputGroup}>
             <View style={styles.inputColumn}>
-              {/* Origin input */}
               <View
                 style={[
                   styles.inputRow,
@@ -295,7 +331,6 @@ export function RoutePlanScreen() {
                 ) : null}
               </View>
 
-              {/* Destination input */}
               <View
                 style={[
                   styles.inputRow,
@@ -341,7 +376,6 @@ export function RoutePlanScreen() {
               </View>
             </View>
 
-            {/* Swap button */}
             <Pressable
               accessibilityLabel="출발지와 도착지 교체"
               accessibilityRole="button"
@@ -357,7 +391,6 @@ export function RoutePlanScreen() {
             </Pressable>
           </View>
 
-          {/* Current location button */}
           <Pressable
             accessibilityLabel="현재 위치를 출발지로 설정"
             accessibilityRole="button"
@@ -373,73 +406,20 @@ export function RoutePlanScreen() {
             <Text style={[styles.currentLocationText, { color: accentColor }]}>현재 위치</Text>
           </Pressable>
 
-          {/* Origin search results */}
           {showOriginResults && (
-            <View style={styles.resultsContainer}>
-              {originSearch.searchResults.map((feature: CampusFeature) => {
-                const featureKey = feature.properties.id ?? String(feature.id);
-                return (
-                  <Pressable
-                    key={featureKey}
-                    accessibilityRole="button"
-                    accessibilityLabel={formatSearchResultLabel(feature)}
-                    hitSlop={HIT_SLOP}
-                    onPress={() => handleSelectOrigin(featureKey)}
-                    style={({ pressed }) => [
-                      styles.searchResultRow,
-                      { borderColor: sheetSeparator },
-                      pressed && { opacity: 0.85 },
-                    ]}
-                  >
-                    <Text
-                      style={[styles.searchResultName, { color: sheetLabel }]}
-                      numberOfLines={1}
-                    >
-                      {feature.properties.name_ko || feature.properties.name}
-                    </Text>
-                    <Text style={[styles.searchResultMeta, { color: sheetSecondaryLabel }]}>
-                      {`${feature.properties.level}층 · ${feature.properties.category}`}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+            <SearchResultList
+              results={originSearch.searchResults}
+              onSelect={handleSelectOrigin}
+            />
           )}
 
-          {/* Destination search results */}
           {showDestinationResults && (
-            <View style={styles.resultsContainer}>
-              {destinationSearch.searchResults.map((feature: CampusFeature) => {
-                const featureKey = feature.properties.id ?? String(feature.id);
-                return (
-                  <Pressable
-                    key={featureKey}
-                    accessibilityRole="button"
-                    accessibilityLabel={formatSearchResultLabel(feature)}
-                    hitSlop={HIT_SLOP}
-                    onPress={() => handleSelectDestination(featureKey)}
-                    style={({ pressed }) => [
-                      styles.searchResultRow,
-                      { borderColor: sheetSeparator },
-                      pressed && { opacity: 0.85 },
-                    ]}
-                  >
-                    <Text
-                      style={[styles.searchResultName, { color: sheetLabel }]}
-                      numberOfLines={1}
-                    >
-                      {feature.properties.name_ko || feature.properties.name}
-                    </Text>
-                    <Text style={[styles.searchResultMeta, { color: sheetSecondaryLabel }]}>
-                      {`${feature.properties.level}층 · ${feature.properties.category}`}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+            <SearchResultList
+              results={destinationSearch.searchResults}
+              onSelect={handleSelectDestination}
+            />
           )}
 
-          {/* Route options list */}
           {showRouteOptions && (
             <View style={styles.optionsContainer}>
               <Text style={[styles.optionsSectionTitle, { color: sheetSecondaryLabel }]}>
@@ -536,7 +516,6 @@ export function RoutePlanScreen() {
             </View>
           )}
 
-          {/* Empty state */}
           {showEmptyState && (
             <View style={styles.emptyState}>
               <Text style={[styles.emptyStateText, { color: sheetTertiaryLabel }]}>
@@ -545,7 +524,6 @@ export function RoutePlanScreen() {
             </View>
           )}
 
-          {/* Initial hint */}
           {!routeOrigin && !routeDestination && !showOriginResults && !showDestinationResults && (
             <View style={styles.emptyState}>
               <Text style={[styles.emptyStateText, { color: sheetTertiaryLabel }]}>
