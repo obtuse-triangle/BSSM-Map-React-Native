@@ -1,6 +1,5 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from 'react';
 import { StyleSheet, View, type NativeSyntheticEvent } from 'react-native';
-import { Asset } from 'expo-asset';
 import {
   Camera,
   GeoJSONSource,
@@ -8,7 +7,6 @@ import {
   Map,
   NativeUserLocation,
   RasterSource,
-  type FilterSpecification,
   type MapRef,
   type CameraRef,
   type ViewStateChangeEvent,
@@ -18,32 +16,23 @@ import {
 import campusDataUntyped from '../../data/campus-wgs84.json';
 import outlineDataUntyped from '../../data/school-outline.json';
 import { MAP_STYLES } from '../../constants/mapStyles';
-import { useMapStore, type CampusFeatureCategory, type MapBaseLayer } from '../../store/mapStore';
-import { useSavedPlacesStore } from '../../store/savedPlacesStore';
+import { useMapStore } from '../../store/mapStore';
 import CampusBleMarker from './CampusBleMarker';
 import CampusApMarkers from './CampusApMarkers';
 import SavedPinsLayer from './SavedPinsLayer';
 import RoutePathLayer from './RoutePathLayer';
 import { getCampusOverlayPaints } from './campusOverlayPaints';
-import { getDetectedBuildingId } from '../../utils/buildingDetection';
 import type { CampusGeoJSON } from '../../types/geojson';
 import { getFeatureById } from '../../utils/geoJsonHelpers';
 import { getCoordinateFlyToOptions, getFeatureCameraTarget } from '../../utils/cameraTarget';
 
+import { CAMPUS_BOUNDS, CAMPUS_CENTER, PROGRAMMATIC_CAMERA_SUPPRESSION_MS, BASE_STYLE } from './campusMapInternal/campusMapConstants';
+import { getDesignTilesPath } from './campusMapInternal/tileAssets';
+import { createMapPressHandler, createMapLongPressHandler, createUserLocationUpdateHandler } from './campusMapInternal/mapInteractions';
+import { buildLevelFilter, buildCategoryFilter, buildSelectedFeatureFilter } from './campusMapInternal/layerFilters';
+
 const campusData = campusDataUntyped as unknown as CampusGeoJSON;
 const outlineData = outlineDataUntyped as any;
-
-const CAMPUS_BOUNDS: [number, number, number, number] = [128.9028, 35.1876, 128.9041, 35.1893];
-const CAMPUS_CENTER: [number, number] = [128.9035, 35.1885];
-const PROGRAMMATIC_CAMERA_SUPPRESSION_MS = 600;
-
-const BASE_STYLE = {
-  version: 8 as const,
-  name: 'base',
-  glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
-  sources: {} as Record<string, any>,
-  layers: [] as any[],
-};
 
 export type CampusMapHandle = {
   flyToUser: () => void;
@@ -60,28 +49,6 @@ type CampusMapProps = {
   locationTrackingEnabled?: boolean;
   onUserMapDragStart?: () => void;
 };
-
-let designTilesPathPromise: Promise<string | null> | null = null;
-
-function getDesignTilesPath(): Promise<string | null> {
-  if (!designTilesPathPromise) {
-    designTilesPathPromise = (async () => {
-      try {
-        const asset = Asset.fromModule(require('../../data/campus-design.mbtiles'));
-        const downloaded = await asset.downloadAsync();
-        if (downloaded.localUri) {
-          return downloaded.localUri.replace('file://', '');
-        }
-        console.warn('[CampusMap] downloadAsync returned no localUri for mbtiles asset');
-        return null;
-      } catch (err) {
-        console.error('[CampusMap] Failed to resolve mbtiles path:', err);
-        return null;
-      }
-    })();
-  }
-  return designTilesPathPromise;
-}
 
 function CampusMap({ topPadding = 50, locationTrackingEnabled = false, onUserMapDragStart }: CampusMapProps, ref: Ref<CampusMapHandle>) {
   const mapRef = useRef<MapRef>(null);
@@ -137,99 +104,17 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false, onUserMap
   }, []);
 
   const handleMapPress = useCallback(
-    async (event: any) => {
-      const point = event?.nativeEvent?.point;
-
-      if (!point || !mapRef.current) {
-        setSelectedFeatureId(null);
-        return;
-      }
-
-      // 1) Saved pin check first
-      const pinFeatures = await mapRef.current.queryRenderedFeatures(point, {
-        layers: ['saved-pins-layer'],
-      });
-      const hitPin = (pinFeatures as Array<{
-        properties?: { id?: string };
-        geometry?: { coordinates?: [number, number] };
-      }> | undefined)?.[0];
-      if (hitPin && hitPin.properties?.id) {
-        useSavedPlacesStore.getState().setSelectedSavedPlaceId(hitPin.properties.id);
-        useMapStore.getState().setSelectedFeatureId(null);
-        const g = hitPin.geometry?.coordinates;
-        if (g && Number.isFinite(g[0]) && Number.isFinite(g[1])) {
-          useMapStore.getState().setPendingFlyToCoordinates(g);
-        }
-        useMapStore.getState().requestMinimizeSheets();
-        return;
-      }
-
-      // 2) Campus polygon (existing logic)
-      const features = await mapRef.current.queryRenderedFeatures(point, {
-        layers: ['campus-fill'],
-      });
-
-      const pressedFeature = (features as Array<{ id?: string | number; properties?: { interactive?: boolean; id?: string } }> | undefined)
-        ?.find((f) => f?.properties?.interactive === true);
-
-      if (!pressedFeature) {
-        setSelectedFeatureId(null);
-        return;
-      }
-
-      const featureId = String(pressedFeature.id ?? pressedFeature.properties?.id ?? '');
-
-      if (!featureId || featureId === 'undefined') {
-        return;
-      }
-
-      setSelectedFeatureId(featureId === selectedFeatureId ? null : featureId);
-    },
+    createMapPressHandler({ mapRef, selectedFeatureId, setSelectedFeatureId }),
     [selectedFeatureId, setSelectedFeatureId],
   );
 
-  const handleMapLongPress = useCallback(async (event: any) => {
-    const point = event?.nativeEvent?.point;
-    const lngLat = event?.nativeEvent?.lngLat;
-    if (!point || !lngLat || !mapRef.current) {
-      console.warn('[CampusMap] long-press missing point or lngLat; skipping pin creation');
-      return;
-    }
-    const lng = typeof lngLat.longitude === 'number'
-      ? lngLat.longitude
-      : Array.isArray(lngLat) ? lngLat[0] : NaN;
-    const lat = typeof lngLat.latitude === 'number'
-      ? lngLat.latitude
-      : Array.isArray(lngLat) ? lngLat[1] : NaN;
-    if (!Number.isFinite(lng) || !Number.isFinite(lat)) {
-      console.warn('[CampusMap] long-press non-finite coords; skipping');
-      return;
-    }
-    const currentLevel = useMapStore.getState().selectedLevel;
-    const newId = useSavedPlacesStore.getState().createCustomPin({ coordinates: [lng, lat], level: currentLevel });
-    if (!newId) return;
-    useSavedPlacesStore.getState().setSelectedSavedPlaceId(newId);
-    useMapStore.getState().setSelectedFeatureId(null);
-    useMapStore.getState().requestMinimizeSheets();
-  }, []);
+  const handleMapLongPress = useCallback(
+    createMapLongPressHandler({ mapRef }),
+    [],
+  );
 
   const handleUserLocationUpdate = useCallback(
-    (position: { coords?: { longitude?: number; latitude?: number } } | undefined) => {
-      const coords = position?.coords;
-
-      if (!coords) {
-        return;
-      }
-
-      const { longitude, latitude } = coords;
-
-      if (typeof longitude !== 'number' || typeof latitude !== 'number') {
-        return;
-      }
-
-      setGpsCoordinates({ longitude, latitude });
-      setDetectedBuildingId(getDetectedBuildingId(longitude, latitude, campusData));
-    },
+    createUserLocationUpdateHandler({ setDetectedBuildingId, setGpsCoordinates }),
     [setDetectedBuildingId, setGpsCoordinates],
   );
 
@@ -317,24 +202,9 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false, onUserMap
 
   useImperativeHandle(ref, () => ({ flyToUser, flyToCoordinates, flyToFeature, zoomIn, zoomOut, resetView, showAttribution: () => mapRef.current?.showAttribution?.() }), [flyToCoordinates, flyToFeature, flyToUser, resetView, zoomIn, zoomOut]);
 
-  const levelFilter = useMemo(
-    () => ['==', ['get', 'level'], selectedLevel] as unknown as FilterSpecification,
-    [selectedLevel],
-  );
-
-  const categoryFilter = useMemo(() => {
-    if (hiddenCategories.size === 0) {
-      return levelFilter;
-    }
-
-    const hidden = Array.from(hiddenCategories);
-    return ['all', levelFilter, ['!', ['in', ['get', 'category'], ['literal', hidden]]]] as unknown as FilterSpecification;
-  }, [levelFilter, hiddenCategories]);
-
-  const selectedFeatureFilter = useMemo(
-    () => ['==', ['id'], selectedFeatureId ?? ''] as unknown as FilterSpecification,
-    [selectedFeatureId],
-  );
+  const levelFilter = useMemo(() => buildLevelFilter(selectedLevel), [selectedLevel]);
+  const categoryFilter = useMemo(() => buildCategoryFilter(levelFilter, hiddenCategories), [levelFilter, hiddenCategories]);
+  const selectedFeatureFilter = useMemo(() => buildSelectedFeatureFilter(selectedFeatureId), [selectedFeatureId]);
 
   const overlayPaints = useMemo(() => getCampusOverlayPaints(baseLayer), [baseLayer]);
 
