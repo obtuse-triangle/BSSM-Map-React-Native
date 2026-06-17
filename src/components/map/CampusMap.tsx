@@ -1,7 +1,6 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from 'react';
-import { Platform, StyleSheet, View, type NativeSyntheticEvent } from 'react-native';
+import { StyleSheet, View, type NativeSyntheticEvent } from 'react-native';
 import { Asset } from 'expo-asset';
-import * as FileSystem from 'expo-file-system';
 import {
   Camera,
   GeoJSONSource,
