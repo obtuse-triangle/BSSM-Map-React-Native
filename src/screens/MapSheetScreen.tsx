@@ -207,7 +207,6 @@ export function MapSheetScreen() {
   const prevBleVisibleRef = useRef(bleCardVisible);
   const prevSettingsVisibleRef = useRef(settingsVisible);
 
-  // Track sheet detent position for collapsed vs expanded layout
   useEffect(() => {
     const unsubscribe = navigation.addListener('sheetDetentChange', (e) => {
       setCurrentDetentIndex(e.data.index);
@@ -373,7 +372,6 @@ export function MapSheetScreen() {
     [setSelectedFeatureId, setSelectedSavedPlaceId, setPendingFlyToCoordinates, setBleCardVisible, setSettingsVisible, requestMinimizeSheets],
   );
 
-  // Navigate to PlaceDetailSheet when a feature is selected
   useEffect(() => {
     if (selectedFeatureId && isFocused) {
       // Close BLE/settings when showing place detail
@@ -387,7 +385,6 @@ export function MapSheetScreen() {
     }
   }, [selectedFeatureId, isFocused, navigation, setBleCardVisible, setSettingsVisible]);
 
-  // Navigate to PlaceDetailSheet when a saved custom pin is selected
   useEffect(() => {
     if (selectedSavedPlaceId && isFocused && !selectedFeatureId) {
       const navigationState = navigation.getState();
@@ -406,7 +403,6 @@ export function MapSheetScreen() {
 
   const mergedBlockChildren = (
     <>
-      {/* Row 1: Bar buttons */}
       <View style={styles.barRow}>
             <Pressable
               accessibilityRole="button"
@@ -525,7 +521,6 @@ export function MapSheetScreen() {
         </View>
       </View>
 
-      {/* Row 2: Search bar */}
         <View style={styles.searchRow}>
           <SearchBar
             containerStyle={{ flex: 1 }}
@@ -552,7 +547,6 @@ export function MapSheetScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Position status helper text */}
         {(() => {
           const msg = statusForSelectedFloor === 'loading'
             ? '현재 위치를 계산하는 중입니다.'
@@ -566,7 +560,6 @@ export function MapSheetScreen() {
           return msg ? <Text style={[styles.helperText, { color: sheetSecondaryLabel }]}>{msg}</Text> : null;
         })()}
 
-        {/* Saved places list — shown when search empty, BLE/settings closed */}
         {!showBle && !showSettings && searchQuery.trim().length === 0 && savedPlacesArray.length > 0 && (
           <View style={styles.savedPlacesSection}>
             <Text style={[styles.savedPlacesTitle, { color: sheetSecondaryLabel }]}>저장된 장소</Text>
@@ -609,7 +602,6 @@ export function MapSheetScreen() {
           </View>
         )}
 
-        {/* Empty state — shown when BLE and settings are both closed, no saved places */}
         {!showBle && !showSettings && searchQuery.trim().length === 0 && savedPlacesArray.length === 0 && (
           <View style={styles.emptyState}>
             <Text style={[styles.emptyStateTitle, { color: sheetLabel }]}>BSSM 학교 지도</Text>
@@ -660,7 +652,6 @@ export function MapSheetScreen() {
           <FeedbackStateCard title="검색 결과" message="현재 층에서 일치하는 교실이 없습니다." variant="empty" />
         )}
 
-        {/* Settings Panel */}
         {showSettings && (
           <GlassSurface variant="modal" cornerRadius={20} style={styles.settingsCard}>
             <Text style={[styles.settingsTitle, { color: sheetLabel }]}>지도 설정</Text>
@@ -718,7 +709,6 @@ export function MapSheetScreen() {
           </GlassSurface>
         )}
 
-        {/* BLE Status Card */}
         {showBle && (
           <BleWclStatusCard
             colorScheme={sheetScheme === 'dark' ? 'dark' : 'light'}
@@ -847,11 +837,6 @@ const styles = StyleSheet.create({
   searchRow: {
     flexDirection: 'row',
     zIndex: 20,
-  },
-  searchRowCollapsed: {
-    height: 0,
-    overflow: 'hidden',
-    opacity: 0,
   },
   helperText: {
     fontSize: 12,
