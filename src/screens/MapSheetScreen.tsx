@@ -14,11 +14,10 @@ import { MAP_STYLES } from '../constants/mapStyles';
 import campusDataUntyped from '../data/campus-wgs84.json';
 import { FeedbackStateCard } from '../components/feedback/FeedbackStateCard';
 import { BleWclStatusCard } from '../components/map/BleWclStatusCard';
-import { GlassSurface } from '../components/glass';
 import { GlassView, isGlassEffectAPIAvailable } from 'expo-glass-effect';
 import { SearchBar } from '../components/map/SearchBar';
 import { useSearchBar } from '../hooks/useSearchBar';
-import { useMapStore, type CampusFeatureCategory } from '../store/mapStore';
+import { useMapStore } from '../store/mapStore';
 import { usePositionStore } from '../store/positionStore';
 import { useBleLocationStore } from '../store/bleLocationStore';
 import { useSavedPlacesStore } from '../store/savedPlacesStore';
@@ -26,24 +25,19 @@ import {
   sheetAccent,
   sheetLabel,
   sheetSecondaryLabel,
-  sheetSecondarySystemFill,
   sheetSeparator,
   sheetSystemFill,
   sheetTertiaryLabel,
   sheetSelectionBg,
 } from '../theme/sheetSemanticColors';
-import type { CampusFeature, CampusGeoJSON } from '../types/geojson';
+import type { CampusGeoJSON } from '../types/geojson';
 import { getFeatureById, getLevelKeys } from '../utils/geoJsonHelpers';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
-import {
-  CATEGORY_LABELS,
-  formatSavedPlaceLabel,
-  formatSavedPlaceSubtitle,
-  formatSearchResultLabel,
-  formatToggleLabel,
-} from '../utils/accessibilityLabels';
+import { SettingsPanel } from './mapSheet/SettingsPanel';
+import { SavedPlacesList } from './mapSheet/SavedPlacesList';
+import { SearchResultsList } from './mapSheet/SearchResultsList';
 
 const campusData = campusDataUntyped as unknown as CampusGeoJSON;
 
@@ -57,19 +51,6 @@ const LEVEL_BUTTON_WIDTH = 36;
 // iOS tab-bar-style squishy spring — underdamped for a soft, organic feel.
 // Slight overshoot gives the "말랑말랑한 물방울" sensation the user wants.
 const SPRING_CONFIG = { mass: 1, damping: 16, stiffness: 200, overshootClamping: false };
-
-const CATEGORY_COLORS: Record<CampusFeatureCategory, string> = {
-  classroom: '#D4E8FC',
-  corridor: '#F5F5F5',
-  elevator: '#CFD8DC',
-  facility: '#C8E6C9',
-  restroom: '#B3E5FC',
-  room: '#FFF9C4',
-  stair: '#D7CCC8',
-  structural: '#EEEEEE',
-};
-
-const BASE_LAYER_OPTIONS = MAP_STYLES.map((s) => ({ key: s.id, label: s.label, icon: s.icon }));
 
 export function MapSheetScreen() {
   const sheetScheme = useColorScheme();
@@ -561,54 +542,21 @@ export function MapSheetScreen() {
         })()}
 
         {!showBle && !showSettings && searchQuery.trim().length === 0 && savedPlacesArray.length > 0 && (
-          <View style={styles.savedPlacesSection}>
-            <Text style={[styles.savedPlacesTitle, { color: sheetSecondaryLabel }]}>저장된 장소</Text>
-            {savedPlacesArray.map((place) => {
-              const isCustom = place.type === 'custom';
-              const color = place.color;
-              const onPress = isCustom
-                ? () => handleSelectSavedCustomPin(place.id)
-                : () => handleSelectSavedCampusPlace(place.featureId);
-              const subtitle = isCustom
-                ? '커스텀 핀'
-                : `${place.level}층 · ${CATEGORY_LABELS[place.category as CampusFeatureCategory] ?? place.category}`;
-              return (
-                <Pressable
-                  key={place.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={formatSavedPlaceLabel(place)}
-                  accessibilityHint={formatSavedPlaceSubtitle(place)}
-                  accessibilityState={{ selected: place.id === selectedSavedPlaceId }}
-                  hitSlop={HIT_SLOP}
-                  onPress={onPress}
-                  style={({ pressed }) => [
-                    styles.savedPlaceRow,
-                    { backgroundColor: sheetSystemFill, borderColor: sheetSeparator },
-                    pressed && { opacity: 0.88 },
-                  ]}
-                >
-                  <View style={[styles.savedPlaceColor, { backgroundColor: color }]} />
-                  <View style={styles.savedPlaceCopy}>
-                    <Text style={[styles.savedPlaceName, { color: sheetLabel }]} numberOfLines={1}>
-                      {place.name}
-                    </Text>
-                    <Text style={[styles.savedPlaceMeta, { color: sheetSecondaryLabel }]} numberOfLines={1}>
-                      {subtitle}
-                    </Text>
-                  </View>
-                </Pressable>
-              );
-            })}
-          </View>
+          <SavedPlacesList
+            savedPlaces={savedPlacesArray}
+            selectedSavedPlaceId={selectedSavedPlaceId}
+            onSelectCampusPlace={handleSelectSavedCampusPlace}
+            onSelectCustomPin={handleSelectSavedCustomPin}
+          />
         )}
 
         {!showBle && !showSettings && searchQuery.trim().length === 0 && savedPlacesArray.length === 0 && (
           <View style={styles.emptyState}>
             <Text style={[styles.emptyStateTitle, { color: sheetLabel }]}>BSSM 학교 지도</Text>
-            <Text style={[styles.emptyStateText, { color: sheetSecondaryLabel }]}> 
+            <Text style={[styles.emptyStateText, { color: sheetSecondaryLabel }]}>
               검색하거나 지도에서 교실을 탭하여 정보를 확인하세요.
             </Text>
-            <Text style={[styles.emptyStateHint, { color: sheetTertiaryLabel }]}> 
+            <Text style={[styles.emptyStateHint, { color: sheetTertiaryLabel }]}>
               ⌖ 현재 위치 찾기 · BLE 실내 측위 · 지도 스타일 변경
             </Text>
             <Text style={[styles.emptyStateHint, { color: sheetTertiaryLabel }]}>
@@ -618,34 +566,12 @@ export function MapSheetScreen() {
         )}
 
         {searchQuery.trim().length > 0 && searchResults.length > 0 && !showBle && !showSettings && (
-          <>
-            {searchResults.map((feature: CampusFeature) => {
-              const featureKey = feature.properties.id ?? String(feature.id);
-              const selected = featureKey === selectedFeatureId;
-              return (
-                <Pressable
-                  key={featureKey}
-                  accessibilityRole="button"
-                  accessibilityLabel={formatSearchResultLabel(feature)}
-                  accessibilityState={{ selected }}
-                  hitSlop={HIT_SLOP}
-                  onPress={() => handleSelectSearchResult(featureKey)}
-                  style={({ pressed }) => [
-                    styles.searchResultRow,
-                    selected && styles.searchResultRowSelected,
-                    pressed && { opacity: 0.88 },
-                  ]}
-                >
-                  <Text style={[styles.searchResultName, { color: sheetLabel }, selected && { color: sheetAccent(sheetScheme) }]} numberOfLines={1}>
-                    {feature.properties.name_ko || feature.properties.name}
-                  </Text>
-                  <Text style={[styles.searchResultMeta, { color: sheetSecondaryLabel }, selected && { color: sheetAccent(sheetScheme) }]}>
-                    {selected ? '선택됨' : `${feature.properties.level}층 · ${feature.properties.category}`}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </>
+          <SearchResultsList
+            results={searchResults}
+            selectedFeatureId={selectedFeatureId}
+            scheme={sheetScheme}
+            onSelectResult={handleSelectSearchResult}
+          />
         )}
 
         {searchQuery.trim().length > 0 && searchResults.length === 0 && !showBle && !showSettings && (
@@ -653,60 +579,14 @@ export function MapSheetScreen() {
         )}
 
         {showSettings && (
-          <GlassSurface variant="modal" cornerRadius={20} style={styles.settingsCard}>
-            <Text style={[styles.settingsTitle, { color: sheetLabel }]}>지도 설정</Text>
-
-            <Text style={[styles.settingsSectionTitle, { color: sheetSecondaryLabel }]}>배경 지도</Text>
-            <View style={styles.baseLayerRow}>
-              {BASE_LAYER_OPTIONS.map((opt) => {
-                const active = baseLayer === opt.key;
-                return (
-                  <Pressable
-                    key={opt.key}
-                    accessibilityRole="button"
-                    accessibilityLabel={opt.label}
-                    accessibilityState={{ selected: baseLayer === opt.key }}
-                    onPress={() => setBaseLayer(opt.key)}
-                    style={[
-                      styles.baseLayerButton,
-                      { backgroundColor: sheetSystemFill, borderColor: sheetSeparator },
-                      active && { backgroundColor: sheetSelectionBg, borderColor: sheetAccent(sheetScheme) },
-                    ]}
-                  >
-                    <Text style={[styles.baseLayerIcon, { color: sheetLabel }]}>{opt.icon}</Text>
-                    <Text style={[styles.baseLayerLabel, { color: sheetSecondaryLabel }, active && { color: sheetAccent(sheetScheme) }]}>{opt.label}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <Text style={[styles.settingsSectionTitle, { color: sheetSecondaryLabel }]}>카테고리 표시</Text>
-            <View style={styles.categoryGrid}>
-              {mapCategories.map((cat) => {
-                const hidden = hiddenCategories.has(cat);
-                return (
-                  <Pressable
-                    key={cat}
-                    accessibilityRole="button"
-                    accessibilityLabel={formatToggleLabel(CATEGORY_LABELS[cat], !hidden)}
-                    accessibilityState={{ selected: !hidden }}
-                    hitSlop={HIT_SLOP}
-                    onPress={() => toggleCategory(cat)}
-                    style={[
-                      styles.categoryChip,
-                      { backgroundColor: sheetSystemFill, borderColor: sheetSeparator, borderLeftColor: CATEGORY_COLORS[cat] },
-                      hidden && { backgroundColor: sheetSecondarySystemFill, opacity: 0.55 },
-                    ]}
-                  >
-                    <Text style={[styles.categoryChipText, { color: sheetLabel }, hidden && { color: sheetTertiaryLabel }]}> 
-                      {hidden ? '✕' : '✓'} {CATEGORY_LABELS[cat]}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-          </GlassSurface>
+          <SettingsPanel
+            scheme={sheetScheme}
+            baseLayer={baseLayer}
+            hiddenCategories={hiddenCategories}
+            mapCategories={mapCategories}
+            onSetBaseLayer={setBaseLayer}
+            onToggleCategory={toggleCategory}
+          />
         )}
 
         {showBle && (
@@ -843,75 +723,6 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     paddingHorizontal: 4,
   },
-  searchResultRow: {
-    borderRadius: 14,
-    gap: 2,
-    marginHorizontal: 2,
-    marginBottom: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  searchResultRowSelected: {
-    backgroundColor: sheetSelectionBg,
-  },
-  searchResultName: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  searchResultMeta: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  // ── Settings ────────────────────────────────────
-  settingsCard: {
-    gap: 16,
-    padding: 20,
-  },
-  settingsTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  settingsSectionTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-  },
-  baseLayerRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  baseLayerButton: {
-    borderRadius: 14,
-    borderWidth: 1,
-    gap: 4,
-    paddingVertical: 10,
-    minWidth: 80,
-    paddingHorizontal: 10,
-  },
-  baseLayerIcon: {
-    fontSize: 22,
-  },
-  baseLayerLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  categoryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  categoryChip: {
-    borderLeftWidth: 3,
-    borderRadius: 10,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  categoryChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
   // ── Empty state ───────────────────────────────────
   emptyState: {
     alignItems: 'center',
@@ -931,43 +742,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 16,
     textAlign: 'center',
-  },
-  savedPlacesSection: {
-    gap: 8,
-    paddingHorizontal: 2,
-  },
-  savedPlacesTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.3,
-    paddingHorizontal: 4,
-  },
-  savedPlaceRow: {
-    alignItems: 'center',
-    borderRadius: 14,
-    borderWidth: 1,
-    flexDirection: 'row',
-    gap: 10,
-    marginHorizontal: 2,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  savedPlaceColor: {
-    borderRadius: 8,
-    height: 16,
-    width: 16,
-  },
-  savedPlaceCopy: {
-    flex: 1,
-    gap: 1,
-  },
-  savedPlaceName: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  savedPlaceMeta: {
-    fontSize: 12,
-    fontWeight: '600',
   },
 });
 
