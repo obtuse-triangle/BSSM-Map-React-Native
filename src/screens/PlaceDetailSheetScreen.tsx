@@ -18,6 +18,10 @@ import { getFeatureById, getFeatureCentroid } from '../utils/geoJsonHelpers';
 
 const campusData = campusDataUntyped as unknown as CampusGeoJSON;
 
+type DetailFloorElement = FloorElement & {
+  _geojsonMeta?: { category: string; centroid: string };
+};
+
 export function PlaceDetailSheetScreen() {
   const { selectedFeatureId, setSelectedFeatureId, minimizeSheetsTick } = useMapStore();
   const accentScheme = useColorScheme();
@@ -74,7 +78,7 @@ export function PlaceDetailSheetScreen() {
     } as Floor;
   }, [selectedFeature]);
 
-  const bottomSheetRoom = useMemo<FloorElement | null>(() => {
+  const bottomSheetRoom = useMemo<DetailFloorElement | null>(() => {
     if (!selectedFeature) return null;
     const centroid = getFeatureCentroid(selectedFeature);
     return {
@@ -86,7 +90,7 @@ export function PlaceDetailSheetScreen() {
         category: selectedFeature.properties.category,
         centroid: `[${centroid[0].toFixed(5)}, ${centroid[1].toFixed(5)}]`,
       },
-    } as FloorElement & { _geojsonMeta?: { category: string; centroid: string } };
+    };
   }, [selectedFeature]);
 
   // ── Save / unsave state ────────────────────────────────────────────
@@ -198,8 +202,8 @@ export function PlaceDetailSheetScreen() {
 
   const roomName = bottomSheetRoom?.name?.trim() || (bottomSheetFloor ? `${bottomSheetFloor.label} 정보` : '공간 정보');
   const floorLabel = bottomSheetFloor?.label ?? null;
-  const category = (bottomSheetRoom as any)?._geojsonMeta?.category ?? null;
-  const centroid = (bottomSheetRoom as any)?._geojsonMeta?.centroid ?? null;
+  const category = bottomSheetRoom?._geojsonMeta?.category ?? null;
+  const centroid = bottomSheetRoom?._geojsonMeta?.centroid ?? null;
 
   return (
     <View style={styles.container}>
