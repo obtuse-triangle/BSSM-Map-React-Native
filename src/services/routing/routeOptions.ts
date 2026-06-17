@@ -49,9 +49,13 @@ const MAX_OPTIONS = 5;
 
 // ── Balanced-rank weights (from Oracle design) ─────────────────────
 
-const BALANCED_WEIGHT_TIME = 0.45;
-const BALANCED_WEIGHT_DISTANCE = 0.25;
-const BALANCED_WEIGHT_EFFORT = 0.30;
+const BALANCED_WEIGHT_TIME = 0.20;
+const BALANCED_WEIGHT_DISTANCE = 0.20;
+const BALANCED_WEIGHT_EFFORT = 0.60;
+
+const ELEVATOR_PRIORITY_WEIGHT_TIME = 0.10;
+const ELEVATOR_PRIORITY_WEIGHT_DISTANCE = 0.10;
+const ELEVATOR_PRIORITY_WEIGHT_EFFORT = 0.80;
 
 /** Stair effort multiplier under elevator_priority mode — makes Yen seek
  *  elevator alternatives even when the walk to the elevator is longer. */
@@ -343,6 +347,13 @@ function balancedScore(
   const t = c.estimatedTimeSeconds / Math.max(best.time, 1);
   const d = c.totalDistanceMeters / Math.max(best.dist, 1);
   const e = c.effortMeters / Math.max(best.effort, 1);
+  if (accessibilityMode === 'elevator_priority') {
+    return (
+      ELEVATOR_PRIORITY_WEIGHT_TIME * t +
+      ELEVATOR_PRIORITY_WEIGHT_DISTANCE * d +
+      ELEVATOR_PRIORITY_WEIGHT_EFFORT * e
+    );
+  }
   return BALANCED_WEIGHT_TIME * t + BALANCED_WEIGHT_DISTANCE * d + BALANCED_WEIGHT_EFFORT * e;
 }
 
@@ -412,13 +423,10 @@ export function computeRouteOptionSet(
     const yenPaths = findKShortestPaths(graph, originTempId, destTempId, costFn, K_PER_PROFILE);
     for (const path of yenPaths) {
       const metrics = buildMetricsFromPath(graph, outgoing, path.nodeIds);
-      // Skip degenerate zero-length routes (shouldn't happen but guard).
       if (metrics.totalDistanceMeters === 0 && metrics.connectorStats.floorChangeCount === 0) {
-        // Allow same-floor very short routes only if distance > 0.
         const originNode = graph.nodes.get(originTempId);
         const destNode = graph.nodes.get(destTempId);
         if (originNode && destNode && originNode.level === destNode.level) {
-          // Same-level: still require at least one non-temp polygon node.
           const hasRealNode = path.nodeIds.some(
             (id) =>
               graph.nodes.get(id)?.nodeType === 'polygon' ||
@@ -487,8 +495,19 @@ export function computeRouteOptionSet(
   // elevator — used to label an "elevator route" distinctively.
   const hasStairsOnly = pool.some((c) => c.connectorStats.elevatorRideCount === 0);
 
-  // Trim to MAX_OPTIONS. Prefer keeping at least MIN_OPTIONS.
-  const trimmed = scored.slice(0, MAX_OPTIONS);
+  // Guarantee the lowest-effort candidate is always in the trimmed list so
+  // the "편함" tab and elevator_priority users can always tap the easiest route.
+  const trimmedBase = scored.slice(0, MAX_OPTIONS);
+  const easiestCandidate = pool.reduce((min, c) =>
+    c.effortMeters < min.effortMeters ? c : min,
+  );
+  const hasEasiest = trimmedBase.some(
+    ({ c }) => c.signature === easiestCandidate.signature,
+  );
+  const trimmed = hasEasiest
+    ? trimmedBase
+    : [scored.find(({ c }) => c.signature === easiestCandidate.signature)!, ...trimmedBase.slice(0, MAX_OPTIONS - 1)]
+        .filter(Boolean);
 
   // ── 6. Build RouteOption list ─────────────────────────────────
   const options: RouteOption[] = trimmed.map(({ c, score }, idx) => {
