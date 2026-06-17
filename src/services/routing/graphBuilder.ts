@@ -12,12 +12,19 @@
  *   6. Per connector: add two connector nodes (fromLevel / toLevel),
  *      connect each to nearest polygon nodes, add cross-floor connector edge
  *
+ * Edge weight model (three independent semantic channels):
+ *   - distanceMeters: physical horizontal distance (0 for pure connectors)
+ *   - timeSeconds: walk → distance/speed, connector → traversalTimeSeconds
+ *   - effortMetersEquivalent: walk → distance; connector → derived from floors
+ *
  * All node IDs are deterministic (coordinate-based / index-based).
  */
 
 import walkableAreasData from '../../data/routing-walkable-areas.geojson';
 import connectorsData from '../../data/routing-connectors.geojson';
 import { transformWgs84ToEpsg5183 } from '../../utils/coordinateTransform';
+import { WALKING_SPEED_MPS } from './constants';
+import { effortCoefficients, computeConnectorEffortMeters } from './effortModel';
 import type { RouteGraph, RouteNode, RouteEdge } from '../../types/routing';
 
 // ── Constants ────────────────────────────────────────────────────────
@@ -28,6 +35,34 @@ const MAX_EDGE_DISTANCE_MULTIPLIER = 2;
 const CONNECTOR_POLYGON_LINKS = 5;
 const BRIDGE_MAX_DISTANCE_M = 20;
 const CONNECTOR_POLYGON_MAX_DISTANCE_M = 30;
+
+// ── Edge weight helpers ─────────────────────────────────────────────
+
+/** Build a walk-edge weight triple from a horizontal distance in metres. */
+function walkEdgeWeights(distanceMeters: number) {
+  return {
+    distanceMeters,
+    timeSeconds: distanceMeters / WALKING_SPEED_MPS,
+    effortMetersEquivalent: distanceMeters, // flat walk = 1:1
+  };
+}
+
+/** Build a connector-edge weight triple. */
+function connectorEdgeWeights(
+  traversalTimeSeconds: number,
+  connectorType: 'stair' | 'elevator',
+  connectsLevels: [number, number],
+) {
+  return {
+    distanceMeters: 0,
+    timeSeconds: traversalTimeSeconds,
+    effortMetersEquivalent: computeConnectorEffortMeters(
+      connectorType,
+      connectsLevels,
+      effortCoefficients,
+    ),
+  };
+}
 
 // ── Internal types ───────────────────────────────────────────────────
 
@@ -180,12 +215,14 @@ function generateEdgesForLevel(
       if (seen.has(key)) continue;
       seen.add(key);
 
-      const weight = Math.sqrt(c.dSq);
-
+      const dist = Math.sqrt(c.dSq);
+      const w = walkEdgeWeights(dist);
       edges.push({
         from: a.id,
         to: b.id,
-        weightMeters: weight,
+        distanceMeters: w.distanceMeters,
+        timeSeconds: w.timeSeconds,
+        effortMetersEquivalent: w.effortMetersEquivalent,
         level,
         accessibilityPenalty: 0,
         edgeType: 'walk',
@@ -193,7 +230,9 @@ function generateEdgesForLevel(
       edges.push({
         from: b.id,
         to: a.id,
-        weightMeters: weight,
+        distanceMeters: w.distanceMeters,
+        timeSeconds: w.timeSeconds,
+        effortMetersEquivalent: w.effortMetersEquivalent,
         level,
         accessibilityPenalty: 0,
         edgeType: 'walk',
@@ -237,11 +276,14 @@ function generateEdgesForLevel(
     if (orphanEdges.has(key)) continue;
     orphanEdges.add(key);
 
-    const weight = Math.sqrt(bestDSq);
+    const dist = Math.sqrt(bestDSq);
+    const w = walkEdgeWeights(dist);
     edges.push({
       from: a.id,
       to: b.id,
-      weightMeters: weight,
+      distanceMeters: w.distanceMeters,
+      timeSeconds: w.timeSeconds,
+      effortMetersEquivalent: w.effortMetersEquivalent,
       level,
       accessibilityPenalty: 0,
       edgeType: 'walk',
@@ -249,7 +291,9 @@ function generateEdgesForLevel(
     edges.push({
       from: b.id,
       to: a.id,
-      weightMeters: weight,
+      distanceMeters: w.distanceMeters,
+      timeSeconds: w.timeSeconds,
+      effortMetersEquivalent: w.effortMetersEquivalent,
       level,
       accessibilityPenalty: 0,
       edgeType: 'walk',
@@ -379,10 +423,13 @@ function generatePolygonBridgesForLevel(
     if (seen.has(key)) continue;
     seen.add(key);
 
+    const w = walkEdgeWeights(c.weight);
     bridgeEdges.push({
       from: c.from.id,
       to: c.to.id,
-      weightMeters: c.weight,
+      distanceMeters: w.distanceMeters,
+      timeSeconds: w.timeSeconds,
+      effortMetersEquivalent: w.effortMetersEquivalent,
       level,
       accessibilityPenalty: 0,
       edgeType: 'walk',
@@ -390,7 +437,9 @@ function generatePolygonBridgesForLevel(
     bridgeEdges.push({
       from: c.to.id,
       to: c.from.id,
-      weightMeters: c.weight,
+      distanceMeters: w.distanceMeters,
+      timeSeconds: w.timeSeconds,
+      effortMetersEquivalent: w.effortMetersEquivalent,
       level,
       accessibilityPenalty: 0,
       edgeType: 'walk',
@@ -529,10 +578,13 @@ function generateComponentBridgesForLevel(
     seen.add(key);
     if (!c.valid) fallbackCount++;
 
+    const w = walkEdgeWeights(c.weight);
     bridgeEdges.push({
       from: c.from.id,
       to: c.to.id,
-      weightMeters: c.weight,
+      distanceMeters: w.distanceMeters,
+      timeSeconds: w.timeSeconds,
+      effortMetersEquivalent: w.effortMetersEquivalent,
       level,
       accessibilityPenalty: 0,
       edgeType: 'walk',
@@ -541,7 +593,9 @@ function generateComponentBridgesForLevel(
     bridgeEdges.push({
       from: c.to.id,
       to: c.from.id,
-      weightMeters: c.weight,
+      distanceMeters: w.distanceMeters,
+      timeSeconds: w.timeSeconds,
+      effortMetersEquivalent: w.effortMetersEquivalent,
       level,
       accessibilityPenalty: 0,
       edgeType: 'walk',
@@ -752,10 +806,13 @@ export function buildRoutingGraph(
 
       const nearest = withDist.slice(0, CONNECTOR_POLYGON_LINKS);
       for (const target of nearest) {
+        const w = walkEdgeWeights(target.d);
         edges.push({
           from: connNodeId,
           to: target.id,
-          weightMeters: target.d,
+          distanceMeters: w.distanceMeters,
+          timeSeconds: w.timeSeconds,
+          effortMetersEquivalent: w.effortMetersEquivalent,
           level,
           accessibilityPenalty: 0,
           edgeType: 'walk',
@@ -763,7 +820,9 @@ export function buildRoutingGraph(
         edges.push({
           from: target.id,
           to: connNodeId,
-          weightMeters: target.d,
+          distanceMeters: w.distanceMeters,
+          timeSeconds: w.timeSeconds,
+          effortMetersEquivalent: w.effortMetersEquivalent,
           level,
           accessibilityPenalty: 0,
           edgeType: 'walk',
@@ -775,26 +834,44 @@ export function buildRoutingGraph(
     linkConnectorToLevel(toNodeId, toLevel);
 
     // 3b. Cross-floor connector edge (bidirectional)
-    const traversalWeight = conn.properties.traversalTimeSeconds as number;
+    const traversalTimeSeconds = conn.properties.traversalTimeSeconds as number;
     const accessibilityPenalty = conn.properties.accessibilityPenalty as number;
+    const connectsLevels: [number, number] = [fromLevel, toLevel];
+    const cw = connectorEdgeWeights(
+      traversalTimeSeconds,
+      connType as 'stair' | 'elevator',
+      connectsLevels,
+    );
 
     edges.push({
       from: fromNodeId,
       to: toNodeId,
-      weightMeters: traversalWeight,
+      distanceMeters: cw.distanceMeters,
+      timeSeconds: cw.timeSeconds,
+      effortMetersEquivalent: cw.effortMetersEquivalent,
       level: -1,
       connectorId: connId,
       accessibilityPenalty,
       edgeType: 'connector',
+      connectorMeta: {
+        connectorType: connType as 'stair' | 'elevator',
+        connectsLevels,
+      },
     });
     edges.push({
       from: toNodeId,
       to: fromNodeId,
-      weightMeters: traversalWeight,
+      distanceMeters: cw.distanceMeters,
+      timeSeconds: cw.timeSeconds,
+      effortMetersEquivalent: cw.effortMetersEquivalent,
       level: -1,
       connectorId: connId,
       accessibilityPenalty,
       edgeType: 'connector',
+      connectorMeta: {
+        connectorType: connType as 'stair' | 'elevator',
+        connectsLevels,
+      },
     });
   }
 

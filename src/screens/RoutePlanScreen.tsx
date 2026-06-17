@@ -18,7 +18,7 @@ import { useMapStore } from '../store/mapStore';
 import { useRouteStore } from '../store/routeStore';
 import type { RootStackParamList } from '../navigation/types';
 import type { CampusFeature } from '../types/geojson';
-import type { RouteResult } from '../types/routing';
+import type { RouteResult, RouteSortMode } from '../types/routing';
 import {
   formatRouteSummary,
   formatSearchResultLabel,
@@ -42,6 +42,15 @@ const campusData = campusDataUntyped as unknown as CampusGeoJSON;
 
 const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
 
+const SORT_TABS: { mode: RouteSortMode; label: string }[] = [
+  { mode: 'recommended', label: '추천' },
+  { mode: 'fastest', label: '빠름' },
+  { mode: 'easiest', label: '편함' },
+  { mode: 'shortest', label: '가까움' },
+];
+
+const ROUTE_SWATCH_COLORS = ['#2979FF', '#FF7043', '#66BB6A', '#AB47BC', '#FFCA28'];
+
 type ActiveField = 'origin' | 'destination' | null;
 
 function featureDisplayName(feature: CampusFeature | undefined): string {
@@ -58,6 +67,7 @@ export function RoutePlanScreen() {
     routeDestination,
     routeOptions,
     selectedRouteIndex,
+    sortMode,
     error,
   } = useRouteStore();
   const {
@@ -66,6 +76,7 @@ export function RoutePlanScreen() {
     setOriginFromUserLocation,
     computeRouteOptions,
     selectRoute,
+    setSortMode,
   } = useRouteStore();
 
   const selectedLevel = useMapStore((s) => s.selectedLevel);
@@ -445,6 +456,40 @@ export function RoutePlanScreen() {
               <Text style={[styles.optionsSectionTitle, { color: sheetSecondaryLabel }]}>
                 경로 옵션
               </Text>
+
+              <View style={styles.sortTabRow}>
+                {SORT_TABS.map((tab) => {
+                  const active = sortMode === tab.mode;
+                  return (
+                    <Pressable
+                      key={tab.mode}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${tab.label} 순으로 정렬`}
+                      accessibilityState={{ selected: active }}
+                      hitSlop={HIT_SLOP}
+                      onPress={() => setSortMode(tab.mode)}
+                      style={({ pressed }) => [
+                        styles.sortTab,
+                        {
+                          backgroundColor: active ? accentColor : sheetSecondarySystemFill,
+                          borderColor: active ? accentColor : sheetSeparator,
+                        },
+                        pressed && { opacity: 0.85 },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.sortTabLabel,
+                          { color: active ? '#FFFFFF' : sheetSecondaryLabel },
+                        ]}
+                      >
+                        {tab.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
               {routeOptions.map((option, index) => {
                 const isSelected = index === selectedRouteIndex;
                 if (!option.result.ok) {
@@ -467,6 +512,26 @@ export function RoutePlanScreen() {
                 }
                 const minutes = Math.round(option.result.estimatedTimeSeconds / 60);
                 const meters = Math.round(option.result.totalDistanceMeters);
+                const swatchColor = ROUTE_SWATCH_COLORS[index % ROUTE_SWATCH_COLORS.length];
+                const stats = option.result.connectorStats;
+                const connectorsParts: string[] = [];
+                if (stats) {
+                  if (stats.elevatorRideCount > 0) {
+                    connectorsParts.push(`엘리베이터 ${stats.elevatorRideCount}회`);
+                  }
+                  const totalStairs = stats.stairAscentFloors + stats.stairDescentFloors;
+                  if (totalStairs > 0) {
+                    connectorsParts.push(`계단 ${totalStairs}층`);
+                  }
+                }
+                const effortLabel =
+                  option.result.effortScore === undefined
+                    ? null
+                    : option.result.effortScore < 1.5
+                      ? '낮은 노력'
+                      : option.result.effortScore < 3
+                        ? '보통 노력'
+                        : '높은 노력';
                 return (
                   <Pressable
                     key={option.id}
@@ -479,21 +544,24 @@ export function RoutePlanScreen() {
                       styles.optionCard,
                       {
                         backgroundColor: isSelected ? sheetSelectionBg : sheetSecondarySystemFill,
-                        borderColor: isSelected ? accentColor : sheetSeparator,
+                        borderColor: isSelected ? swatchColor : sheetSeparator,
                       },
                       pressed && { opacity: 0.88 },
                     ]}
                   >
                     <View style={styles.optionHeaderRow}>
-                      <Text
-                        style={[
-                          styles.optionLabel,
-                          { color: sheetLabel },
-                          isSelected && { color: accentColor },
-                        ]}
-                      >
-                        {option.label}
-                      </Text>
+                      <View style={styles.optionLabelGroup}>
+                        <View style={[styles.routeSwatch, { backgroundColor: swatchColor }]} />
+                        <Text
+                          style={[
+                            styles.optionLabel,
+                            { color: sheetLabel },
+                            isSelected && { color: swatchColor },
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                      </View>
                       {(() => {
                         const badgeText = getRouteBadgeText(option.result);
                         return badgeText ? (
@@ -515,7 +583,7 @@ export function RoutePlanScreen() {
                         style={[
                           styles.optionTime,
                           { color: sheetLabel },
-                          isSelected && { color: accentColor },
+                          isSelected && { color: swatchColor },
                         ]}
                       >
                         {minutes}분
@@ -524,11 +592,23 @@ export function RoutePlanScreen() {
                         style={[
                           styles.optionDistance,
                           { color: sheetSecondaryLabel },
-                          isSelected && { color: accentColor },
+                          isSelected && { color: swatchColor },
                         ]}
                       >
                         {meters}m
                       </Text>
+                    </View>
+                    <View style={styles.tradeoffRow}>
+                      {effortLabel && (
+                        <Text style={[styles.tradeoffText, { color: sheetTertiaryLabel }]}>
+                          {effortLabel}
+                        </Text>
+                      )}
+                      {connectorsParts.map((part) => (
+                        <Text key={part} style={[styles.tradeoffText, { color: sheetTertiaryLabel }]}>
+                          {part}
+                        </Text>
+                      ))}
                     </View>
                   </Pressable>
                 );
@@ -721,6 +801,23 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textTransform: 'uppercase',
   },
+  sortTabRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 12,
+  },
+  sortTab: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  sortTabLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
   optionCard: {
     borderRadius: 14,
     borderWidth: 1.5,
@@ -733,6 +830,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 8,
+  },
+  optionLabelGroup: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flex: 1,
+    gap: 8,
+  },
+  routeSwatch: {
+    borderRadius: 4,
+    height: 14,
+    width: 4,
   },
   optionLabel: {
     flex: 1,
@@ -760,6 +868,16 @@ const styles = StyleSheet.create({
   },
   optionDistance: {
     fontSize: 14,
+    fontWeight: '600',
+  },
+  tradeoffRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 8,
+  },
+  tradeoffText: {
+    fontSize: 12,
     fontWeight: '600',
   },
   optionErrorText: {

@@ -155,35 +155,33 @@ describe('buildRoutingGraph', () => {
     expect(errors).toEqual([]);
   });
 
-  it('all walk edges have positive finite weightMeters', () => {
+  it('all walk edges have positive finite distanceMeters', () => {
     for (const edge of graph.edges) {
       if (edge.edgeType !== 'walk') continue;
-      expect(Number.isFinite(edge.weightMeters)).toBe(true);
-      expect(edge.weightMeters).toBeGreaterThan(0);
+      expect(Number.isFinite(edge.distanceMeters)).toBe(true);
+      expect(edge.distanceMeters).toBeGreaterThan(0);
     }
   });
 
   it('no local (non-bridge) walk edge exceeds 30 metres', () => {
     const longEdges = graph.edges.filter(
-      (e) => e.edgeType === 'walk' && !e.isBridge && e.weightMeters > 30,
+      (e) => e.edgeType === 'walk' && !e.isBridge && e.distanceMeters > 30,
     );
     expect(longEdges).toHaveLength(0);
   });
 
   it('connectivity bridges stay within a sane length bound', () => {
-    // Bridges may exceed the local 30 m limit to reach isolated fragments, but
-    // an excessively long bridge signals a real gap in the walkable-area data.
     const bridges = graph.edges.filter((e) => e.edgeType === 'walk' && e.isBridge);
     for (const e of bridges) {
-      expect(e.weightMeters).toBeLessThanOrEqual(80);
+      expect(e.distanceMeters).toBeLessThanOrEqual(80);
     }
   });
 
-  it('all connector edges have positive finite weightMeters', () => {
+  it('all connector edges have positive finite timeSeconds', () => {
     for (const edge of graph.edges) {
       if (edge.edgeType !== 'connector') continue;
-      expect(Number.isFinite(edge.weightMeters)).toBe(true);
-      expect(edge.weightMeters).toBeGreaterThan(0);
+      expect(Number.isFinite(edge.timeSeconds)).toBe(true);
+      expect(edge.timeSeconds).toBeGreaterThan(0);
     }
   });
 
@@ -274,10 +272,10 @@ describe('buildRoutingGraph', () => {
 
     // Same edges (compare serialised sets)
     const edgesA = new Set(
-      graphA.edges.map((e) => `${e.from}→${e.to}:${e.weightMeters}`),
+      graphA.edges.map((e) => `${e.from}→${e.to}:${e.distanceMeters}|${e.timeSeconds}`),
     );
     const edgesB = new Set(
-      graphB.edges.map((e) => `${e.from}→${e.to}:${e.weightMeters}`),
+      graphB.edges.map((e) => `${e.from}→${e.to}:${e.distanceMeters}|${e.timeSeconds}`),
     );
     expect(edgesA).toEqual(edgesB);
   });
