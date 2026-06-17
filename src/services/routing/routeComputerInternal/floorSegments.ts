@@ -50,10 +50,10 @@ export function buildFloorSegments(
     if (!edge) continue;
 
     if (edge.edgeType === 'walk') {
-      totalDistanceMeters += edge.weightMeters;
-      currentSegment.distanceMeters += edge.weightMeters;
+      totalDistanceMeters += edge.distanceMeters;
+      currentSegment.distanceMeters += edge.distanceMeters;
     } else {
-      connectorTraversalSeconds += edge.weightMeters;
+      connectorTraversalSeconds += edge.timeSeconds;
       if (edge.accessibilityPenalty > 0) usedStairConnector = true;
       currentSegment.connectorTransition = {
         connectorId: edge.connectorId ?? 'unknown-connector',

@@ -53,10 +53,11 @@ export function validateGraph(graph: RouteGraph): ValidationResult {
 
   // ── 2. Edge weights ──────────────────────────────────────────────
   for (const edge of graph.edges) {
-    const { from, to, weightMeters, edgeType } = edge;
-    if (!Number.isFinite(weightMeters) || weightMeters <= 0) {
+    const { from, to, edgeType } = edge;
+    const primary = edgeType === 'walk' ? edge.distanceMeters : edge.timeSeconds;
+    if (!Number.isFinite(primary) || primary <= 0) {
       errors.push(
-        `${edgeType === 'connector' ? 'Connector' : 'Walk'} edge "${from}"→"${to}" has non-positive or non-finite weight: ${weightMeters}`,
+        `${edgeType === 'connector' ? 'Connector' : 'Walk'} edge "${from}"→"${to}" has non-positive or non-finite primary weight: ${primary}`,
       );
     }
   }

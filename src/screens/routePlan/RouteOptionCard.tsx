@@ -20,7 +20,7 @@ interface RouteOptionCardProps {
   index: number;
   isSelected: boolean;
   onSelect: (index: number) => void;
-  accentColor: string;
+  swatchColor: string;
 }
 
 export function RouteOptionCard({
@@ -28,7 +28,7 @@ export function RouteOptionCard({
   index,
   isSelected,
   onSelect,
-  accentColor,
+  swatchColor,
 }: RouteOptionCardProps) {
   if (!option.result.ok) {
     return (
@@ -51,6 +51,26 @@ export function RouteOptionCard({
   const minutes = Math.round(option.result.estimatedTimeSeconds / 60);
   const meters = Math.round(option.result.totalDistanceMeters);
   const badgeText = getRouteBadgeText(option.result);
+  const stats = option.result.connectorStats;
+  const connectorsParts: string[] = [];
+  if (stats) {
+    if (stats.elevatorRideCount > 0) {
+      connectorsParts.push(`엘리베이터 ${stats.elevatorRideCount}회`);
+    }
+    const totalStairs = stats.stairAscentFloors + stats.stairDescentFloors;
+    if (totalStairs > 0) {
+      connectorsParts.push(`계단 ${totalStairs}층`);
+    }
+  }
+  const effortScore = option.result.effortScore;
+  const effortLabel =
+    effortScore === undefined
+      ? null
+      : effortScore < 1.5
+        ? '낮은 노력'
+        : effortScore < 3
+          ? '보통 노력'
+          : '높은 노력';
 
   return (
     <Pressable
@@ -63,28 +83,26 @@ export function RouteOptionCard({
         styles.optionCard,
         {
           backgroundColor: isSelected ? sheetSelectionBg : sheetSecondarySystemFill,
-          borderColor: isSelected ? accentColor : sheetSeparator,
+          borderColor: isSelected ? swatchColor : sheetSeparator,
         },
         pressed && { opacity: 0.88 },
       ]}
     >
       <View style={styles.optionHeaderRow}>
-        <Text
-          style={[
-            styles.optionLabel,
-            { color: sheetLabel },
-            isSelected && { color: accentColor },
-          ]}
-        >
-          {option.label}
-        </Text>
-        {badgeText ? (
-          <View
+        <View style={styles.optionLabelGroup}>
+          <View style={[styles.routeSwatch, { backgroundColor: swatchColor }]} />
+          <Text
             style={[
-              styles.warningBadge,
-              { backgroundColor: sheetSystemFill },
+              styles.optionLabel,
+              { color: sheetLabel },
+              isSelected && { color: swatchColor },
             ]}
           >
+            {option.label}
+          </Text>
+        </View>
+        {badgeText ? (
+          <View style={[styles.warningBadge, { backgroundColor: sheetSystemFill }]}>
             <Text style={[styles.warningBadgeText, { color: sheetSecondaryLabel }]}>
               {badgeText}
             </Text>
@@ -96,7 +114,7 @@ export function RouteOptionCard({
           style={[
             styles.optionTime,
             { color: sheetLabel },
-            isSelected && { color: accentColor },
+            isSelected && { color: swatchColor },
           ]}
         >
           {minutes}분
@@ -105,12 +123,26 @@ export function RouteOptionCard({
           style={[
             styles.optionDistance,
             { color: sheetSecondaryLabel },
-            isSelected && { color: accentColor },
+            isSelected && { color: swatchColor },
           ]}
         >
           {meters}m
         </Text>
       </View>
+      {(effortLabel || connectorsParts.length > 0) && (
+        <View style={styles.tradeoffRow}>
+          {effortLabel && (
+            <Text style={[styles.tradeoffText, { color: sheetTertiaryLabel }]}>
+              {effortLabel}
+            </Text>
+          )}
+          {connectorsParts.map((part) => (
+            <Text key={part} style={[styles.tradeoffText, { color: sheetTertiaryLabel }]}>
+              {part}
+            </Text>
+          ))}
+        </View>
+      )}
     </Pressable>
   );
 }

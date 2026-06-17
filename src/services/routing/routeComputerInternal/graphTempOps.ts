@@ -3,6 +3,7 @@ import type {
   RouteGraph,
   RouteNode,
 } from '../../../types/routing';
+import { WALKING_SPEED_MPS } from '../constants';
 
 export type GraphWithTemps = RouteGraph;
 
@@ -33,12 +34,15 @@ export function addBidirectionalWalkEdge(
   from: RouteNode,
   to: RouteNode,
   level: number,
-  weightMeters: number,
+  distanceMeters: number,
 ): void {
+  const timeSeconds = distanceMeters / WALKING_SPEED_MPS;
   const forward: RouteEdge = {
     from: from.id,
     to: to.id,
-    weightMeters,
+    distanceMeters,
+    timeSeconds,
+    effortMetersEquivalent: distanceMeters,
     level,
     accessibilityPenalty: 0,
     edgeType: 'walk',
@@ -46,7 +50,9 @@ export function addBidirectionalWalkEdge(
   const backward: RouteEdge = {
     from: to.id,
     to: from.id,
-    weightMeters,
+    distanceMeters,
+    timeSeconds,
+    effortMetersEquivalent: distanceMeters,
     level,
     accessibilityPenalty: 0,
     edgeType: 'walk',

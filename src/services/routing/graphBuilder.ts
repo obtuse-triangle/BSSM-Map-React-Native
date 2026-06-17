@@ -12,12 +12,19 @@
  *   6. Per connector: add two connector nodes (fromLevel / toLevel),
  *      connect each to nearest polygon nodes, add cross-floor connector edge
  *
+ * Edge weight model (three independent semantic channels):
+ *   - distanceMeters: physical horizontal distance (0 for pure connectors)
+ *   - timeSeconds: walk → distance/speed, connector → traversalTimeSeconds
+ *   - effortMetersEquivalent: walk → distance; connector → derived from floors
+ *
  * All node IDs are deterministic (coordinate-based / index-based).
  */
 
 import walkableAreasData from '../../data/routing-walkable-areas.geojson';
 import connectorsData from '../../data/routing-connectors.geojson';
 import { transformWgs84ToEpsg5183 } from '../../utils/coordinateTransform';
+import { WALKING_SPEED_MPS } from './constants';
+import { effortCoefficients, computeConnectorEffortMeters } from './effortModel';
 import type { RouteGraph, RouteNode, RouteEdge } from '../../types/routing';
 import {
   type PolygonData,
@@ -37,6 +44,32 @@ import { sortConnectors } from './graphBuilderInternal/connectorOps';
 const DEFAULT_SPACING = 2.0;
 const CONNECTOR_POLYGON_LINKS = 5;
 const CONNECTOR_POLYGON_MAX_DISTANCE_M = 30;
+
+// ── Edge weight helpers ──────────────────────────────────────────────
+
+function walkEdgeWeights(distanceMeters: number) {
+  return {
+    distanceMeters,
+    timeSeconds: distanceMeters / WALKING_SPEED_MPS,
+    effortMetersEquivalent: distanceMeters,
+  };
+}
+
+function connectorEdgeWeights(
+  traversalTimeSeconds: number,
+  connectorType: 'stair' | 'elevator',
+  connectsLevels: [number, number],
+) {
+  return {
+    distanceMeters: 0,
+    timeSeconds: traversalTimeSeconds,
+    effortMetersEquivalent: computeConnectorEffortMeters(
+      connectorType,
+      connectsLevels,
+      effortCoefficients,
+    ),
+  };
+}
 
 /**
  * Build a deterministic routing graph from the committed walkable-area
@@ -213,10 +246,13 @@ export function buildRoutingGraph(
 
       const nearest = withDist.slice(0, CONNECTOR_POLYGON_LINKS);
       for (const target of nearest) {
+        const w = walkEdgeWeights(target.d);
         edges.push({
           from: connNodeId,
           to: target.id,
-          weightMeters: target.d,
+          distanceMeters: w.distanceMeters,
+          timeSeconds: w.timeSeconds,
+          effortMetersEquivalent: w.effortMetersEquivalent,
           level,
           accessibilityPenalty: 0,
           edgeType: 'walk',
@@ -224,7 +260,9 @@ export function buildRoutingGraph(
         edges.push({
           from: target.id,
           to: connNodeId,
-          weightMeters: target.d,
+          distanceMeters: w.distanceMeters,
+          timeSeconds: w.timeSeconds,
+          effortMetersEquivalent: w.effortMetersEquivalent,
           level,
           accessibilityPenalty: 0,
           edgeType: 'walk',
@@ -236,26 +274,44 @@ export function buildRoutingGraph(
     linkConnectorToLevel(toNodeId, toLevel);
 
     // 3b. Cross-floor connector edge (bidirectional)
-    const traversalWeight = conn.properties.traversalTimeSeconds as number;
+    const traversalTimeSeconds = conn.properties.traversalTimeSeconds as number;
     const accessibilityPenalty = conn.properties.accessibilityPenalty as number;
+    const connectsLevels: [number, number] = [fromLevel, toLevel];
+    const cw = connectorEdgeWeights(
+      traversalTimeSeconds,
+      connType as 'stair' | 'elevator',
+      connectsLevels,
+    );
 
     edges.push({
       from: fromNodeId,
       to: toNodeId,
-      weightMeters: traversalWeight,
+      distanceMeters: cw.distanceMeters,
+      timeSeconds: cw.timeSeconds,
+      effortMetersEquivalent: cw.effortMetersEquivalent,
       level: -1,
       connectorId: connId,
       accessibilityPenalty,
       edgeType: 'connector',
+      connectorMeta: {
+        connectorType: connType as 'stair' | 'elevator',
+        connectsLevels,
+      },
     });
     edges.push({
       from: toNodeId,
       to: fromNodeId,
-      weightMeters: traversalWeight,
+      distanceMeters: cw.distanceMeters,
+      timeSeconds: cw.timeSeconds,
+      effortMetersEquivalent: cw.effortMetersEquivalent,
       level: -1,
       connectorId: connId,
       accessibilityPenalty,
       edgeType: 'connector',
+      connectorMeta: {
+        connectorType: connType as 'stair' | 'elevator',
+        connectsLevels,
+      },
     });
   }
 

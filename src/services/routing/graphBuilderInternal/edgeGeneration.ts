@@ -1,4 +1,5 @@
 import type { RouteEdge } from '../../../types/routing';
+import { WALKING_SPEED_MPS } from '../constants';
 import {
   type NodeEntry,
   type PolygonData,
@@ -60,7 +61,9 @@ export function generateEdgesForLevel(
       edges.push({
         from: a.id,
         to: b.id,
-        weightMeters: weight,
+distanceMeters: weight,
+        timeSeconds: weight / WALKING_SPEED_MPS,
+        effortMetersEquivalent: weight,
         level,
         accessibilityPenalty: 0,
         edgeType: 'walk',
@@ -68,7 +71,9 @@ export function generateEdgesForLevel(
       edges.push({
         from: b.id,
         to: a.id,
-        weightMeters: weight,
+distanceMeters: weight,
+        timeSeconds: weight / WALKING_SPEED_MPS,
+        effortMetersEquivalent: weight,
         level,
         accessibilityPenalty: 0,
         edgeType: 'walk',
@@ -116,7 +121,9 @@ export function generateEdgesForLevel(
     edges.push({
       from: a.id,
       to: b.id,
-      weightMeters: weight,
+      distanceMeters: weight,
+      timeSeconds: weight / WALKING_SPEED_MPS,
+      effortMetersEquivalent: weight,
       level,
       accessibilityPenalty: 0,
       edgeType: 'walk',
@@ -124,7 +131,9 @@ export function generateEdgesForLevel(
     edges.push({
       from: b.id,
       to: a.id,
-      weightMeters: weight,
+      distanceMeters: weight,
+      timeSeconds: weight / WALKING_SPEED_MPS,
+      effortMetersEquivalent: weight,
       level,
       accessibilityPenalty: 0,
       edgeType: 'walk',
@@ -242,7 +251,9 @@ export function generatePolygonBridgesForLevel(
     bridgeEdges.push({
       from: c.from.id,
       to: c.to.id,
-      weightMeters: c.weight,
+      distanceMeters: c.weight,
+      timeSeconds: c.weight / WALKING_SPEED_MPS,
+      effortMetersEquivalent: c.weight,
       level,
       accessibilityPenalty: 0,
       edgeType: 'walk',
@@ -250,7 +261,9 @@ export function generatePolygonBridgesForLevel(
     bridgeEdges.push({
       from: c.to.id,
       to: c.from.id,
-      weightMeters: c.weight,
+      distanceMeters: c.weight,
+      timeSeconds: c.weight / WALKING_SPEED_MPS,
+      effortMetersEquivalent: c.weight,
       level,
       accessibilityPenalty: 0,
       edgeType: 'walk',
@@ -392,7 +405,9 @@ export function generateComponentBridgesForLevel(
     bridgeEdges.push({
       from: c.from.id,
       to: c.to.id,
-      weightMeters: c.weight,
+      distanceMeters: c.weight,
+      timeSeconds: c.weight / WALKING_SPEED_MPS,
+      effortMetersEquivalent: c.weight,
       level,
       accessibilityPenalty: 0,
       edgeType: 'walk',
@@ -401,7 +416,9 @@ export function generateComponentBridgesForLevel(
     bridgeEdges.push({
       from: c.to.id,
       to: c.from.id,
-      weightMeters: c.weight,
+      distanceMeters: c.weight,
+      timeSeconds: c.weight / WALKING_SPEED_MPS,
+      effortMetersEquivalent: c.weight,
       level,
       accessibilityPenalty: 0,
       edgeType: 'walk',

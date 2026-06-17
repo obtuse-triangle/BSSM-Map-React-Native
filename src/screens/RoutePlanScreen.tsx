@@ -17,6 +17,7 @@ import { useMapStore } from '../store/mapStore';
 import { useRouteStore } from '../store/routeStore';
 import type { RootStackParamList } from '../navigation/types';
 import type { CampusFeature } from '../types/geojson';
+import type { RouteSortMode } from '../types/routing';
 
 import { SearchResultList } from './routePlan/SearchResultList';
 import { FloorSelectorRow } from './routePlan/FloorSelectorRow';
@@ -38,6 +39,14 @@ import { getFeatureById, getLevelKeys } from '../utils/geoJsonHelpers';
 
 const campusData = campusDataUntyped as unknown as CampusGeoJSON;
 
+const SORT_TABS: { mode: RouteSortMode; label: string }[] = [
+  { mode: 'recommended', label: '추천' },
+  { mode: 'fastest', label: '빠름' },
+  { mode: 'easiest', label: '편함' },
+  { mode: 'shortest', label: '가까움' },
+];
+
+const ROUTE_SWATCH_COLORS = ['#2979FF', '#FF7043', '#66BB6A', '#AB47BC', '#FFCA28'];
 type ActiveField = 'origin' | 'destination' | null;
 
 function featureDisplayName(feature: CampusFeature | undefined): string {
@@ -54,6 +63,7 @@ export function RoutePlanScreen() {
     routeDestination,
     routeOptions,
     selectedRouteIndex,
+    sortMode,
     error,
   } = useRouteStore();
   const {
@@ -62,6 +72,7 @@ export function RoutePlanScreen() {
     setOriginFromUserLocation,
     computeRouteOptions,
     selectRoute,
+    setSortMode,
   } = useRouteStore();
 
   const selectedLevel = useMapStore((s) => s.selectedLevel);
@@ -357,6 +368,39 @@ export function RoutePlanScreen() {
               <Text style={[styles.optionsSectionTitle, { color: sheetSecondaryLabel }]}>
                 경로 옵션
               </Text>
+
+              <View style={styles.sortTabRow}>
+                {SORT_TABS.map((tab) => {
+                  const active = sortMode === tab.mode;
+                  return (
+                    <Pressable
+                      key={tab.mode}
+                      accessibilityRole="button"
+                      accessibilityLabel={`${tab.label} 순으로 정렬`}
+                      accessibilityState={{ selected: active }}
+                      hitSlop={HIT_SLOP}
+                      onPress={() => setSortMode(tab.mode)}
+                      style={({ pressed }) => [
+                        styles.sortTab,
+                        {
+                          backgroundColor: active ? accentColor : sheetSecondarySystemFill,
+                          borderColor: active ? accentColor : sheetSeparator,
+                        },
+                        pressed && { opacity: 0.85 },
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.sortTabLabel,
+                          { color: active ? '#FFFFFF' : sheetSecondaryLabel },
+                        ]}
+                      >
+                        {tab.label}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
               {routeOptions.map((option, index) => (
                 <RouteOptionCard
                   key={option.id}
@@ -364,7 +408,7 @@ export function RoutePlanScreen() {
                   index={index}
                   isSelected={index === selectedRouteIndex}
                   onSelect={handleSelectRoute}
-                  accentColor={accentColor}
+                  swatchColor={ROUTE_SWATCH_COLORS[index % ROUTE_SWATCH_COLORS.length]}
                 />
               ))}
             </View>

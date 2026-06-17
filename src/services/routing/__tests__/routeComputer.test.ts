@@ -16,6 +16,8 @@ jest.mock('../../../utils/coordinateTransform', () => ({
 
 import type { RouteEdge, RouteGraph, RouteNode } from '../../../types/routing';
 import { computeRoute } from '../routeComputer';
+import { WALKING_SPEED_MPS } from '../constants';
+import { computeConnectorEffortMeters } from '../effortModel';
 
 function createGraph(nodes: RouteNode[], edges: RouteEdge[]): RouteGraph {
   const nodeMap = new Map<string, RouteNode>();
@@ -40,11 +42,13 @@ function node(id: string, x: number, y: number, level: number, nodeType: RouteNo
   return { id, x, y, level, nodeType };
 }
 
-function walk(from: string, to: string, weightMeters: number, level: number): RouteEdge {
+function walk(from: string, to: string, distanceMeters: number, level: number): RouteEdge {
   return {
     from,
     to,
-    weightMeters,
+    distanceMeters,
+    timeSeconds: distanceMeters / WALKING_SPEED_MPS,
+    effortMetersEquivalent: distanceMeters,
     level,
     accessibilityPenalty: 0,
     edgeType: 'walk',
@@ -54,18 +58,26 @@ function walk(from: string, to: string, weightMeters: number, level: number): Ro
 function connector(
   from: string,
   to: string,
-  weightMeters: number,
+  traversalTimeSeconds: number,
   connectorId: string,
   accessibilityPenalty: number,
+  connectorType: 'stair' | 'elevator' = 'stair',
+  connectsLevels: [number, number] = [1, 2],
 ): RouteEdge {
   return {
     from,
     to,
-    weightMeters,
+    distanceMeters: 0,
+    timeSeconds: traversalTimeSeconds,
+    effortMetersEquivalent: computeConnectorEffortMeters(connectorType, connectsLevels),
     level: -1,
     connectorId,
     accessibilityPenalty,
     edgeType: 'connector',
+    connectorMeta: {
+      connectorType,
+      connectsLevels,
+    },
   };
 }
 
@@ -162,14 +174,14 @@ describe('computeRoute', () => {
       [
         walk('o', 's1', 1, 1),
         walk('s1', 'o', 1, 1),
-        connector('s1', 's2', 5, 'stair-1', 5),
-        connector('s2', 's1', 5, 'stair-1', 5),
+        connector('s1', 's2', 5, 'stair-1', 5, 'stair', [1, 2]),
+        connector('s2', 's1', 5, 'stair-1', 5, 'stair', [1, 2]),
         walk('s2', 'd', 1, 2),
         walk('d', 's2', 1, 2),
         walk('o', 'e1', 2, 1),
         walk('e1', 'o', 2, 1),
-        connector('e1', 'e2', 5, 'elevator-1', 0),
-        connector('e2', 'e1', 5, 'elevator-1', 0),
+        connector('e1', 'e2', 5, 'elevator-1', 0, 'elevator', [1, 2]),
+        connector('e2', 'e1', 5, 'elevator-1', 0, 'elevator', [1, 2]),
         walk('e2', 'd', 2, 2),
         walk('d', 'e2', 2, 2),
       ],

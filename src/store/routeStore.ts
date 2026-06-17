@@ -9,6 +9,7 @@ import type {
   RouteOption,
   RouteOrigin,
   RouteResult,
+  RouteSortMode,
 } from '../types/routing';
 import { getFeatureById, getFeatureCentroid } from '../utils/geoJsonHelpers';
 
@@ -30,6 +31,14 @@ function mockComputeRoute(input: {
     ],
     totalDistanceMeters: 50,
     estimatedTimeSeconds: 60,
+    effortMeters: 50,
+    effortScore: 0.5,
+    connectorStats: {
+      stairAscentFloors: 0,
+      stairDescentFloors: 0,
+      elevatorRideCount: 0,
+      floorChangeCount: 0,
+    },
     usedStairsFallback: false,
   };
 }
@@ -54,6 +63,23 @@ let computeRouteOptionsService: ((input: {
 
 let useRouteOptionsService = true
 
+function compareBySortMode(a: RouteOption, b: RouteOption, mode: RouteSortMode): number {
+  const ar = a.result;
+  const br = b.result;
+  if (!ar.ok || !br.ok) return 0;
+
+  switch (mode) {
+    case 'recommended':
+      return (a.balancedScore ?? Infinity) - (b.balancedScore ?? Infinity);
+    case 'fastest':
+      return ar.estimatedTimeSeconds - br.estimatedTimeSeconds;
+    case 'shortest':
+      return ar.totalDistanceMeters - br.totalDistanceMeters;
+    case 'easiest':
+      return (ar.effortMeters ?? Infinity) - (br.effortMeters ?? Infinity);
+  }
+}
+
 function computeRouteOptionsUsingIndoorRoute(input: {
   origin: RouteOrigin
   destination: RouteDestination
@@ -77,6 +103,7 @@ function computeRouteOptionsUsingIndoorRoute(input: {
         options.push({
           id: mode === 'normal' ? 'shortest' : 'elevator_priority',
           label: mode === 'normal' ? '최단 경로' : '엘리베이터 우선',
+          profile: mode === 'normal' ? 'shortest' : 'easiest',
           accessibilityMode: mode,
           result,
         })
@@ -95,6 +122,7 @@ export interface RouteStoreState {
   routeOptions: RouteOption[];
   selectedRouteIndex: number;
   accessibilityMode: RouteAccessibilityMode;
+  sortMode: RouteSortMode;
   isComputing: boolean;
   error: string | null;
 
@@ -110,6 +138,7 @@ export interface RouteStoreState {
   selectRoute: (index: number) => void;
   clearRoute: () => void;
   setAccessibilityMode: (mode: RouteAccessibilityMode) => void;
+  setSortMode: (mode: RouteSortMode) => void;
   recomputeRoute: () => void;
 }
 
@@ -120,6 +149,7 @@ export const useRouteStore = create<RouteStoreState>()((set, get) => ({
   routeOptions: [],
   selectedRouteIndex: 0,
   accessibilityMode: 'normal',
+  sortMode: 'recommended',
   isComputing: false,
   error: null,
 
@@ -216,10 +246,12 @@ export const useRouteStore = create<RouteStoreState>()((set, get) => ({
           error: lastError ?? 'Route computation failed',
         })
       } else {
+        const { sortMode } = get();
+        const sorted = [...options].sort((a, b) => compareBySortMode(a, b, sortMode));
         set({
-          routeOptions: options,
+          routeOptions: sorted,
           selectedRouteIndex: 0,
-          routeResult: options[0].result,
+          routeResult: sorted[0].result,
           isComputing: false,
           error: null,
         })
@@ -249,6 +281,7 @@ export const useRouteStore = create<RouteStoreState>()((set, get) => ({
       routeResult: null,
       routeOptions: [],
       selectedRouteIndex: 0,
+      sortMode: 'recommended',
       error: null,
       isComputing: false,
     });
@@ -256,6 +289,31 @@ export const useRouteStore = create<RouteStoreState>()((set, get) => ({
 
   setAccessibilityMode: (mode: RouteAccessibilityMode) => {
     set({ accessibilityMode: mode });
+  },
+
+  setSortMode: (mode: RouteSortMode) => {
+    const { routeOptions, selectedRouteIndex } = get();
+    if (routeOptions.length === 0) {
+      set({ sortMode: mode });
+      return;
+    }
+
+    const selectedId = routeOptions[selectedRouteIndex]?.id;
+
+    const sorted = [...routeOptions].sort((a, b) => compareBySortMode(a, b, mode));
+
+    let nextSelectedIndex = 0;
+    if (selectedId) {
+      const found = sorted.findIndex((o) => o.id === selectedId);
+      if (found >= 0) nextSelectedIndex = found;
+    }
+
+    set({
+      sortMode: mode,
+      routeOptions: sorted,
+      selectedRouteIndex: nextSelectedIndex,
+      routeResult: sorted[nextSelectedIndex]?.result ?? null,
+    });
   },
 
   recomputeRoute: () => {

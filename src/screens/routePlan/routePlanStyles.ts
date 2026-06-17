@@ -165,6 +165,23 @@ export const styles = StyleSheet.create({
     marginBottom: 8,
     textTransform: 'uppercase',
   },
+  sortTabRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 12,
+  },
+  sortTab: {
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  sortTabLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    letterSpacing: 0.2,
+  },
   optionCard: {
     borderRadius: 14,
     borderWidth: 1.5,
@@ -177,6 +194,17 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 8,
+  },
+  optionLabelGroup: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flex: 1,
+    gap: 8,
+  },
+  routeSwatch: {
+    borderRadius: 4,
+    height: 14,
+    width: 4,
   },
   optionLabel: {
     flex: 1,
@@ -210,6 +238,18 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     marginTop: 4,
+  },
+  tradeoffRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 6,
+  },
+  tradeoffText: {
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 0.1,
   },
   emptyState: {
     alignItems: 'center',

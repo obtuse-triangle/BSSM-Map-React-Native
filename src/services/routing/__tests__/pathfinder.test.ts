@@ -1,6 +1,38 @@
 import { buildRoutingGraph } from '../graphBuilder';
 import { findShortestPath } from '../pathfinder';
+import { WALKING_SPEED_MPS } from '../constants';
 import type { RouteEdge, RouteGraph, RouteNode } from '../../../types/routing';
+
+function walkEdge(from: string, to: string, distanceMeters: number, level: number): RouteEdge {
+  return {
+    from,
+    to,
+    distanceMeters,
+    timeSeconds: distanceMeters / WALKING_SPEED_MPS,
+    effortMetersEquivalent: distanceMeters,
+    level,
+    accessibilityPenalty: 0,
+    edgeType: 'walk',
+  };
+}
+
+function connectorEdge(
+  from: string,
+  to: string,
+  traversalTimeSeconds: number,
+  accessibilityPenalty: number,
+): RouteEdge {
+  return {
+    from,
+    to,
+    distanceMeters: 0,
+    timeSeconds: traversalTimeSeconds,
+    effortMetersEquivalent: traversalTimeSeconds,
+    level: -1,
+    accessibilityPenalty,
+    edgeType: 'connector',
+  };
+}
 
 function createGraph(nodes: RouteNode[], edges: RouteEdge[]): RouteGraph {
   const nodeMap = new Map<string, RouteNode>();
@@ -26,10 +58,10 @@ describe('findShortestPath', () => {
         { id: 't', x: 3, y: 0, level: 1, nodeType: 'polygon' },
       ],
       [
-        { from: 's', to: 'a', weightMeters: 1, level: 1, accessibilityPenalty: 0, edgeType: 'walk' },
-        { from: 'a', to: 't', weightMeters: 10, level: 1, accessibilityPenalty: 0, edgeType: 'walk' },
-        { from: 's', to: 'b', weightMeters: 2, level: 1, accessibilityPenalty: 0, edgeType: 'walk' },
-        { from: 'b', to: 't', weightMeters: 2, level: 1, accessibilityPenalty: 0, edgeType: 'walk' },
+        walkEdge('s', 'a', 1, 1),
+        walkEdge('a', 't', 10, 1),
+        walkEdge('s', 'b', 2, 1),
+        walkEdge('b', 't', 2, 1),
       ],
     );
 
@@ -46,7 +78,7 @@ describe('findShortestPath', () => {
         { id: 'b', x: 1, y: 0, level: 1, nodeType: 'polygon' },
         { id: 'c', x: 2, y: 0, level: 1, nodeType: 'polygon' },
       ],
-      [{ from: 'a', to: 'b', weightMeters: 1, level: 1, accessibilityPenalty: 0, edgeType: 'walk' }],
+      [walkEdge('a', 'b', 1, 1)],
     );
 
     expect(findShortestPath(graph, 'a', 'c', 'normal')).toBeNull();
@@ -63,12 +95,12 @@ describe('findShortestPath', () => {
         { id: 't', x: 2, y: 0, level: 2, nodeType: 'polygon' },
       ],
       [
-        { from: 's', to: 'stair1', weightMeters: 1, level: 1, accessibilityPenalty: 0, edgeType: 'walk' },
-        { from: 'stair1', to: 'stair2', weightMeters: 2, level: -1, accessibilityPenalty: 5, edgeType: 'connector' },
-        { from: 'stair2', to: 't', weightMeters: 1, level: 2, accessibilityPenalty: 0, edgeType: 'walk' },
-        { from: 's', to: 'e1', weightMeters: 2, level: 1, accessibilityPenalty: 0, edgeType: 'walk' },
-        { from: 'e1', to: 'e2', weightMeters: 2, level: -1, accessibilityPenalty: 0, edgeType: 'connector' },
-        { from: 'e2', to: 't', weightMeters: 1, level: 2, accessibilityPenalty: 0, edgeType: 'walk' },
+        walkEdge('s', 'stair1', 1, 1),
+        connectorEdge('stair1', 'stair2', 2, 5),
+        walkEdge('stair2', 't', 1, 2),
+        walkEdge('s', 'e1', 2, 1),
+        connectorEdge('e1', 'e2', 2, 0),
+        walkEdge('e2', 't', 1, 2),
       ],
     );
 
@@ -90,10 +122,10 @@ describe('findShortestPath', () => {
         { id: 't', x: 2, y: 0, level: 1, nodeType: 'polygon' },
       ],
       [
-        { from: 's', to: 'a', weightMeters: 1, level: 1, accessibilityPenalty: 0, edgeType: 'walk' },
-        { from: 'a', to: 't', weightMeters: 1, level: 1, accessibilityPenalty: 0, edgeType: 'walk' },
-        { from: 's', to: 'b', weightMeters: 1, level: 1, accessibilityPenalty: 0, edgeType: 'walk' },
-        { from: 'b', to: 't', weightMeters: 1, level: 1, accessibilityPenalty: 0, edgeType: 'walk' },
+        walkEdge('s', 'a', 1, 1),
+        walkEdge('a', 't', 1, 1),
+        walkEdge('s', 'b', 1, 1),
+        walkEdge('b', 't', 1, 1),
       ],
     );
 
@@ -139,7 +171,7 @@ describe('findShortestPath', () => {
 
     expect(result).not.toBeNull();
     expect(result?.nodeIds).toEqual([connectorEdge.from, connectorEdge.to]);
-    expect(result?.totalWeight).toBe(connectorEdge.weightMeters);
+    expect(result?.totalWeight).toBe(connectorEdge.timeSeconds);
     expect(graph.nodes.get(connectorEdge.from)?.level).not.toBe(
       graph.nodes.get(connectorEdge.to)?.level,
     );

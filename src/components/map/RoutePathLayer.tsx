@@ -1,39 +1,3 @@
-/**
- * RoutePathLayer — Renders the computed route on the MapLibre map.
- *
- * ## Design
- *
- * Follows the imperative subscribe pattern from SavedPinsLayer to avoid
- * cascading re-renders. Subscribes to routeStore (routeResult) and mapStore
- * (selectedLevel), rebuilds GeoJSON only when relevant state changes.
- *
- * Two visual layers:
- *   - route-dimmed:  grey, thin, low-opacity — segments on OTHER floors
- *   - route-active:  blue, wide, full-opacity — segments on CURRENT floor
- *
- * ## Data flow
- *
- *   routeStore.routeResult + mapStore.selectedLevel
- *       │
- *       └── imperative subscribe (no React re-render)
- *               ↓
- *           buildRouteLayerData(result, level, nodeCoords)
- *               ↓
- *           GeoJSONSource data → MapLibre GL layers
- *
- * ## Node coordinate cache
- *
- * The routing graph (~4543 nodes, ~760ms build) is cached at module level
- * as a node-ID → EPSG:5183 [x,y] map, same pattern as coordinateSnap.ts.
- *
- * ## Layer IDs (stable — not queried by CampusMap but kept stable for consistency)
- *
- *   - route-dimmed-source  / route-dimmed  (LineString)
- *   - route-active-source  / route-active  (LineString)
- *
- * @see CampusMap.tsx — renders this inside <Map>
- */
-
 import React, { useEffect, useRef, useState } from 'react';
 import { GeoJSONSource, Layer } from '@maplibre/maplibre-react-native';
 import { useRouteStore } from '../../store/routeStore';
@@ -41,8 +5,6 @@ import { useMapStore } from '../../store/mapStore';
 import { buildRoutingGraph } from '../../services/routing/graphBuilder';
 import { buildRouteLayerData } from './routeLayerData';
 import type { RouteGeoJsonFeature } from '../../services/routing/routeGeoJson';
-
-// ── Node coordinate cache (module-level singleton) ────────────────────
 
 let nodeCoordCache: Map<string, [number, number]> | null = null;
 
@@ -56,8 +18,6 @@ function getNodeCoords(): Map<string, [number, number]> {
   }
   return nodeCoordCache;
 }
-
-// ── Types for local state ─────────────────────────────────────────────
 
 type FeatureCollection = {
   type: 'FeatureCollection';
@@ -75,63 +35,78 @@ type PointFeatureCollection = {
   features: PointFeature[];
 };
 
-// ── Component ─────────────────────────────────────────────────────────
+type OptionLayerState = {
+  id: string;
+  color: string;
+  active: FeatureCollection | null;
+  dimmed: FeatureCollection | null;
+};
+
+const ROUTE_PALETTE = [
+  '#2979FF',
+  '#FF7043',
+  '#66BB6A',
+  '#AB47BC',
+  '#FFCA28',
+];
 
 function RoutePathLayer() {
-  const [activeData, setActiveData] = useState<FeatureCollection | null>(null);
-  const [dimmedData, setDimmedData] = useState<FeatureCollection | null>(null);
+  const [optionLayers, setOptionLayers] = useState<OptionLayerState[]>([]);
   const [originData, setOriginData] = useState<PointFeatureCollection | null>(null);
   const [destinationData, setDestinationData] = useState<PointFeatureCollection | null>(null);
-  const lastRouteResultRef = useRef<unknown>(null);
-  const lastSelectedLevelRef = useRef<number>(-1);
+  const lastSignatureRef = useRef<string>('');
 
   useEffect(() => {
     const rebuild = () => {
-      const routeResult = useRouteStore.getState().routeResult;
+      const state = useRouteStore.getState();
+      const { routeOptions, selectedRouteIndex } = state;
       const selectedLevel = useMapStore.getState().selectedLevel;
 
-      // Skip rebuild if nothing changed (reference + value compare)
-      if (
-        routeResult === lastRouteResultRef.current &&
-        selectedLevel === lastSelectedLevelRef.current
-      ) {
+      const signature = `${routeOptions.length}:${selectedRouteIndex}:${selectedLevel}:${routeOptions
+        .map((o) => (o.result.ok ? o.result.estimatedTimeSeconds : 0))
+        .join(',')}`;
+      if (signature === lastSignatureRef.current && originData !== null) {
         return;
       }
+      lastSignatureRef.current = signature;
 
-      lastRouteResultRef.current = routeResult;
-      lastSelectedLevelRef.current = selectedLevel;
+      const nodeCoords = getNodeCoords();
+      const layers: OptionLayerState[] = [];
 
-      const { activeFeatures, dimmedFeatures } = buildRouteLayerData(
-        routeResult,
-        selectedLevel,
-        getNodeCoords(),
-      );
+      routeOptions.forEach((option, idx) => {
+        const color = ROUTE_PALETTE[idx % ROUTE_PALETTE.length];
+        const { activeFeatures, dimmedFeatures } = buildRouteLayerData(
+          option.result,
+          selectedLevel,
+          nodeCoords,
+        );
 
-      setActiveData(
-        activeFeatures.length > 0
-          ? { type: 'FeatureCollection', features: activeFeatures }
-          : null,
-      );
-      setDimmedData(
-        dimmedFeatures.length > 0
-          ? { type: 'FeatureCollection', features: dimmedFeatures }
-          : null,
-      );
+        layers.push({
+          id: `route-option-${idx}`,
+          color,
+          active: activeFeatures.length > 0
+            ? { type: 'FeatureCollection', features: activeFeatures }
+            : null,
+          dimmed: dimmedFeatures.length > 0
+            ? { type: 'FeatureCollection', features: dimmedFeatures }
+            : null,
+        });
+      });
 
-      const origin = useRouteStore.getState().routeOrigin;
-      const dest = useRouteStore.getState().routeDestination;
+      setOptionLayers(layers);
+
+      const origin = state.routeOrigin;
+      const dest = state.routeDestination;
 
       setOriginData(
         origin && origin.level === selectedLevel
           ? {
               type: 'FeatureCollection',
-              features: [
-                {
-                  type: 'Feature',
-                  geometry: { type: 'Point', coordinates: origin.coordinates },
-                  properties: { label: '출' },
-                },
-              ],
+              features: [{
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: origin.coordinates },
+                properties: { label: '출' },
+              }],
             }
           : null,
       );
@@ -140,27 +115,21 @@ function RoutePathLayer() {
         dest && dest.level === selectedLevel
           ? {
               type: 'FeatureCollection',
-              features: [
-                {
-                  type: 'Feature',
-                  geometry: { type: 'Point', coordinates: dest.coordinates },
-                  properties: { label: '도' },
-                },
-              ],
+              features: [{
+                type: 'Feature',
+                geometry: { type: 'Point', coordinates: dest.coordinates },
+                properties: { label: '도' },
+              }],
             }
           : null,
       );
     };
 
-    // Initial data load
     rebuild();
 
-    // Subscribe to route result changes
     const unsubRoute = useRouteStore.subscribe(rebuild);
-
-    // Subscribe to selected level changes
-    const unsubLevel = useMapStore.subscribe((state, prevState) => {
-      if (state.selectedLevel === prevState.selectedLevel) return;
+    const unsubLevel = useMapStore.subscribe((s, p) => {
+      if (s.selectedLevel === p.selectedLevel) return;
       rebuild();
     });
 
@@ -170,42 +139,53 @@ function RoutePathLayer() {
     };
   }, []);
 
-  // If no route data at all, render nothing
-  if (!activeData && !dimmedData && !originData && !destinationData) {
+  if (optionLayers.length === 0 && !originData && !destinationData) {
     return null;
   }
 
+  const { selectedRouteIndex } = useRouteStore.getState();
+
   return (
     <>
-      {/* Dimmed segments — other floors */}
-      {dimmedData && (
-        <GeoJSONSource id="route-dimmed-source" data={dimmedData}>
-          <Layer
-            id="route-dimmed"
-            type="line"
-            paint={{
-              'line-color': '#999999',
-              'line-opacity': 0.3,
-              'line-width': 2,
-            }}
-          />
-        </GeoJSONSource>
-      )}
+      {optionLayers.map((layer, idx) => {
+        const isSelected = idx === selectedRouteIndex;
+        const activeWidth = isSelected ? 5 : 3;
+        const activeOpacity = isSelected ? 1.0 : 0.55;
+        const dimmedWidth = isSelected ? 2.5 : 1.5;
+        const dimmedOpacity = isSelected ? 0.35 : 0.18;
 
-      {/* Active segments — current floor */}
-      {activeData && (
-        <GeoJSONSource id="route-active-source" data={activeData}>
-          <Layer
-            id="route-active"
-            type="line"
-            paint={{
-              'line-color': '#2979FF',
-              'line-opacity': 1.0,
-              'line-width': 4,
-            }}
-          />
-        </GeoJSONSource>
-      )}
+        return (
+          <React.Fragment key={layer.id}>
+            {layer.dimmed && (
+              <GeoJSONSource id={`${layer.id}-dimmed-source`} data={layer.dimmed}>
+                <Layer
+                  id={`${layer.id}-dimmed`}
+                  type="line"
+                  paint={{
+                    'line-color': layer.color,
+                    'line-opacity': dimmedOpacity,
+                    'line-width': dimmedWidth,
+                  }}
+                />
+              </GeoJSONSource>
+            )}
+
+            {layer.active && (
+              <GeoJSONSource id={`${layer.id}-active-source`} data={layer.active}>
+                <Layer
+                  id={`${layer.id}-active`}
+                  type="line"
+                  paint={{
+                    'line-color': layer.color,
+                    'line-opacity': activeOpacity,
+                    'line-width': activeWidth,
+                  }}
+                />
+              </GeoJSONSource>
+            )}
+          </React.Fragment>
+        );
+      })}
 
       {originData && (
         <GeoJSONSource id="route-origin-source" data={originData}>
@@ -230,9 +210,7 @@ function RoutePathLayer() {
               'text-justify': 'center',
               'text-allow-overlap': true,
             }}
-            paint={{
-              'text-color': '#FFFFFF',
-            }}
+            paint={{ 'text-color': '#FFFFFF' }}
           />
         </GeoJSONSource>
       )}
@@ -260,9 +238,7 @@ function RoutePathLayer() {
               'text-justify': 'center',
               'text-allow-overlap': true,
             }}
-            paint={{
-              'text-color': '#FFFFFF',
-            }}
+            paint={{ 'text-color': '#FFFFFF' }}
           />
         </GeoJSONSource>
       )}
@@ -270,5 +246,4 @@ function RoutePathLayer() {
   );
 }
 
-/** React.memo prevents parent (CampusMap) re-renders from cascading. */
 export default React.memo(RoutePathLayer);
