@@ -14,10 +14,10 @@
  *   - stairDescent:    8 metres/floor  (~45 % of ascent cost)
  *   - floorChange:     4 metres/transition (orientation/interruption)
  *   - elevatorRide:    2 metres/ride   (near-zero physical, mild friction)
- *   - stairFlightPenalty: 30 metres/flight (psychological/ergonomic cost
- *     of using stairs at all — one flight ≈ 30 m extra flat walk).
+ *   - stairFlightPenalty: 80 metres/flight (psychological/ergonomic cost
+ *     of using stairs at all — one flight ≈ 80 m extra flat walk).
  *     Calibrated so a route with 1 stair flight is dominated by a route
- *     using an elevator + 30 m extra walk detour.
+ *     using an elevator + up to 60 m extra walk detour.
  *
  * Derived from Oracle design (bg_a384eae9). Tunable for later calibration.
  */
@@ -41,7 +41,7 @@ export const effortCoefficients: EffortCoefficients = {
   stairDescentPerFloor: 8,
   floorChangePerTransition: 4,
   elevatorRidePerRide: 2,
-  stairFlightPenalty: 30,
+  stairFlightPenalty: 80,
 };
 
 /**
