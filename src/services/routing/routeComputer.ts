@@ -340,8 +340,6 @@ export function computeRouteOptions(input: {
     console.warn('[routeComputer] Graph is EMPTY — buildRoutingGraph may have failed')
     return []
   }
-  console.log('[routeComputer] Graph stats:', baseGraph.nodes.size, 'nodes,', baseGraph.edges.length, 'edges')
-
   const [originX, originY] = transformWgs84ToEpsg5183(...input.origin.coordinates)
   const [destinationX, destinationY] = transformWgs84ToEpsg5183(
     ...input.destination.coordinates,
@@ -364,21 +362,6 @@ export function computeRouteOptions(input: {
     })
     return []
   }
-
-  const originSnappedNode = baseGraph.nodes.get(originSnap.nodeId)
-  const destinationSnappedNode = baseGraph.nodes.get(destinationSnap.nodeId)
-  console.log(
-    '[routeComputer] Snap OK — origin:',
-    originSnap.nodeId,
-    'dest:',
-    destinationSnap.nodeId,
-    'originDistanceM:',
-    originSnappedNode ? euclidean(originX, originY, originSnappedNode.x, originSnappedNode.y) : 'unknown',
-    'destDistanceM:',
-    destinationSnappedNode
-      ? euclidean(destinationX, destinationY, destinationSnappedNode.x, destinationSnappedNode.y)
-      : 'unknown',
-  )
 
   const options: RouteOption[] = []
   const modes: RouteAccessibilityMode[] = ['normal', 'elevator_priority']
