@@ -388,3 +388,35 @@ export function findKShortestPaths(
 
   return A;
 }
+
+/**
+ * Find paths that pass through a specific connector edge.
+ *
+ * Splits the route into two halves: origin → connectorFromNode and
+ * connectorToNode → destination. Each half is solved by Dijkstra. If both
+ * halves are reachable, the result is stitched together with the connector
+ * edge in between. Returns a single path (the cheapest one through the
+ * connector under the given cost function), or null if either side is
+ * unreachable.
+ *
+ * Unlike Yen's algorithm — which can only enumerate paths that share at
+ * least one edge with the root shortest path — this function guarantees
+ * that a path through the specified connector is considered. Used to
+ * surface alternatives that Yen's root-path bias would miss (e.g. a 1→4
+ * elevator path when the all-stairs path is the shortest).
+ */
+export function findPathThroughConnector(
+  graph: RouteGraph,
+  startNodeId: string,
+  endNodeId: string,
+  costFn: (edge: RouteEdge) => number,
+  connectorEdge: RouteEdge,
+): YenPath | null {
+  const from = dijkstra(graph, startNodeId, connectorEdge.from, costFn);
+  const to = dijkstra(graph, connectorEdge.to, endNodeId, costFn);
+  if (!from || !to) return null;
+  return {
+    nodeIds: [...from.nodeIds, ...to.nodeIds],
+    cost: from.totalWeight + costFn(connectorEdge) + to.totalWeight,
+  };
+}

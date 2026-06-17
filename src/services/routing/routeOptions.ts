@@ -16,7 +16,7 @@
  * Designed to produce 2–4 meaningful alternatives, not k near-duplicates.
  */
 
-import { findKShortestPaths, profileEdgeCost } from './pathfinder';
+import { findKShortestPaths, findPathThroughConnector, profileEdgeCost } from './pathfinder';
 import { computeConnectorEffortMeters, effortCoefficients } from './effortModel';
 import type {
   RouteAccessibilityMode,
@@ -446,6 +446,38 @@ export function computeRouteOptionSet(
         signature: candidateSignature(path.nodeIds, graph, outgoing),
       });
     }
+  }
+
+  // ── 1b. Connector-variant pass ─────────────────────────────────
+  // Yen's algorithm can only enumerate paths that share edges with the root
+  // shortest path. A 1→4 elevator path is unreachable from a root that is
+  // the all-stairs shortest path, even though the elevator is in the graph.
+  // For each connector edge, run a 2-segment Dijkstra to surface a path
+  // through that connector and feed it into the candidate pool.
+  const connectorCostFn = makeProfileCost('easiest', accessibilityMode);
+  for (const edge of graph.edges) {
+    if (edge.edgeType !== 'connector') continue;
+    const path = findPathThroughConnector(
+      graph,
+      originTempId,
+      destTempId,
+      connectorCostFn,
+      edge,
+    );
+    if (!path) continue;
+    const metrics = buildMetricsFromPath(graph, outgoing, path.nodeIds);
+    if (
+      metrics.totalDistanceMeters === 0 &&
+      metrics.connectorStats.floorChangeCount === 0
+    ) {
+      continue;
+    }
+    rawCandidates.push({
+      nodeIds: path.nodeIds,
+      profile: 'easiest',
+      ...metrics,
+      signature: candidateSignature(path.nodeIds, graph, outgoing),
+    });
   }
 
   if (rawCandidates.length === 0) return [];
