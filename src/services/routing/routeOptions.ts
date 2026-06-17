@@ -364,19 +364,21 @@ function balancedScore(
 function labelForCandidate(
   c: Candidate,
   best: { time: number; dist: number; effort: number },
-  hasStairsOnly: boolean,
 ): { label: string; badge: string } {
-  // Exact winner checks (lower is better).
+  const stairFloors =
+    c.connectorStats.stairAscentFloors + c.connectorStats.stairDescentFloors;
+  const hasStairs = stairFloors > 0;
   const isFastest = c.estimatedTimeSeconds === best.time;
   const isShortest = c.totalDistanceMeters === best.dist;
   const isEasiest = c.effortMeters === best.effort;
 
   if (isFastest) return { label: '가장 빠름', badge: '빠름' };
   if (isShortest) return { label: '가장 가까움', badge: '가까움' };
-  if (isEasiest) return { label: '가장 편함', badge: '편함' };
-  if (hasStairsOnly && c.connectorStats.elevatorRideCount > 0) {
+  if (isEasiest && !hasStairs) return { label: '가장 편함', badge: '편함' };
+  if (c.connectorStats.elevatorRideCount > 0) {
     return { label: '엘리베이터 경로', badge: '엘리베이터' };
   }
+  if (hasStairs) return { label: '계단 경로', badge: '계단' };
   return { label: '추천 경로', badge: '추천' };
 }
 
@@ -491,10 +493,6 @@ export function computeRouteOptionSet(
     .map((c) => ({ c, score: balancedScore(c, best, accessibilityMode) }))
     .sort((a, b) => a.score - b.score);
 
-  // Determine if any candidate has stairs-only as the only alternative to
-  // elevator — used to label an "elevator route" distinctively.
-  const hasStairsOnly = pool.some((c) => c.connectorStats.elevatorRideCount === 0);
-
   // Guarantee the lowest-effort candidate is always in the trimmed list so
   // the "편함" tab and elevator_priority users can always tap the easiest route.
   const trimmedBase = scored.slice(0, MAX_OPTIONS);
@@ -511,7 +509,7 @@ export function computeRouteOptionSet(
 
   // ── 6. Build RouteOption list ─────────────────────────────────
   const options: RouteOption[] = trimmed.map(({ c, score }, idx) => {
-    const { label, badge } = labelForCandidate(c, best, hasStairsOnly);
+    const { label, badge } = labelForCandidate(c, best);
     const usedStairsFallback = c.profile === ('easiest' as RouteProfile) && c.usedStairConnector;
 
     const result: RouteResult = {

@@ -10,10 +10,14 @@
  * Exact physiological accuracy is less important than the monotonic
  * ordering they produce: stairs > flat walking > elevator (per floor).
  *
- *   - stairAscent:  18 metres/floor  (one floor up ≈ 18 m flat walk)
- *   - stairDescent:  8 metres/floor  (~45 % of ascent cost)
- *   - floorChange:   4 metres/transition (orientation/interruption)
- *   - elevatorRide:  2 metres/ride   (near-zero physical, mild friction)
+ *   - stairAscent:    18 metres/floor  (one floor up ≈ 18 m flat walk)
+ *   - stairDescent:    8 metres/floor  (~45 % of ascent cost)
+ *   - floorChange:     4 metres/transition (orientation/interruption)
+ *   - elevatorRide:    2 metres/ride   (near-zero physical, mild friction)
+ *   - stairFlightPenalty: 30 metres/flight (psychological/ergonomic cost
+ *     of using stairs at all — one flight ≈ 30 m extra flat walk).
+ *     Calibrated so a route with 1 stair flight is dominated by a route
+ *     using an elevator + 30 m extra walk detour.
  *
  * Derived from Oracle design (bg_a384eae9). Tunable for later calibration.
  */
@@ -27,6 +31,8 @@ export interface EffortCoefficients {
   floorChangePerTransition: number;
   /** Flat metres equivalent added per elevator ride. */
   elevatorRidePerRide: number;
+  /** Flat metres equivalent added per stair flight (ascent or descent). */
+  stairFlightPenalty: number;
 }
 
 /** Conservative default coefficients (Oracle-recommended starting point). */
@@ -35,15 +41,18 @@ export const effortCoefficients: EffortCoefficients = {
   stairDescentPerFloor: 8,
   floorChangePerTransition: 4,
   elevatorRidePerRide: 2,
+  stairFlightPenalty: 30,
 };
 
 /**
  * Compute the "equivalent flat walking metres" cost of a single cross-floor
  * connector edge.
  *
- * For stairs the cost is dominated by ascent/descent. For elevators the cost
- * is near-zero physically, with only a small per-ride friction penalty plus
- * the per-transition orientation cost shared with stairs.
+ * For stairs the cost is dominated by ascent/descent, plus a per-flight
+ * "soft" penalty that captures the ergonomic cost of using stairs at all.
+ * For elevators the cost is near-zero physically, with only a small per-ride
+ * friction penalty plus the per-transition orientation cost shared with
+ * stairs.
  *
  * @param connectorType 'stair' | 'elevator'
  * @param connectsLevels [fromLevel, toLevel] tuple
@@ -60,14 +69,15 @@ export function computeConnectorEffortMeters(
   const descentFloors = Math.max(0, fromLevel - toLevel);
 
   if (connectorType === 'stair') {
+    const flights = Math.max(ascentFloors, descentFloors);
     return (
       ascentFloors * c.stairAscentPerFloor +
       descentFloors * c.stairDescentPerFloor +
-      floorDelta * c.floorChangePerTransition
+      floorDelta * c.floorChangePerTransition +
+      flights * c.stairFlightPenalty
     );
   }
 
-  // elevator
   return (
     c.elevatorRidePerRide +
     floorDelta * c.floorChangePerTransition
