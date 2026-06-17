@@ -59,6 +59,7 @@ export function setRouteComputer(
 let computeRouteOptionsService: ((input: {
   origin: RouteOrigin
   destination: RouteDestination
+  accessibilityMode?: RouteAccessibilityMode
 }) => RouteOption[]) | null = null
 
 let useRouteOptionsService = true
@@ -227,9 +228,14 @@ export const useRouteStore = create<RouteStoreState>()((set, get) => ({
     try {
       let options: RouteOption[]
       let lastError: string | null = null
+      const accessibilityMode = get().accessibilityMode
 
       if (useRouteOptionsService && computeRouteOptionsService) {
-        options = computeRouteOptionsService({ origin: routeOrigin, destination: routeDestination })
+        options = computeRouteOptionsService({
+          origin: routeOrigin,
+          destination: routeDestination,
+          accessibilityMode,
+        })
       } else {
         const result = computeRouteOptionsUsingIndoorRoute({ origin: routeOrigin, destination: routeDestination })
         options = result.options

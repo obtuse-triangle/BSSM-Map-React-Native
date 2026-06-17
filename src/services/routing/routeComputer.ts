@@ -123,7 +123,10 @@ function computeRouteLegacy(input: {
 export function computeRouteOptions(input: {
   origin: RouteOrigin;
   destination: RouteDestination;
+  accessibilityMode?: RouteAccessibilityMode;
 }): RouteOption[] {
+  const accessibilityMode: RouteAccessibilityMode =
+    input.accessibilityMode ?? 'normal';
   const baseGraph = getCachedRoutingGraph();
   if (baseGraph.nodes.size === 0) {
     console.warn('[routeComputer] Graph is EMPTY — buildRoutingGraph may have failed');
@@ -172,6 +175,7 @@ export function computeRouteOptions(input: {
       destinationTemp.id,
       { x: originX, y: originY, level: input.origin.level },
       { x: destinationX, y: destinationY, level: input.destination.level },
+      accessibilityMode,
     );
   } catch (e) {
     console.warn('[routeComputer] computeRouteOptionSet failed:', e);

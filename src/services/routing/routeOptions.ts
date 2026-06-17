@@ -19,6 +19,7 @@
 import { findKShortestPaths, profileEdgeCost } from './pathfinder';
 import { computeConnectorEffortMeters, effortCoefficients } from './effortModel';
 import type {
+  RouteAccessibilityMode,
   RouteEdge,
   RouteGraph,
   RouteNode,
@@ -31,9 +32,9 @@ import type {
 
 // ── Tunables ────────────────────────────────────────────────────────
 
-/** K-shortest count per profile. Yields a healthy candidate pool without
- *  flooding indoor graphs with corridor micro-variants. */
-const K_PER_PROFILE = 5;
+/** K-shortest count per profile. 3 yields up to 9 candidates which is
+ *  enough for a meaningful set after dedup/diversity filter. */
+const K_PER_PROFILE = 3;
 
 /** Min candidate overlap (shared edge distance / min route distance) for a
  *  candidate to be considered "too similar" to a kept route. */
@@ -51,6 +52,10 @@ const MAX_OPTIONS = 5;
 const BALANCED_WEIGHT_TIME = 0.45;
 const BALANCED_WEIGHT_DISTANCE = 0.25;
 const BALANCED_WEIGHT_EFFORT = 0.30;
+
+/** Stair effort multiplier under elevator_priority mode — makes Yen seek
+ *  elevator alternatives even when the walk to the elevator is longer. */
+const ELEVATOR_PRIORITY_STAIR_PENALTY = 3;
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -88,6 +93,21 @@ function buildOutgoingLookup(graph: RouteGraph): Map<string, RouteEdge[]> {
 
 function edgeKeyOf(from: string, to: string): string {
   return `${from}|${to}`;
+}
+
+function makeProfileCost(
+  profile: RouteProfile,
+  accessibilityMode: RouteAccessibilityMode,
+): (edge: RouteEdge) => number {
+  if (profile === 'easiest' && accessibilityMode === 'elevator_priority') {
+    return (edge) => {
+      if (edge.edgeType === 'connector' && edge.connectorMeta?.connectorType === 'stair') {
+        return edge.effortMetersEquivalent * ELEVATOR_PRIORITY_STAIR_PENALTY;
+      }
+      return edge.effortMetersEquivalent;
+    };
+  }
+  return (edge) => profileEdgeCost(edge, profile);
 }
 
 /**
@@ -318,6 +338,7 @@ function paretoNonDominated(cands: Candidate[]): Candidate[] {
 function balancedScore(
   c: Candidate,
   best: { time: number; dist: number; effort: number },
+  accessibilityMode: RouteAccessibilityMode = 'normal',
 ): number {
   const t = c.estimatedTimeSeconds / Math.max(best.time, 1);
   const d = c.totalDistanceMeters / Math.max(best.dist, 1);
@@ -358,11 +379,13 @@ function labelForCandidate(
  *   - Installing temp_origin / temp_destination nodes + their connector edges
  *   - Passing the augmented graph (the caller-owned clone)
  *
- * @param graph        augmented routing graph (with temp nodes installed)
- * @param originTempId temp_origin node ID
- * @param destTempId   temp_destination node ID
- * @param originPoint  EPSG:5183 origin coordinate for RouteResult rendering
- * @param destPoint    EPSG:5183 destination coordinate for RouteResult rendering
+ * @param graph            augmented routing graph (with temp nodes installed)
+ * @param originTempId     temp_origin node ID
+ * @param destTempId       temp_destination node ID
+ * @param originPoint      EPSG:5183 origin coordinate for RouteResult rendering
+ * @param destPoint        EPSG:5183 destination coordinate for RouteResult rendering
+ * @param accessibilityMode 'elevator_priority' biases ranking toward elevator
+ *                         routes and inflates stair cost in the easiest profile
  */
 export function computeRouteOptionSet(
   graph: RouteGraph,
@@ -370,6 +393,7 @@ export function computeRouteOptionSet(
   destTempId: string,
   originPoint: { x: number; y: number; level: number },
   destPoint: { x: number; y: number; level: number },
+  accessibilityMode: RouteAccessibilityMode = 'normal',
 ): RouteOption[] {
   const outgoing = buildOutgoingLookup(graph);
 
@@ -384,7 +408,7 @@ export function computeRouteOptionSet(
   const rawCandidates: Candidate[] = [];
 
   for (const profile of profiles) {
-    const costFn = (e: RouteEdge) => profileEdgeCost(e, profile);
+    const costFn = makeProfileCost(profile, accessibilityMode);
     const yenPaths = findKShortestPaths(graph, originTempId, destTempId, costFn, K_PER_PROFILE);
     for (const path of yenPaths) {
       const metrics = buildMetricsFromPath(graph, outgoing, path.nodeIds);
@@ -456,7 +480,7 @@ export function computeRouteOptionSet(
   };
 
   const scored = pool
-    .map((c) => ({ c, score: balancedScore(c, best) }))
+    .map((c) => ({ c, score: balancedScore(c, best, accessibilityMode) }))
     .sort((a, b) => a.score - b.score);
 
   // Determine if any candidate has stairs-only as the only alternative to
