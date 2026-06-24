@@ -13,7 +13,7 @@ import { ParticleFusionEngine } from '../particleFusionEngine';
 const campusData = campusDataUntyped as unknown as CampusGeoJSON;
 
 const chosenRoom = campusData.features.find(
-  (feature) => feature.geometry.type === 'Polygon' && String(feature.properties.level_id) === '1' && feature.id === '1-1-67',
+  (feature) => feature.geometry.type === 'Polygon' && String(feature.properties.level_id) === '1' && feature.properties.id === '1-1-67',
 );
 
 if (chosenRoom === undefined || chosenRoom.geometry.type !== 'Polygon') {

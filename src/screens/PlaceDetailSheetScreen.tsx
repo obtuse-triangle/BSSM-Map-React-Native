@@ -81,8 +81,9 @@ export function PlaceDetailSheetScreen() {
   const bottomSheetRoom = useMemo<DetailFloorElement | null>(() => {
     if (!selectedFeature) return null;
     const centroid = getFeatureCentroid(selectedFeature);
+    const featureId = selectedFeature.properties.id ?? String(selectedFeature.id);
     return {
-      id: Number(selectedFeature.id) || 0,
+      id: Number(featureId) || 0,
       name: selectedFeature.properties.name_ko || selectedFeature.properties.name,
       x: 0, y: 0, width: 0, height: 0,
       interactive: selectedFeature.properties.interactive,
@@ -95,7 +96,7 @@ export function PlaceDetailSheetScreen() {
 
   // ── Save / unsave state ────────────────────────────────────────────
   const featureIdForSave = selectedFeature && selectedFeature.properties.interactive
-    ? String(selectedFeature.id)
+    ? (selectedFeature.properties.id ?? String(selectedFeature.id))
     : null;
 
   const [isSaved, setIsSaved] = useState<boolean>(

@@ -5,7 +5,7 @@ import { getFeaturesForFloor, inferZone } from '../zoneInference';
 const campusData = campusDataUntyped as unknown as CampusGeoJSON;
 
 const chosenRoom = campusData.features.find(
-  (feature) => feature.geometry.type === 'Polygon' && String(feature.properties.level_id) === '1' && feature.id === '1-1-67',
+  (feature) => feature.geometry.type === 'Polygon' && String(feature.properties.level_id) === '1' && feature.properties.id === '1-1-67',
 );
 
 if (chosenRoom === undefined) {
@@ -63,6 +63,6 @@ describe('zoneInference', () => {
 
     expect(floorOneFeatures.length).toBeGreaterThan(0);
     expect(floorOneFeatures.every((feature) => String(feature.properties.level) === '1' || String(feature.properties.level_id) === '1')).toBe(true);
-    expect(floorOneFeatures.some((feature) => feature.id === '3-5-27')).toBe(false);
+    expect(floorOneFeatures.some((feature) => feature.properties.id === '3-5-27')).toBe(false);
   });
 });
