@@ -11,10 +11,13 @@ export const BG_NEAR_WHITE = '#f8fafc'
 export const TEXT_DARK = '#0f172a'
 export const TEXT_MEDIUM = '#475569'
 export const TEXT_LIGHT = '#94a3b8'
+export const TEXT_SECONDARY = '#64748b'
 
 // Border/Divider
 export const BORDER_DEFAULT = '#e2e8f0'
 export const BORDER_LIGHT = '#d8e2ef'
+export const BORDER_BLUE_LIGHT = '#bfdbfe'
+export const BG_BLUE_LIGHT = '#eff6ff'
 
 // Status
 export const STATUS_ERROR = '#dc2626'
