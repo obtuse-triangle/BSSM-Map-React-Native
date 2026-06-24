@@ -225,52 +225,57 @@ export const useRouteStore = create<RouteStoreState>()((set, get) => ({
       return;
     }
     set({ isComputing: true, error: null });
-    try {
-      let options: RouteOption[]
-      let lastError: string | null = null
-      const accessibilityMode = get().accessibilityMode
 
-      if (useRouteOptionsService && computeRouteOptionsService) {
-        options = computeRouteOptionsService({
-          origin: routeOrigin,
-          destination: routeDestination,
-          accessibilityMode,
-        })
-      } else {
-        const result = computeRouteOptionsUsingIndoorRoute({ origin: routeOrigin, destination: routeDestination })
-        options = result.options
-        lastError = result.lastError
-      }
+    // Yield to the UI thread so React can paint the loading state
+    // before the heavy synchronous computation blocks the JS thread.
+    setTimeout(() => {
+      try {
+        let options: RouteOption[]
+        let lastError: string | null = null
+        const accessibilityMode = get().accessibilityMode
 
-      if (options.length === 0) {
-        console.warn('[RouteStore] computeRouteOptions returned 0 options. lastError:', lastError)
+        if (useRouteOptionsService && computeRouteOptionsService) {
+          options = computeRouteOptionsService({
+            origin: routeOrigin,
+            destination: routeDestination,
+            accessibilityMode,
+          })
+        } else {
+          const result = computeRouteOptionsUsingIndoorRoute({ origin: routeOrigin, destination: routeDestination })
+          options = result.options
+          lastError = result.lastError
+        }
+
+        if (options.length === 0) {
+          console.warn('[RouteStore] computeRouteOptions returned 0 options. lastError:', lastError)
+          set({
+            routeResult: null,
+            routeOptions: [],
+            selectedRouteIndex: 0,
+            isComputing: false,
+            error: lastError ?? 'Route computation failed',
+          })
+        } else {
+          const { sortMode } = get();
+          const sorted = [...options].sort((a, b) => compareBySortMode(a, b, sortMode));
+          set({
+            routeOptions: sorted,
+            selectedRouteIndex: 0,
+            routeResult: sorted[0].result,
+            isComputing: false,
+            error: null,
+          })
+        }
+      } catch (_e) {
+        console.warn('[RouteStore] computeRouteOptions failed:', _e)
         set({
-          routeResult: null,
+          isComputing: false,
+          error: 'Route computation failed',
           routeOptions: [],
-          selectedRouteIndex: 0,
-          isComputing: false,
-          error: lastError ?? 'Route computation failed',
-        })
-      } else {
-        const { sortMode } = get();
-        const sorted = [...options].sort((a, b) => compareBySortMode(a, b, sortMode));
-        set({
-          routeOptions: sorted,
-          selectedRouteIndex: 0,
-          routeResult: sorted[0].result,
-          isComputing: false,
-          error: null,
+          routeResult: null,
         })
       }
-    } catch (_e) {
-      console.warn('[RouteStore] computeRouteOptions failed:', _e)
-      set({
-        isComputing: false,
-        error: 'Route computation failed',
-        routeOptions: [],
-        routeResult: null,
-      })
-    }
+    }, 0);
   },
 
   selectRoute: (index: number) => {
