@@ -5,6 +5,7 @@ import { useMapStore } from '../../store/mapStore';
 import { buildRoutingGraph } from '../../services/routing/graphBuilder';
 import { buildRouteLayerData } from './routeLayerData';
 import type { RouteGeoJsonFeature } from '../../services/routing/routeGeoJson';
+import { ROUTE_SWATCH_COLORS } from '../../services/routing/constants';
 
 let nodeCoordCache: Map<string, [number, number]> | null = null;
 
@@ -42,14 +43,6 @@ type OptionLayerState = {
   dimmed: FeatureCollection | null;
 };
 
-const ROUTE_PALETTE = [
-  '#2979FF',
-  '#FF7043',
-  '#66BB6A',
-  '#AB47BC',
-  '#FFCA28',
-];
-
 function RoutePathLayer() {
   const [optionLayers, setOptionLayers] = useState<OptionLayerState[]>([]);
   const [originData, setOriginData] = useState<PointFeatureCollection | null>(null);
@@ -74,7 +67,7 @@ function RoutePathLayer() {
       const layers: OptionLayerState[] = [];
 
       routeOptions.forEach((option, idx) => {
-        const color = ROUTE_PALETTE[idx % ROUTE_PALETTE.length];
+        const color = ROUTE_SWATCH_COLORS[idx % ROUTE_SWATCH_COLORS.length];
         const { activeFeatures, dimmedFeatures } = buildRouteLayerData(
           option.result,
           selectedLevel,

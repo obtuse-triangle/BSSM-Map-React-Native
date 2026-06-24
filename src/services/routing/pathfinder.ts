@@ -75,8 +75,8 @@ class MinHeap<T extends { priority: number; nodeId: string }> {
  * Legacy cost function — preserved for the original `findShortestPath`
  * so behaviour of existing single-route callers does not change.
  *
- * Walk edges: weightMeters/1.2 (seconds). Connector edges: weightMeters
- * (which is actually traversalTimeSeconds for connector edges).
+ * Walk edges: distanceMeters/1.2 (seconds). Connector edges: timeSeconds
+ * (which is the traversal time for connector edges).
  * Optionally adds accessibilityPenalty for `elevator_priority` mode.
  */
 function legacyEdgeCost(edge: RouteEdge, accessibilityMode: RouteAccessibilityMode): number {

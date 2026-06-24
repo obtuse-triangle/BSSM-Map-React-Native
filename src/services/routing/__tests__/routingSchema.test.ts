@@ -57,7 +57,9 @@ function isRouteEdge(value: unknown): value is RouteEdge {
   return (
     typeof obj.from === 'string' &&
     typeof obj.to === 'string' &&
-    typeof obj.weightMeters === 'number' &&
+    typeof obj.distanceMeters === 'number' &&
+    typeof obj.timeSeconds === 'number' &&
+    typeof obj.effortMetersEquivalent === 'number' &&
     typeof obj.level === 'number' &&
     typeof obj.accessibilityPenalty === 'number' &&
     validEdgeTypes.includes(obj.edgeType as string)
@@ -122,7 +124,9 @@ describe('routing types / schema', () => {
     const validEdge: RouteEdge = {
       from: 'n-001',
       to: 'n-002',
-      weightMeters: 12.5,
+      distanceMeters: 12.5,
+      timeSeconds: 10.4,
+      effortMetersEquivalent: 12.5,
       level: 1,
       accessibilityPenalty: 0,
       edgeType: 'walk',
@@ -256,7 +260,7 @@ describe('routing types / schema', () => {
     it('constructs a graph with nodes, edges, and adjacency', () => {
       const graph: RouteGraph = {
         nodes: new Map([['n-001', { id: 'n-001', x: 0, y: 0, level: 1, nodeType: 'polygon' }]]),
-        edges: [{ from: 'n-001', to: 'n-002', weightMeters: 10, level: 1, accessibilityPenalty: 0, edgeType: 'walk' }],
+        edges: [{ from: 'n-001', to: 'n-002', distanceMeters: 10, timeSeconds: 8.3, effortMetersEquivalent: 10, level: 1, accessibilityPenalty: 0, edgeType: 'walk' }],
         adjacency: new Map([['n-001', ['n-002']]]),
       };
       expect(graph.nodes.size).toBe(1);

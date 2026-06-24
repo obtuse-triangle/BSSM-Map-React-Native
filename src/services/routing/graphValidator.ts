@@ -5,7 +5,7 @@
  *
  * Checks performed:
  *   - Every edge.from / edge.to references an existing node
- *   - Every edge has a finite, positive weightMeters
+ *   - Every edge has a finite, positive primary weight (distanceMeters or timeSeconds)
  *   - Stair connector edges have accessibilityPenalty > 0
  *   - Elevator connector edges have accessibilityPenalty === 0
  *   - All polygon-type nodes have level ∈ {1,2,3,4}

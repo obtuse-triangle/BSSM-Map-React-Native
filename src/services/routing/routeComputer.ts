@@ -1,6 +1,7 @@
 import { buildRoutingGraph } from './graphBuilder';
 import { findShortestPath } from './pathfinder';
 import { computeRouteOptionSet } from './routeOptions';
+import { EFFORT_SCORE_DIVISOR } from './constants';
 import { transformWgs84ToEpsg5183 } from '../../utils/coordinateTransform';
 import type {
   RouteAccessibilityMode,
@@ -103,7 +104,7 @@ function computeRouteLegacy(input: {
     totalDistanceMeters: metrics.totalDistanceMeters,
     estimatedTimeSeconds: metrics.estimatedTimeSeconds,
     effortMeters: metrics.effortMeters,
-    effortScore: metrics.effortMeters / 100,
+    effortScore: metrics.effortMeters / EFFORT_SCORE_DIVISOR,
     connectorStats: metrics.connectorStats,
     usedStairsFallback,
     originPoint: { x: originX, y: originY, level: input.origin.level },

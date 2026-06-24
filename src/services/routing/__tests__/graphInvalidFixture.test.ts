@@ -18,7 +18,7 @@ function makeFixtures(): { name: string; graph: RouteGraph; expectErrors: boolea
     nodes.set('n0', { id: 'n0', x: 0, y: 0, level: 1, nodeType: 'polygon' });
     nodes.set('n1', { id: 'n1', x: 1, y: 1, level: 1, nodeType: 'polygon' });
     const edges: RouteEdge[] = [
-      { from: 'n0', to: 'ghost', weightMeters: 1, level: 1, accessibilityPenalty: 0, edgeType: 'walk' },
+      { from: 'n0', to: 'ghost', distanceMeters: 1, timeSeconds: 0.8, effortMetersEquivalent: 1, level: 1, accessibilityPenalty: 0, edgeType: 'walk' },
     ];
     const adj = new Map<string, string[]>();
     adj.set('n0', ['ghost']);
@@ -32,7 +32,7 @@ function makeFixtures(): { name: string; graph: RouteGraph; expectErrors: boolea
     nodes.set('n0', { id: 'n0', x: 0, y: 0, level: 1, nodeType: 'polygon' });
     nodes.set('orphan', { id: 'orphan', x: 99, y: 99, level: 2, nodeType: 'polygon' });
     const edges: RouteEdge[] = [
-      { from: 'n0', to: 'n0', weightMeters: 1, level: 1, accessibilityPenalty: 0, edgeType: 'walk' },
+      { from: 'n0', to: 'n0', distanceMeters: 1, timeSeconds: 0.8, effortMetersEquivalent: 1, level: 1, accessibilityPenalty: 0, edgeType: 'walk' },
     ];
     const adj = new Map<string, string[]>();
     adj.set('n0', ['n0']);
@@ -47,9 +47,9 @@ function makeFixtures(): { name: string; graph: RouteGraph; expectErrors: boolea
     nodes.set('c0', { id: 'c0', x: 5, y: 5, level: 1, nodeType: 'connector' });
     nodes.set('c1', { id: 'c1', x: 5, y: 5, level: 2, nodeType: 'connector' });
     const edges: RouteEdge[] = [
-      { from: 'n0', to: 'c0', weightMeters: 7, level: 1, accessibilityPenalty: 0, edgeType: 'walk' },
-      { from: 'c0', to: 'n0', weightMeters: 7, level: 1, accessibilityPenalty: 0, edgeType: 'walk' },
-      { from: 'c0', to: 'c1', weightMeters: 15, level: -1, connectorId: 'connector-stair-bad', accessibilityPenalty: 0, edgeType: 'connector' },
+      { from: 'n0', to: 'c0', distanceMeters: 7, timeSeconds: 5.8, effortMetersEquivalent: 7, level: 1, accessibilityPenalty: 0, edgeType: 'walk' },
+      { from: 'c0', to: 'n0', distanceMeters: 7, timeSeconds: 5.8, effortMetersEquivalent: 7, level: 1, accessibilityPenalty: 0, edgeType: 'walk' },
+      { from: 'c0', to: 'c1', distanceMeters: 0, timeSeconds: 15, effortMetersEquivalent: 15, level: -1, connectorId: 'connector-stair-bad', accessibilityPenalty: 0, edgeType: 'connector' },
     ];
     const adj = new Map<string, string[]>();
     adj.set('n0', ['c0']);
@@ -64,8 +64,8 @@ function makeFixtures(): { name: string; graph: RouteGraph; expectErrors: boolea
     nodes.set('n0', { id: 'n0', x: 0, y: 0, level: 5, nodeType: 'polygon' });
     nodes.set('n1', { id: 'n1', x: 1, y: 1, level: 1, nodeType: 'polygon' });
     const edges: RouteEdge[] = [
-      { from: 'n0', to: 'n1', weightMeters: 1, level: 5, accessibilityPenalty: 0, edgeType: 'walk' },
-      { from: 'n1', to: 'n0', weightMeters: 1, level: 1, accessibilityPenalty: 0, edgeType: 'walk' },
+      { from: 'n0', to: 'n1', distanceMeters: 1, timeSeconds: 0.8, effortMetersEquivalent: 1, level: 5, accessibilityPenalty: 0, edgeType: 'walk' },
+      { from: 'n1', to: 'n0', distanceMeters: 1, timeSeconds: 0.8, effortMetersEquivalent: 1, level: 1, accessibilityPenalty: 0, edgeType: 'walk' },
     ];
     const adj = new Map<string, string[]>();
     adj.set('n0', ['n1']);

@@ -18,6 +18,7 @@
 
 import { findKShortestPaths, findPathThroughConnector, profileEdgeCost } from './pathfinder';
 import { computeConnectorEffortMeters, effortCoefficients } from './effortModel';
+import { EFFORT_SCORE_DIVISOR } from './constants';
 import type {
   RouteAccessibilityMode,
   RouteEdge,
@@ -550,7 +551,7 @@ export function computeRouteOptionSet(
       totalDistanceMeters: c.totalDistanceMeters,
       estimatedTimeSeconds: c.estimatedTimeSeconds,
       effortMeters: c.effortMeters,
-      effortScore: c.effortMeters / 100,
+      effortScore: c.effortMeters / EFFORT_SCORE_DIVISOR,
       connectorStats: c.connectorStats,
       usedStairsFallback,
       originPoint,
