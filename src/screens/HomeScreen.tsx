@@ -1,10 +1,12 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { bssmFloorMap } from '../constants/bssmFloorMap';
 import type { RootStackParamList } from '../navigation/types';
 import { getFloorList } from '../utils/floorMap';
+import { Button } from '../components/common';
+import { BG_WHITE, BORDER_LIGHT, PRIMARY_BLUE, TEXT_DARK, TEXT_MEDIUM, TEXT_SECONDARY } from '../theme';
 
 type HomeScreenProps = NativeStackScreenProps<RootStackParamList, 'Home'>;
 
@@ -32,13 +34,7 @@ export function HomeScreen({ navigation }: HomeScreenProps) {
           </View>
         </View>
 
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => navigation.navigate('Map')}
-          style={({ pressed }) => [styles.cta, pressed && styles.ctaPressed]}
-        >
-          <Text style={styles.ctaText}>지도 열기</Text>
-        </Pressable>
+        <Button variant="primary" size="large" title="지도 열기" onPress={() => navigation.navigate('Map')} style={{ borderRadius: 18 }} />
       </View>
     </ScrollView>
   );
@@ -50,8 +46,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   hero: {
-    backgroundColor: '#ffffff',
-    borderColor: '#d8e2ef',
+    backgroundColor: BG_WHITE,
+    borderColor: BORDER_LIGHT,
     borderRadius: 28,
     borderWidth: 1,
     gap: 16,
@@ -61,20 +57,20 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     backgroundColor: '#dbeafe',
     borderRadius: 999,
-    color: '#1d4ed8',
+    color: PRIMARY_BLUE,
     fontSize: 12,
     fontWeight: '700',
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
   title: {
-    color: '#0f172a',
+    color: TEXT_DARK,
     fontSize: 28,
     fontWeight: '800',
     lineHeight: 36,
   },
   description: {
-    color: '#475569',
+    color: TEXT_MEDIUM,
     fontSize: 15,
     lineHeight: 22,
   },
@@ -84,7 +80,7 @@ const styles = StyleSheet.create({
   },
   statCard: {
     backgroundColor: '#f8fbff',
-    borderColor: '#d8e2ef',
+    borderColor: BORDER_LIGHT,
     borderRadius: 20,
     borderWidth: 1,
     flex: 1,
@@ -92,26 +88,13 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   statValue: {
-    color: '#0f172a',
+    color: TEXT_DARK,
     fontSize: 18,
     fontWeight: '800',
   },
   statLabel: {
-    color: '#64748b',
+    color: TEXT_SECONDARY,
     fontSize: 13,
   },
-  cta: {
-    alignItems: 'center',
-    backgroundColor: '#1d4ed8',
-    borderRadius: 18,
-    paddingVertical: 16,
-  },
-  ctaPressed: {
-    opacity: 0.9,
-  },
-  ctaText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: '800',
-  },
+
 });

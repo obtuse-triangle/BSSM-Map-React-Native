@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { LayoutPoint } from '../../utils/coordinate';
+import { BG_WHITE, PRIMARY_BLUE } from '../../theme';
 
 type UserPositionMarkerProps = {
   layout: LayoutPoint;
@@ -37,6 +38,7 @@ const styles = StyleSheet.create({
   },
   halo: {
     position: 'absolute',
+    // one-off: PRIMARY_BLUE at 18%/42% opacity
     backgroundColor: 'rgba(29, 78, 216, 0.18)',
     borderColor: 'rgba(29, 78, 216, 0.42)',
     borderRadius: 24,
@@ -45,13 +47,13 @@ const styles = StyleSheet.create({
     width: 24,
   },
   core: {
-    backgroundColor: '#ffffff',
-    borderColor: '#1d4ed8',
+    backgroundColor: BG_WHITE,
+    borderColor: PRIMARY_BLUE,
     borderRadius: 8,
     borderWidth: 6,
     height: 16,
     width: 16,
-    shadowColor: '#1d4ed8',
+    shadowColor: PRIMARY_BLUE,
     shadowOpacity: 0.3,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 2 },
@@ -60,13 +62,13 @@ const styles = StyleSheet.create({
   labelBubble: {
     position: 'absolute',
     top: 26,
-    backgroundColor: '#1d4ed8',
+    backgroundColor: PRIMARY_BLUE,
     borderRadius: 999,
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
   label: {
-    color: '#ffffff',
+    color: BG_WHITE,
     fontSize: 9,
     fontWeight: '800',
   },

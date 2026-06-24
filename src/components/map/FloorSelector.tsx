@@ -1,6 +1,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { FloorKey, FloorListItem } from '../../types/floorMap';
+import { BG_BLUE_LIGHT, BG_WHITE, BORDER_BLUE_LIGHT, BORDER_LIGHT, PRIMARY_BLUE, TEXT_DARK, TEXT_SECONDARY } from '../../theme';
 
 const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
 
@@ -40,22 +41,23 @@ const styles = StyleSheet.create({
   container: {
     alignSelf: 'flex-start',
     alignItems: 'center',
+    // one-off: near-white with slight transparency
     backgroundColor: 'rgba(255,255,255,0.96)',
-    borderColor: '#d8e2ef',
+    borderColor: BORDER_LIGHT,
     borderRadius: 18,
     borderWidth: 1,
     flexDirection: 'row',
     gap: 8,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    shadowColor: '#0f172a',
+    shadowColor: TEXT_DARK,
     shadowOpacity: 0.08,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 2 },
     elevation: 3,
   },
   label: {
-    color: '#64748b',
+    color: TEXT_SECONDARY,
     fontSize: 11,
     fontWeight: '800',
     letterSpacing: 0.2,
@@ -66,8 +68,8 @@ const styles = StyleSheet.create({
   },
   button: {
     alignItems: 'center',
-    backgroundColor: '#eff6ff',
-    borderColor: '#bfdbfe',
+    backgroundColor: BG_BLUE_LIGHT,
+    borderColor: BORDER_BLUE_LIGHT,
     borderRadius: 999,
     borderWidth: 1,
     minWidth: 48,
@@ -75,18 +77,18 @@ const styles = StyleSheet.create({
     paddingVertical: 7,
   },
   buttonSelected: {
-    backgroundColor: '#1d4ed8',
-    borderColor: '#1d4ed8',
+    backgroundColor: PRIMARY_BLUE,
+    borderColor: PRIMARY_BLUE,
   },
   buttonPressed: {
     opacity: 0.86,
   },
   buttonLabel: {
-    color: '#1d4ed8',
+    color: PRIMARY_BLUE,
     fontSize: 12,
     fontWeight: '800',
   },
   buttonLabelSelected: {
-    color: '#ffffff',
+    color: BG_WHITE,
   },
 });

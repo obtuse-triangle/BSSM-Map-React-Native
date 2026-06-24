@@ -1,5 +1,7 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { BG_WHITE, BORDER_LIGHT, FONT_SIZE, PRIMARY_BLUE, SPACING, TEXT_DARK, TEXT_MEDIUM } from '../../theme';
+
+import { Button } from '../common';
+import { BG_BLUE_LIGHT, BG_WHITE, BORDER_BLUE_LIGHT, BORDER_LIGHT, FONT_SIZE, PRIMARY_BLUE, SPACING, TEXT_DARK, TEXT_MEDIUM } from '../../theme';
 
 const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
 // Button visual height (~40 from paddingVertical + content) + 2 * 8 hitSlop ≈ 56pt
@@ -47,9 +49,7 @@ export function FeedbackStateCard({
       <Text style={styles.message}>{message}</Text>
 
       {actionLabel && onAction ? (
-        <Pressable accessibilityLabel={actionLabel} accessibilityHint="작업을 실행합니다" accessibilityRole="button" hitSlop={HIT_SLOP} onPress={onAction} style={({ pressed }) => [styles.primaryButton, pressed && styles.pressed]}>
-          <Text style={styles.primaryButtonText}>{actionLabel}</Text>
-        </Pressable>
+        <Button variant="primary" title={actionLabel} onPress={onAction} style={{ borderRadius: 16, alignSelf: 'stretch' }} />
       ) : null}
 
       {secondaryActionLabel && onSecondaryAction ? (
@@ -96,23 +96,11 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     textAlign: 'center',
   },
-  primaryButton: {
-    alignItems: 'center',
-    alignSelf: 'stretch',
-    backgroundColor: PRIMARY_BLUE,
-    borderRadius: 16,
-    paddingVertical: SPACING.md,
-  },
-  primaryButtonText: {
-    color: BG_WHITE,
-    fontSize: FONT_SIZE.lg,
-    fontWeight: '800',
-  },
   secondaryButton: {
     alignItems: 'center',
     alignSelf: 'stretch',
-    backgroundColor: '#eff6ff',
-    borderColor: '#bfdbfe',
+    backgroundColor: BG_BLUE_LIGHT,
+    borderColor: BORDER_BLUE_LIGHT,
     borderRadius: 16,
     borderWidth: 1,
     paddingVertical: SPACING.md,

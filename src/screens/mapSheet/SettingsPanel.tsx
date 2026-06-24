@@ -15,20 +15,12 @@ import {
   sheetTertiaryLabel,
   sheetSelectionBg,
 } from '../../theme/sheetSemanticColors';
+import { LIGHT_CAMPUS_OVERLAY } from '../../components/map/campusOverlayPaints';
 import type { CampusFeatureCategory } from '../../store/mapStore';
 
 const BASE_LAYER_OPTIONS = MAP_STYLES.map((s) => ({ key: s.id, label: s.label, icon: s.icon }));
 
-const CATEGORY_COLORS: Record<CampusFeatureCategory, string> = {
-  classroom: '#D4E8FC',
-  corridor: '#F5F5F5',
-  elevator: '#CFD8DC',
-  facility: '#C8E6C9',
-  restroom: '#B3E5FC',
-  room: '#FFF9C4',
-  stair: '#D7CCC8',
-  structural: '#EEEEEE',
-};
+const CATEGORY_COLORS = LIGHT_CAMPUS_OVERLAY.categories;
 
 const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
 

@@ -2,6 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import type { AccessPoint } from '../../types/accessPoint';
 import type { LayoutPoint } from '../../utils/coordinate';
+import { BG_WHITE, PRIMARY_BLUE } from '../../theme';
 
 type ApMarkerProps = {
   accessPoint: AccessPoint;
@@ -38,26 +39,26 @@ const styles = StyleSheet.create({
   },
   dot: {
     alignItems: 'center',
-    backgroundColor: '#1d4ed8',
-    borderColor: '#ffffff',
+    backgroundColor: PRIMARY_BLUE,
+    borderColor: BG_WHITE,
     borderRadius: 999,
     borderWidth: 2,
     height: 20,
     justifyContent: 'center',
     width: 20,
-    shadowColor: '#1d4ed8',
+    shadowColor: PRIMARY_BLUE,
     shadowOpacity: 0.25,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 4,
   },
   label: {
-    color: '#ffffff',
+    color: BG_WHITE,
     fontSize: 7,
     fontWeight: '800',
   },
   caption: {
-    color: '#1d4ed8',
+    color: PRIMARY_BLUE,
     fontSize: 8,
     fontWeight: '700',
     marginTop: 2,

@@ -3,10 +3,12 @@ import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Button, Card } from '../components/common';
 import { FeedbackStateCard } from '../components/feedback/FeedbackStateCard';
 import type { RootStackParamList } from '../navigation/types';
 import { useDebugStore } from '../store/debugStore';
 import { usePositionStore } from '../store/positionStore';
+import { BG_BLUE_LIGHT, BG_WHITE, BORDER_BLUE_LIGHT, BORDER_LIGHT, PRIMARY_BLUE, STATUS_ERROR, STATUS_SUCCESS, TEXT_DARK, TEXT_MEDIUM, TEXT_SECONDARY } from '../theme';
 
 const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
 
@@ -22,10 +24,10 @@ const formatPosition = (position: { x: number; y: number; accuracyMeters: number
 
 function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
-    <View style={styles.summaryCard}>
+    <Card style={styles.summaryCard}>
       <Text style={styles.summaryLabel}>{label}</Text>
       <Text style={styles.summaryValue}>{value}</Text>
-    </View>
+    </Card>
   );
 }
 
@@ -47,9 +49,7 @@ export function DebugRttScreen({ navigation }: DebugRttScreenProps) {
       showsVerticalScrollIndicator={false}
     >
       <View style={styles.headerRow}>
-        <Pressable accessibilityRole="button" hitSlop={HIT_SLOP} onPress={() => navigation.goBack()} style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}>
-          <Text style={styles.backButtonText}>← 지도</Text>
-        </Pressable>
+        <Button variant="secondary" title="← 지도" onPress={() => navigation.goBack()} style={{ borderRadius: 16 }} />
         <View style={styles.headerCopy}>
           <Text style={styles.screenTitle}>Debug RTT</Text>
           <Text style={styles.screenSubtitle}>최근 RTT 측정, 참조 위치, 추정 위치를 확인합니다.</Text>
@@ -140,33 +140,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
   },
-  backButton: {
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    backgroundColor: '#ffffff',
-    borderColor: '#d8e2ef',
-    borderRadius: 16,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  backButtonText: {
-    color: '#0f172a',
-    fontSize: 14,
-    fontWeight: '700',
-  },
+
   homeButton: {
     alignItems: 'center',
     alignSelf: 'flex-start',
-    backgroundColor: '#eff6ff',
-    borderColor: '#bfdbfe',
+    backgroundColor: BG_BLUE_LIGHT,
+    borderColor: BORDER_BLUE_LIGHT,
     borderRadius: 16,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
   homeButtonText: {
-    color: '#1d4ed8',
+    color: PRIMARY_BLUE,
     fontSize: 14,
     fontWeight: '700',
   },
@@ -178,12 +164,12 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   screenTitle: {
-    color: '#0f172a',
+    color: TEXT_DARK,
     fontSize: 24,
     fontWeight: '800',
   },
   screenSubtitle: {
-    color: '#64748b',
+    color: TEXT_SECONDARY,
     fontSize: 13,
     lineHeight: 19,
   },
@@ -196,8 +182,8 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   summaryCard: {
-    backgroundColor: '#ffffff',
-    borderColor: '#d8e2ef',
+    backgroundColor: BG_WHITE,
+    borderColor: BORDER_LIGHT,
     borderRadius: 20,
     borderWidth: 1,
     flexBasis: '48%',
@@ -206,22 +192,22 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   summaryLabel: {
-    color: '#64748b',
+    color: TEXT_SECONDARY,
     fontSize: 12,
     fontWeight: '700',
   },
   summaryValue: {
-    color: '#0f172a',
+    color: TEXT_DARK,
     fontSize: 14,
     fontWeight: '800',
   },
   sectionTitle: {
-    color: '#0f172a',
+    color: TEXT_DARK,
     fontSize: 16,
     fontWeight: '800',
   },
   sectionCaption: {
-    color: '#64748b',
+    color: TEXT_SECONDARY,
     fontSize: 12,
     lineHeight: 16,
   },
@@ -232,8 +218,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   measurementRow: {
-    backgroundColor: '#ffffff',
-    borderColor: '#d8e2ef',
+    backgroundColor: BG_WHITE,
+    borderColor: BORDER_LIGHT,
     borderRadius: 20,
     borderWidth: 1,
     gap: 10,
@@ -243,12 +229,12 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   measurementTitle: {
-    color: '#0f172a',
+    color: TEXT_DARK,
     fontSize: 14,
     fontWeight: '800',
   },
   measurementSubtitle: {
-    color: '#64748b',
+    color: TEXT_SECONDARY,
     fontSize: 12,
     lineHeight: 16,
   },
@@ -256,14 +242,14 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   measurementMetric: {
-    color: '#334155',
+    color: TEXT_MEDIUM,
     fontSize: 12,
     fontWeight: '700',
   },
   metricValid: {
-    color: '#15803d',
+    color: STATUS_SUCCESS,
   },
   metricInvalid: {
-    color: '#b91c1c',
+    color: STATUS_ERROR,
   },
 });

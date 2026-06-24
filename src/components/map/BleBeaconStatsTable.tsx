@@ -18,6 +18,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 
 import type { BeaconStats } from '../../store/bleLocationStore';
+import { BG_NEAR_WHITE, BORDER_DEFAULT, TEXT_DARK, TEXT_LIGHT } from '../../theme';
 import {
   BLE_AP_LABEL_LOOKUP,
   STALE_THRESHOLD_MS,
@@ -123,13 +124,13 @@ export function BleBeaconStatsTable({
 
 const styles = StyleSheet.create({
   statsSection: {
-    backgroundColor: '#f8fafc',
+    backgroundColor: BG_NEAR_WHITE,
     borderRadius: 14,
     padding: 12,
     gap: 6,
   },
   statsSectionTitle: {
-    color: '#0f172a',
+    color: TEXT_DARK,
     fontSize: 12,
     fontWeight: '700',
     marginBottom: 2,
@@ -138,11 +139,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingBottom: 4,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: BORDER_DEFAULT,
     gap: COL_GAP,
   },
   statsHeaderCell: {
-    color: '#94a3b8',
+    color: TEXT_LIGHT,
     fontSize: 10,
     fontWeight: '700',
     textTransform: 'uppercase',
@@ -158,7 +159,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     fontFamily: 'monospace',
-    color: '#334155',
+    color: '#334155', // preserve — no exact token (TEXT_MEDIUM #475569 ≠ #334155)
   },
   statsCellDimmed: {
     opacity: 0.35,

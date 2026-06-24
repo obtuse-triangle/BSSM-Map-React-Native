@@ -2,6 +2,7 @@ import type { StyleProp, ViewStyle } from 'react-native';
 import { Pressable, StyleSheet, Text } from 'react-native';
 import { GlassSurface } from '../glass';
 import { formatMapControlLabel } from '../../utils/accessibilityLabels';
+import { BG_BLUE_LIGHT, BORDER_LIGHT, TEXT_DARK } from '../../theme';
 
 type ZoomControlsProps = {
   onZoomIn: () => void;
@@ -54,22 +55,22 @@ const styles = StyleSheet.create({
   },
   button: {
     alignItems: 'center',
-    borderBottomColor: '#d8e2ef',
+    borderBottomColor: BORDER_LIGHT,
     borderBottomWidth: 1,
     height: 46,
     justifyContent: 'center',
   },
   buttonPressed: {
-    backgroundColor: '#eff6ff',
+    backgroundColor: BG_BLUE_LIGHT,
   },
   buttonText: {
-    color: '#0f172a',
+    color: TEXT_DARK,
     fontSize: 24,
     fontWeight: '800',
     lineHeight: 24,
   },
   resetText: {
-    color: '#0f172a',
+    color: TEXT_DARK,
     fontSize: 20,
     fontWeight: '800',
     lineHeight: 20,

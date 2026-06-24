@@ -15,6 +15,13 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { BleWclScanStatus } from '../../store/bleLocationStore';
+import {
+  BG_BLUE_LIGHT,
+  BORDER_BLUE_LIGHT,
+  PRIMARY_BLUE,
+  STATUS_ERROR,
+  STATUS_SUCCESS,
+} from '../../theme';
 
 const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
 
@@ -132,7 +139,7 @@ const styles = StyleSheet.create({
   },
   startButton: {
     alignItems: 'center',
-    backgroundColor: '#16a34a',
+    backgroundColor: STATUS_SUCCESS,
     borderRadius: 16,
     flex: 1,
     paddingVertical: 13,
@@ -144,7 +151,7 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     alignItems: 'center',
-    backgroundColor: '#1d4ed8',
+    backgroundColor: PRIMARY_BLUE,
     borderRadius: 16,
     flex: 1,
     paddingVertical: 13,
@@ -156,15 +163,15 @@ const styles = StyleSheet.create({
   },
   secondaryButton: {
     alignItems: 'center',
-    backgroundColor: '#eff6ff',
-    borderColor: '#bfdbfe',
+    backgroundColor: BG_BLUE_LIGHT,
+    borderColor: BORDER_BLUE_LIGHT,
     borderRadius: 16,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 13,
   },
   secondaryButtonText: {
-    color: '#1d4ed8',
+    color: PRIMARY_BLUE,
     fontSize: 14,
     fontWeight: '800',
   },
@@ -181,10 +188,10 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
   },
   motionStartButton: {
-    backgroundColor: '#16a34a',
+    backgroundColor: STATUS_SUCCESS,
   },
   motionStopButton: {
-    backgroundColor: '#dc2626',
+    backgroundColor: STATUS_ERROR,
   },
   motionButtonText: {
     color: '#ffffff',

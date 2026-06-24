@@ -1,8 +1,10 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { Button, Card } from '../../components/common';
 import type { IndoorPositionStatus } from '../../types/position';
 import type { IndoorPosition } from '../../types/position';
-import { formatMapControlLabel, formatToggleLabel } from '../../utils/accessibilityLabels';
+import { formatToggleLabel } from '../../utils/accessibilityLabels';
+import { BG_BLUE_LIGHT, BG_WHITE, BORDER_BLUE_LIGHT, BORDER_LIGHT, PRIMARY_BLUE, TEXT_DARK, TEXT_MEDIUM, TEXT_SECONDARY } from '../../theme';
 
 const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
 
@@ -39,6 +41,8 @@ export function MapStatusCard({
   onToggleApMarkers,
 }: MapStatusCardProps) {
   const statusLabel = getStatusLabel(status);
+  const locateTitle = apCount === 0 ? 'AP 없음' : status === 'loading' ? '찾는 중...' : '현재 위치 찾기';
+  const locateDisabled = status === 'loading' || apCount === 0;
   const helperText =
     apCount === 0
       ? '이 층에는 위치 계산에 사용할 수 있는 AP가 없습니다.'
@@ -51,7 +55,7 @@ export function MapStatusCard({
             : '현재 층의 AP를 기반으로 위치를 계산합니다.';
 
   return (
-    <View style={styles.card}>
+    <Card style={styles.card}>
       <View style={styles.headerRow}>
         <View style={styles.headerCopy}>
           <Text style={styles.title}>현재 위치</Text>
@@ -65,17 +69,7 @@ export function MapStatusCard({
       <Text style={styles.helper}>{helperText}</Text>
 
       <View style={styles.actionsRow}>
-        <Pressable
-          accessibilityLabel={formatMapControlLabel('locate')}
-          accessibilityState={{ disabled: status === 'loading' || apCount === 0 }}
-          accessibilityRole="button"
-          hitSlop={HIT_SLOP}
-          disabled={status === 'loading' || apCount === 0}
-          onPress={onLocateCurrentPosition}
-          style={({ pressed }) => [styles.primaryButton, pressed && styles.buttonPressed, (status === 'loading' || apCount === 0) && styles.buttonDisabled]}
-        >
-          <Text style={styles.primaryButtonText}>{apCount === 0 ? 'AP 없음' : status === 'loading' ? '찾는 중...' : '현재 위치 찾기'}</Text>
-        </Pressable>
+        <Button variant="primary" title={locateTitle} onPress={onLocateCurrentPosition} disabled={locateDisabled} style={{ borderRadius: 16 }} />
 
         <Pressable
           accessibilityLabel={formatToggleLabel('AP 위치 표시', showApMarkers)}
@@ -88,14 +82,14 @@ export function MapStatusCard({
           <Text style={styles.secondaryButtonText}>{showApMarkers ? 'AP 숨기기' : 'AP 표시'}</Text>
         </Pressable>
       </View>
-    </View>
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#ffffff',
-    borderColor: '#d8e2ef',
+    backgroundColor: BG_WHITE,
+    borderColor: BORDER_LIGHT,
     borderRadius: 24,
     borderWidth: 1,
     gap: 12,
@@ -112,12 +106,12 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   title: {
-    color: '#0f172a',
+    color: TEXT_DARK,
     fontSize: 16,
     fontWeight: '800',
   },
   subtitle: {
-    color: '#64748b',
+    color: TEXT_SECONDARY,
     fontSize: 12,
     lineHeight: 16,
   },
@@ -138,12 +132,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#fee2e2',
   },
   badgeText: {
-    color: '#1d4ed8',
+    color: PRIMARY_BLUE,
     fontSize: 11,
     fontWeight: '800',
   },
   helper: {
-    color: '#334155',
+    color: TEXT_MEDIUM,
     fontSize: 13,
     lineHeight: 19,
   },
@@ -151,36 +145,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
   },
-  primaryButton: {
-    alignItems: 'center',
-    backgroundColor: '#1d4ed8',
-    borderRadius: 16,
-    flex: 1,
-    paddingVertical: 13,
-  },
-  primaryButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '800',
-  },
   secondaryButton: {
     alignItems: 'center',
-    backgroundColor: '#eff6ff',
-    borderColor: '#bfdbfe',
+    backgroundColor: BG_BLUE_LIGHT,
+    borderColor: BORDER_BLUE_LIGHT,
     borderRadius: 16,
     borderWidth: 1,
     paddingHorizontal: 14,
     paddingVertical: 13,
   },
   secondaryButtonText: {
-    color: '#1d4ed8',
+    color: PRIMARY_BLUE,
     fontSize: 14,
     fontWeight: '800',
   },
   buttonPressed: {
     opacity: 0.88,
-  },
-  buttonDisabled: {
-    opacity: 0.72,
   },
 });

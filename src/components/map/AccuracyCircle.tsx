@@ -32,6 +32,7 @@ export function AccuracyCircle({ layout, radius }: AccuracyCircleProps) {
 const styles = StyleSheet.create({
   circle: {
     position: 'absolute',
+    // map domain: accuracy circle paint (not UI chrome)
     borderColor: '#2563eb',
     borderWidth: 1.5,
     backgroundColor: 'rgba(37, 99, 235, 0.1)',
