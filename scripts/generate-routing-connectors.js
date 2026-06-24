@@ -286,7 +286,8 @@ function main() {
       properties: {
         connectorType: 'elevator',
         connectsLevels: [fromLevel, toLevel],
-        traversalTimeSeconds: 30,
+        traversalTimeSeconds:
+          toLevel - fromLevel === 1 ? 35 : toLevel - fromLevel === 2 ? 45 : 55,
         accessibilityPenalty: 0,
         sourceFeatureIds: sourceIds,
         confidence: 'auto',
