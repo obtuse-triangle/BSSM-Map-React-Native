@@ -1,1 +1,0 @@
-Simulator visual QA deferred to Task 5 integrated QA phase.

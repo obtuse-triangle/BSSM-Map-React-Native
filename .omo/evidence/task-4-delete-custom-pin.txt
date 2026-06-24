@@ -1,1 +1,0 @@
-Code trace: tap on existing custom pin -> handleMapPress -> saved-pins-layer hit -> setSelectedSavedPlaceId + setSelectedFeatureId(null) + setPendingFlyToCoordinates + requestMinimizeSheets -> return early (no campus check) -> sheet editor opens
