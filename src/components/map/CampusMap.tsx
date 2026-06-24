@@ -32,7 +32,7 @@ import { createMapPressHandler, createMapLongPressHandler, createUserLocationUpd
 import { buildLevelFilter, buildCategoryFilter, buildSelectedFeatureFilter } from './campusMapInternal/layerFilters';
 
 const campusData = campusDataUntyped as unknown as CampusGeoJSON;
-const outlineData = outlineDataUntyped as any;
+const outlineData = outlineDataUntyped as unknown as GeoJSON.FeatureCollection<GeoJSON.MultiPolygon>;
 
 export type CampusMapHandle = {
   flyToUser: () => void;
@@ -255,7 +255,7 @@ function CampusMap({ topPadding = 50, locationTrackingEnabled = false, onUserMap
 
         {locationTrackingEnabled && <NativeUserLocation mode="heading" />}
 
-        <GeoJSONSource id="campus-polygons" data={campusData as any}>
+        <GeoJSONSource id="campus-polygons" data={campusData as unknown as GeoJSON.GeoJSON}>
           <Layer
             id="campus-fill"
             type="fill"

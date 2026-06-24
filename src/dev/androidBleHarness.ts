@@ -142,9 +142,9 @@ export async function runAndroidBleContinuousHarness(scanDurationMs = 5000, sett
  * from the Metro / React Native JS console.
  */
 if (__DEV__) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (globalThis as any).__androidBleHarness = {
+  const harness = {
     oneShot: runAndroidBleOneShotHarness,
     continuous: runAndroidBleContinuousHarness,
   };
+  (globalThis as unknown as { __androidBleHarness: typeof harness }).__androidBleHarness = harness;
 }

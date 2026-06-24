@@ -80,8 +80,8 @@ function connectorEdgeWeights(
 export function buildRoutingGraph(
   spacing: number = DEFAULT_SPACING,
 ): RouteGraph {
-  const rawWalkable = walkableAreasData as any;
-  const rawConnectors = connectorsData as any;
+  const rawWalkable = walkableAreasData;
+  const rawConnectors = connectorsData;
 
   const nodes = new Map<string, RouteNode>();
   const edges: RouteEdge[] = [];
