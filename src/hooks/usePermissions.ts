@@ -58,12 +58,8 @@ export function usePermissions() {
       return true
     }
     try {
-      let IosBlePositioning: any = null;
-      try {
-        ({ IosBlePositioning } = require('../../modules/ios-ble-positioning/src'));
-      } catch {
-        return true;
-      }
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const { IosBlePositioning } = require('../../modules/ios-ble-positioning/src');
       await IosBlePositioning.requestPreciseLocationPermission()
       return true
     } catch {

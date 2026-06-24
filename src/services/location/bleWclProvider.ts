@@ -214,7 +214,7 @@ class BleWclProvider {
         wclLog(`WCL returned INSUFFICIENT_APS`);
         return {
           status: 'error',
-          error: `INSUFFICIENT_APS: Fewer than 3 valid AP/observation pairs after filtering`,
+          error: `INSUFFICIENT_APS: Fewer than 2 valid AP/observation pairs after filtering`,
           rawObservations,
         };
       }

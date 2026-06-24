@@ -33,7 +33,15 @@ export function createAndroidRttProvider(): IndoorLocationProvider {
     label: 'WiFi RTT',
     locate: async (request: IndoorLocationRequest): Promise<IndoorLocationResult> => {
       const bssids = request.accessPoints.map((ap) => ap.bssid);
-      const nativeResults = await AndroidWifiRtt.startRttScan(bssids);
+      let nativeResults: Awaited<ReturnType<typeof AndroidWifiRtt.startRttScan>>;
+      try {
+        nativeResults = await AndroidWifiRtt.startRttScan(bssids);
+      } catch (error) {
+        const detail = error instanceof Error ? ` (${error.message})` : '';
+        throw new Error(
+          `WiFi RTT 스캔에 실패했습니다. Wi-Fi가 활성화되어 있고, 기기가 RTT를 지원하는지 확인해주세요.${detail}`
+        );
+      }
       const measurements = toAppRttMeasurements(nativeResults, [...request.accessPoints], request.floorKey);
       const estimate = estimateIndoorPositionFromRtt({
         floorKey: request.floorKey,

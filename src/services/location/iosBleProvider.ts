@@ -3,9 +3,13 @@ import { estimateIndoorPositionFromRtt } from '../../utils/positioning';
 import { createIosCalibratedIndoorPosition, type IosCalibrationInput } from '../calibration/iosCalibration';
 import type { IndoorLocationProvider, IndoorLocationRequest, IndoorLocationResult } from './locationTypes';
 import type { RttMeasurement } from '../rtt/rttTypes';
+import { IosBlePositioning } from '../../../modules/ios-ble-positioning/src';
 
-function getIosBlePositioning() {
-  return require('../../../modules/ios-ble-positioning/src').IosBlePositioning as any;
+function getIosBlePositioning(): typeof IosBlePositioning {
+  if (!IosBlePositioning) {
+    throw new Error('IosBlePositioning native module is not available on this device');
+  }
+  return IosBlePositioning;
 }
 
 export function createIosBleProvider(calibration: IosCalibrationInput): IndoorLocationProvider {

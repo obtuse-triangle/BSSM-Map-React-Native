@@ -149,18 +149,37 @@ public class ExpoBlePositioningModule: Module {
     }
 
     // ── Continuous scan (realtime events) ────────────────────────────
-    Function("startContinuousArubaBleScan") {
+    AsyncFunction("startContinuousArubaBleScan") {
       guard self.centralManager.state == .poweredOn else {
+        let semaphore = DispatchSemaphore(value: 0)
+
         let stateDelegate = BleStateWaitDelegate()
         stateDelegate.onPoweredOn = { [weak self] in
-          guard let self = self else { return }
+          guard let self = self, self.stateWaitDelegate === stateDelegate else { return }
           self.stateWaitDelegate = nil
-          self.performContinuousScan()
+          self.centralManager.delegate = nil
+          semaphore.signal()
         }
         self.stateWaitDelegate = stateDelegate
         self.centralManager.delegate = stateDelegate
+
+        // Trigger a state update by starting/stopping a scan.
         self.centralManager.scanForPeripherals(withServices: nil, options: nil)
         self.centralManager.stopScan()
+
+        let timeoutResult = semaphore.wait(timeout: .now() + 10.0)
+
+        self.stateWaitDelegate = nil
+        self.centralManager.delegate = nil
+
+        guard timeoutResult != .timedOut else {
+          throw Exception(
+            name: "BlePoweredOnTimeout",
+            description: "BLE powered-on wait timed out after 10 seconds. Ensure Bluetooth is enabled on this device."
+          )
+        }
+
+        self.performContinuousScan()
         return
       }
 
@@ -216,7 +235,7 @@ public class ExpoBlePositioningModule: Module {
       _ = semaphore.wait(timeout: .now() + 5.0)
 
       self.locationManager = nil
-      self.locationDelegate = delegate
+      self.locationDelegate = nil
 
       return newAccuracy == .fullAccuracy
     }

@@ -187,16 +187,15 @@ console.log('\n── Test 2: Strong AP pull ───────────�
 })();
 
 // ===========================================================================
-// Test 3: Fewer than 3 valid APs → INSUFFICIENT_APS
+// Test 3: Fewer than 2 valid APs → INSUFFICIENT_APS
 // ===========================================================================
 console.log('\n── Test 3: Insufficient APs ─────────────────────────');
 
 (function testInsufficientAps() {
   const obsA: BleObservation = { bleIdentifier: 'beacon-alpha', rssi: -60, observedAt: NOW, floorKey: '3' };
-  const obsB: BleObservation = { bleIdentifier: 'beacon-beta',  rssi: -60, observedAt: NOW, floorKey: '3' };
 
-  const result = computeBleWeightedCentroid([apA, apB], [obsA, obsB], { now: NOW });
-  assertFailure(result, '2 APs with 2 observations => INSUFFICIENT_APS');
+  const result = computeBleWeightedCentroid([apA], [obsA], { now: NOW });
+  assertFailure(result, '1 AP with 1 observation => INSUFFICIENT_APS');
   console.log(`    reason: ${result.reason}`);
 })();
 

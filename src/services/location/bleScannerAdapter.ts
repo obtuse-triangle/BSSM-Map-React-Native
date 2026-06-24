@@ -54,15 +54,25 @@ export function getBleScanner(): BleScannerAdapter | null {
       const ios = require('../../../modules/ios-ble-positioning/src').IosBlePositioning;
       if (ios && typeof ios.startArubaBleScan === 'function') {
         cached = {
-          isBleAvailable: () => Promise.resolve(ios.isBleAvailable?.() ?? false),
+          isBleAvailable: () => {
+            try { return Promise.resolve(ios.isBleAvailable?.() ?? false); } catch { return Promise.resolve(false); }
+          },
           // iOS: BLE permission is requested by the system when the first
           // scan starts; the JS layer treats this as a pass-through.
           requestBlePermissions: () => Promise.resolve(true),
-          startArubaBleScan: (durationMs?: number) =>
-            Promise.resolve(ios.startArubaBleScan(durationMs)),
-          startContinuousArubaBleScan: () => ios.startContinuousArubaBleScan?.(),
-          stopArubaBleScan: () => ios.stopArubaBleScan?.(),
-          addListener: (event, cb) => ios.addListener(event, cb),
+          startArubaBleScan: async (durationMs?: number) => {
+            const result = await ios.startArubaBleScan?.(durationMs);
+            return result ?? [];
+          },
+          startContinuousArubaBleScan: () => {
+            try { ios.startContinuousArubaBleScan?.(); } catch { /* empty */ }
+          },
+          stopArubaBleScan: () => {
+            try { ios.stopArubaBleScan?.(); } catch { /* empty */ }
+          },
+          addListener: (event, cb) => {
+            try { return ios.addListener(event, cb) as EventSubscription; } catch { return { remove() {} }; }
+          },
         };
         return cached;
       }
@@ -72,13 +82,25 @@ export function getBleScanner(): BleScannerAdapter | null {
         require('../../../modules/android-ble-positioning/src').AndroidBlePositioning;
       if (android && typeof android.startArubaBleScan === 'function') {
         cached = {
-          isBleAvailable: () => android.isBleAvailable(),
-          requestBlePermissions: () => android.requestBlePermissions(),
-          startArubaBleScan: (durationMs?: number) =>
-            android.startArubaBleScan(durationMs),
-          startContinuousArubaBleScan: () => android.startContinuousArubaBleScan(),
-          stopArubaBleScan: () => android.stopArubaBleScan(),
-          addListener: (event, cb) => android.addListener(event, cb),
+          isBleAvailable: () => {
+            try { return android.isBleAvailable?.() ?? Promise.resolve(false); } catch { return Promise.resolve(false); }
+          },
+          requestBlePermissions: () => {
+            try { return android.requestBlePermissions?.() ?? Promise.resolve(false); } catch { return Promise.resolve(false); }
+          },
+          startArubaBleScan: async (durationMs?: number) => {
+            try {
+              const result = await android.startArubaBleScan?.(durationMs);
+              return result ?? [];
+            } catch { return []; }
+          },
+          startContinuousArubaBleScan: () => {
+            try { android.startContinuousArubaBleScan?.(); } catch { /* empty */ }
+          },
+          stopArubaBleScan: () => {
+            try { android.stopArubaBleScan?.(); } catch { /* empty */ }
+          },
+          addListener: (event, cb) => android.addListener(event, cb) as EventSubscription,
         };
         return cached;
       }

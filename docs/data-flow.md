@@ -44,7 +44,7 @@ not map-percent coordinates.
    the latest observation per AP identity (O(1) insert, prunes stale >120s).
 4. `src/services/location/bleWeightedCentroid.ts` — pure WCL function:
    - Filters by floorKey, manufacturer, RSSI ≥ −90 dBm, age ≤ 120 s.
-   - Requires ≥ 3 valid APs (else `INSUFFICIENT_APS`).
+   - Requires ≥ 2 valid APs (else `INSUFFICIENT_APS`).
    - Computes RSSI-weighted centroid in EPSG:5183.
    - Converts centroid to WGS84 via `src/utils/coordinateTransform.ts` (proj4).
 5. `src/services/location/bleWclProvider.ts` — validates result against

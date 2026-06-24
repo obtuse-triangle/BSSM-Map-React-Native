@@ -41,7 +41,7 @@ BleObservationBuffer (rolling per-AP map, prunes stale >120s)
        ▼
 computeBleWeightedCentroid() — pure function
        │  1. Filter by floorKey, RSSI ≥ -90, age ≤ 120s, manufacturer 0x011B
-       │  2. Reject if < 3 valid pairs → INSUFFICIENT_APS
+       │  2. Reject if < 2 valid pairs → INSUFFICIENT_APS
        │  3. weight = 10^((rssi + 100) / 20) [× optional freshness factor]
        │  4. Weighted centroid in EPSG:5183
        │  5. Weighted standard deviation (accuracy estimate)
@@ -83,7 +83,7 @@ All magic numbers are centralized in `src/constants/bleConfig.ts`.
 | Constant | Value | Effect |
 |---|---|---|
 | `MANUFACTURER_ID_ARUBA` | `0x011B` (283) | IEEE OUI for HPE/Aruba BLE beacons |
-| `MIN_AP_COUNT` | `3` | Minimum APs needed for WCL; below this → `INSUFFICIENT_APS` |
+| `MIN_AP_COUNT` | `2` | Minimum APs needed for WCL; below this → `INSUFFICIENT_APS` |
 | `RSSI_THRESHOLD_DBM` | `-90` | Observations below this dBm are rejected before count check |
 | `STALE_THRESHOLD_MS` | `60 000` (60 s) | Observations older than this get a freshness penalty (if enabled) |
 | `MAX_SAMPLE_AGE_MS` | `120 000` (120 s) | Observations older than this are discarded entirely |
@@ -177,7 +177,7 @@ Every WGS84 coordinate produced by the WCL algorithm passes through
 
 ### Algorithm Guardrails (bleWeightedCentroid)
 
-- Minimum AP count: defaults to 3.
+- Minimum AP count: defaults to 2.
 - RSSI threshold: rejects samples below −90 dBm.
 - Maximum sample age: rejects samples older than 120 s.
 - Floor key matching: only observations/APs on the same floor are paired.
@@ -248,7 +248,7 @@ npx tsx scripts/verify-ble-wcl.ts
 Coverage areas:
 1. Centroid calculation (equal-RSSI → arithmetic mean)
 2. RSSI weighting (strong AP pulls centroid)
-3. Minimum AP count (2 APs → INSUFFICIENT_APS)
+3. Minimum AP count (fewer than 2 APs → INSUFFICIENT_APS)
 4. RSSI threshold (< −90 → rejected before minimum count check)
 5. Sample age/staleness (> 120 s → INSUFFICIENT_APS)
 6. Coordinate transform (EPSG:5183 → WGS84)

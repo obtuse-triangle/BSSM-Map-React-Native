@@ -410,7 +410,11 @@ export const useBleLocationStore = create<BleLocationStoreState>()((set, get) =>
         const unavailableReason = floorFixtures.length === 0
           ? 'no_ap_fixtures_for_floor'
           : 'insufficient_ble_evidence';
-        wclLog(`Continuous WCL: no result (${unavailableReason})`);
+        const errorMsg = floorFixtures.length === 0
+          ? `No BLE AP fixtures configured for floor "${floorKey}"`
+          : 'INSUFFICIENT_APS: Fewer than 2 valid AP/observation pairs in buffer';
+        wclLog(`Continuous WCL: no result (${unavailableReason}) — setting status=error`);
+        set({ status: 'error', error: errorMsg });
         setFusionUnavailableReason(unavailableReason, fusionEngine, set);
       }
     }, CONTINUOUS_RECOMPUTE_INTERVAL_MS);
