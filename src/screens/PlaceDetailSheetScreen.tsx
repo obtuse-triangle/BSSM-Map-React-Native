@@ -143,15 +143,15 @@ export function PlaceDetailSheetScreen() {
     navigation.navigate('RoutePlan');
   }, [featureIdForSave, navigation]);
 
-  const [originJustSet, setOriginJustSet] = useState(false);
-  const originTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const routeOrigin = useRouteStore((s) => s.routeOrigin);
+  const isCurrentOrigin =
+    !!featureIdForSave &&
+    routeOrigin?.type === 'selected_place' &&
+    routeOrigin.featureId === featureIdForSave;
 
   const handleSetAsOrigin = useCallback(() => {
     if (!featureIdForSave) return;
     useRouteStore.getState().setOriginFromFeature(featureIdForSave);
-    setOriginJustSet(true);
-    if (originTimeoutRef.current) clearTimeout(originTimeoutRef.current);
-    originTimeoutRef.current = setTimeout(() => setOriginJustSet(false), 1500);
   }, [featureIdForSave]);
 
   // ── Custom pin editor state ─────────────────────────────────────────────
@@ -359,20 +359,19 @@ export function PlaceDetailSheetScreen() {
             style={({ pressed }) => [
               styles.originButton,
               { borderColor: sheetSeparator },
-              originJustSet
+              isCurrentOrigin
                 ? { backgroundColor: sheetSelectionBg, borderColor: sheetAccent(accentScheme) }
                 : { backgroundColor: sheetSecondarySystemFill },
               pressed && styles.closeButtonPressed,
             ]}
           >
-            <Text style={styles.actionButtonEmoji}>🟢</Text>
             <Text
               style={[
                 styles.actionButtonText,
-                { color: originJustSet ? sheetAccent(accentScheme) : sheetLabel },
+                { color: isCurrentOrigin ? sheetAccent(accentScheme) : sheetLabel },
               ]}
             >
-              {originJustSet ? '출발지로 설정됨' : '출발지로 설정'}
+              {isCurrentOrigin ? '출발지로 설정됨' : '출발지로 설정'}
             </Text>
           </Pressable>
 
@@ -386,7 +385,6 @@ export function PlaceDetailSheetScreen() {
               pressed && styles.closeButtonPressed,
             ]}
           >
-            <Text style={styles.routeButtonEmoji}>🔍</Text>
             <Text style={styles.routeButtonText}>길찾기</Text>
           </Pressable>
         </View>
@@ -594,16 +592,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingVertical: 12,
     flex: 1,
-  },
-  actionButtonEmoji: {
-    fontSize: 13,
-    includeFontPadding: false,
-    lineHeight: 16,
-  },
-  routeButtonEmoji: {
-    fontSize: 13,
-    includeFontPadding: false,
-    lineHeight: 16,
   },
   actionButtonText: {
     fontSize: 14,

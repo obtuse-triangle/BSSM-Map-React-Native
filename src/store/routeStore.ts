@@ -138,6 +138,7 @@ export interface RouteStoreState {
   computeRouteOptions: () => void;
   selectRoute: (index: number) => void;
   clearRoute: () => void;
+  clearRouteOptions: () => void;
   setAccessibilityMode: (mode: RouteAccessibilityMode) => void;
   setSortMode: (mode: RouteSortMode) => void;
   recomputeRoute: () => void;
@@ -224,7 +225,7 @@ export const useRouteStore = create<RouteStoreState>()((set, get) => ({
       set({ error: 'ROUTE_DESTINATION_REQUIRED', isComputing: false });
       return;
     }
-    set({ isComputing: true, error: null });
+    set({ isComputing: true, error: null, routeOptions: [], routeResult: null });
 
     // Yield to the UI thread so React can paint the loading state
     // before the heavy synchronous computation blocks the JS thread.
@@ -293,6 +294,16 @@ export const useRouteStore = create<RouteStoreState>()((set, get) => ({
       routeOptions: [],
       selectedRouteIndex: 0,
       sortMode: 'recommended',
+      error: null,
+      isComputing: false,
+    });
+  },
+
+  clearRouteOptions: () => {
+    set({
+      routeResult: null,
+      routeOptions: [],
+      selectedRouteIndex: 0,
       error: null,
       isComputing: false,
     });

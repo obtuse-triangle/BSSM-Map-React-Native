@@ -110,13 +110,6 @@ export function RoutePlanScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('beforeRemove', () => {
-      useRouteStore.getState().clearRoute();
-    });
-    return unsubscribe;
-  }, [navigation]);
-
   const originSearch = useSearchBar();
   const destinationSearch = useSearchBar();
   const [activeField, setActiveField] = useState<ActiveField>(null);
@@ -209,12 +202,8 @@ export function RoutePlanScreen() {
   };
 
   const handleClose = () => {
-    useRouteStore.getState().clearRoute();
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-    } else {
-      navigation.navigate('Map');
-    }
+    useRouteStore.getState().clearRouteOptions();
+    navigation.navigate('Map');
   };
 
   const handleSelectRoute = (index: number) => {
