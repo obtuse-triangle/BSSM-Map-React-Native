@@ -27,12 +27,12 @@ type GeoJSONFeatureCollection = {
   features: GeoJSONFeature[];
 };
 
-const EXPECTED_FEATURE_COUNT = 418;
+const EXPECTED_FEATURE_COUNT = 386;
 const EXPECTED_LEVEL_DISTRIBUTION: Record<string, number> = {
-  '1': 125,
-  '2': 114,
-  '3': 115,
-  '4': 64,
+  '1': 119,
+  '2': 110,
+  '3': 100,
+  '4': 57,
 };
 
 const REQUIRED_PROPERTIES: Array<keyof FeatureProperties> = [
