@@ -35,7 +35,6 @@ import {
 import {
   generateEdgesForLevel,
   generatePolygonBridgesForLevel,
-  generateComponentBridgesForLevel,
 } from './graphBuilderInternal/edgeGeneration';
 import { sortConnectors } from './graphBuilderInternal/connectorOps';
 
@@ -176,20 +175,12 @@ export function buildRoutingGraph(
     edges.push(...levelEdges);
 
     // 2d. Bridge adjacent walkable polygons so disconnected floor fragments
-    //      become a single routing component.
+    //      become a single routing component. Bridges are capped at
+    //      BRIDGE_MAX_DISTANCE_M (0.5 m): larger gaps are treated as real
+    //      disconnects and left unbridged until the walkable-area geometry is
+    //      corrected in the source data.
     const bridgeEdges = generatePolygonBridgesForLevel(polygonNodeGroups, level, polys);
     edges.push(...bridgeEdges);
-
-    // 2e. Final connectivity guarantee: if anything is still fragmented after
-    //      polygon bridges, force-connect the remaining components so every
-    //      node on this level is routable.
-    const componentBridgeEdges = generateComponentBridgesForLevel(
-      allNodes,
-      [...levelEdges, ...bridgeEdges],
-      level,
-      polys,
-    );
-    edges.push(...componentBridgeEdges);
   }
 
   // ── 3. Connector nodes & edges ───────────────────────────────────
@@ -205,29 +196,6 @@ export function buildRoutingGraph(
     ];
     const connType = conn.properties.connectorType as string;
     const connId: string = conn.id ?? `conn-${connType}-${ci}`;
-
-    // Node IDs for the two connector endpoints
-    const fromNodeId = `conn-${connType}-${ci}-${fromLevel}`;
-    const toNodeId = `conn-${connType}-${ci}-${toLevel}`;
-
-    if (!nodes.has(fromNodeId)) {
-      nodes.set(fromNodeId, {
-        id: fromNodeId,
-        x,
-        y,
-        level: fromLevel,
-        nodeType: 'connector',
-      });
-    }
-    if (!nodes.has(toNodeId)) {
-      nodes.set(toNodeId, {
-        id: toNodeId,
-        x,
-        y,
-        level: toLevel,
-        nodeType: 'connector',
-      });
-    }
 
     // 3a. Link connector node → nearest polygon nodes on same floor.
     //     Skip polygon nodes exactly at the connector position (zero distance).
@@ -270,49 +238,87 @@ export function buildRoutingGraph(
       }
     };
 
-    linkConnectorToLevel(fromNodeId, fromLevel);
-    linkConnectorToLevel(toNodeId, toLevel);
+    // Build the full level chain this connector touches. Stairs always have
+    // a single span (fromLevel → toLevel, |Δ|=1), so the chain has two nodes
+    // and one bidirectional edge — same as before. Elevators may span 2 or
+    // more floors, in which case we expand into one node per intermediate
+    // level and one edge per adjacent pair so that floor N can reach floor
+    // N+1 without going all the way back down through the topmost node.
+    const chainLevels: number[] = [];
+    if (toLevel >= fromLevel) {
+      for (let lvl = fromLevel; lvl <= toLevel; lvl++) chainLevels.push(lvl);
+    } else {
+      for (let lvl = fromLevel; lvl >= toLevel; lvl--) chainLevels.push(lvl);
+    }
 
-    // 3b. Cross-floor connector edge (bidirectional)
+    for (const lvl of chainLevels) {
+      const chainNodeId = `conn-${connType}-${ci}-${lvl}`;
+      if (!nodes.has(chainNodeId)) {
+        nodes.set(chainNodeId, {
+          id: chainNodeId,
+          x,
+          y,
+          level: lvl,
+          nodeType: 'connector',
+        });
+      }
+      linkConnectorToLevel(chainNodeId, lvl);
+    }
+
+    // 3b. Cross-floor connector edges (bidirectional, one per adjacent pair).
+    //     traversalTimeSeconds covers the full fromLevel→toLevel span, so we
+    //     split it evenly across the number of single-floor transitions. The
+    //     exact division is preserved as a float — rounding would distort the
+    //     total time for chains where the divisor does not divide evenly.
     const traversalTimeSeconds = conn.properties.traversalTimeSeconds as number;
     const accessibilityPenalty = conn.properties.accessibilityPenalty as number;
-    const connectsLevels: [number, number] = [fromLevel, toLevel];
-    const cw = connectorEdgeWeights(
-      traversalTimeSeconds,
-      connType as 'stair' | 'elevator',
-      connectsLevels,
-    );
+    const spanCount = Math.abs(toLevel - fromLevel);
+    const perSpanTime = traversalTimeSeconds / spanCount;
 
-    edges.push({
-      from: fromNodeId,
-      to: toNodeId,
-      distanceMeters: cw.distanceMeters,
-      timeSeconds: cw.timeSeconds,
-      effortMetersEquivalent: cw.effortMetersEquivalent,
-      level: -1,
-      connectorId: connId,
-      accessibilityPenalty,
-      edgeType: 'connector',
-      connectorMeta: {
-        connectorType: connType as 'stair' | 'elevator',
-        connectsLevels,
-      },
-    });
-    edges.push({
-      from: toNodeId,
-      to: fromNodeId,
-      distanceMeters: cw.distanceMeters,
-      timeSeconds: cw.timeSeconds,
-      effortMetersEquivalent: cw.effortMetersEquivalent,
-      level: -1,
-      connectorId: connId,
-      accessibilityPenalty,
-      edgeType: 'connector',
-      connectorMeta: {
-        connectorType: connType as 'stair' | 'elevator',
-        connectsLevels,
-      },
-    });
+    for (let s = 0; s < spanCount; s++) {
+      const aLevel = chainLevels[s];
+      const bLevel = chainLevels[s + 1];
+      const aNodeId = `conn-${connType}-${ci}-${aLevel}`;
+      const bNodeId = `conn-${connType}-${ci}-${bLevel}`;
+      const adjConnectsLevels: [number, number] = [aLevel, bLevel];
+
+      const cw = connectorEdgeWeights(
+        perSpanTime,
+        connType as 'stair' | 'elevator',
+        adjConnectsLevels,
+      );
+
+      edges.push({
+        from: aNodeId,
+        to: bNodeId,
+        distanceMeters: cw.distanceMeters,
+        timeSeconds: cw.timeSeconds,
+        effortMetersEquivalent: cw.effortMetersEquivalent,
+        level: -1,
+        connectorId: connId,
+        accessibilityPenalty,
+        edgeType: 'connector',
+        connectorMeta: {
+          connectorType: connType as 'stair' | 'elevator',
+          connectsLevels: adjConnectsLevels,
+        },
+      });
+      edges.push({
+        from: bNodeId,
+        to: aNodeId,
+        distanceMeters: cw.distanceMeters,
+        timeSeconds: cw.timeSeconds,
+        effortMetersEquivalent: cw.effortMetersEquivalent,
+        level: -1,
+        connectorId: connId,
+        accessibilityPenalty,
+        edgeType: 'connector',
+        connectorMeta: {
+          connectorType: connType as 'stair' | 'elevator',
+          connectsLevels: adjConnectsLevels,
+        },
+      });
+    }
   }
 
   const incidentNodeIds = new Set<string>();

@@ -9,7 +9,11 @@ import {
 
 const K_NEAREST = 6;
 const MAX_EDGE_DISTANCE_MULTIPLIER = 2;
-const BRIDGE_MAX_DISTANCE_M = 20;
+// Max distance a walk edge may bridge between two walkable polygons.
+// Anything larger means the polygons are genuinely disconnected (wall, gap,
+// data artefact) and the router must NOT silently jump across — the operator
+// is expected to fix the walkable-area geometry in that case.
+const BRIDGE_MAX_DISTANCE_M = 0.5;
 
 /**
  * Generate walk edges for all polygon nodes on one floor level.
@@ -268,169 +272,6 @@ export function generatePolygonBridgesForLevel(
       accessibilityPenalty: 0,
       edgeType: 'walk',
     });
-  }
-
-  return bridgeEdges;
-}
-
-/**
- * Guarantee that every node on a level ends up in a single connected component.
- *
- * After local KNN edges and polygon bridges the level may still be fragmented
- * (e.g. a ring whose closest neighbour's midpoint lands on a wall and so failed
- * the polygon-bridge segment test). A disconnected fragment is unroutable, which
- * is strictly worse than a bridge that clips a corner — so this pass ALWAYS
- * connects every component.
- *
- * Strategy: seed components from existing walk edges, then for each pair of
- * components pick the closest node pair, preferring a pair whose connecting
- * segment stays inside the walkable polygons. Kruskal-union the component graph
- * (which is complete, so connectivity is guaranteed) preferring segment-valid,
- * shorter links first.
- */
-export function generateComponentBridgesForLevel(
-  nodes: NodeEntry[],
-  existingEdges: RouteEdge[],
-  level: number,
-  polygons: PolygonData[],
-): RouteEdge[] {
-  if (nodes.length <= 1) return [];
-
-  const parent = new Map<string, string>();
-  for (const node of nodes) parent.set(node.id, node.id);
-  const nodeIds = new Set(parent.keys());
-
-  const find = (id: string): string => {
-    let r = id;
-    while (parent.get(r) !== r) {
-      parent.set(r, parent.get(parent.get(r)!)!);
-      r = parent.get(r)!;
-    }
-    return r;
-  };
-
-  const union = (a: string, b: string): boolean => {
-    const ra = find(a);
-    const rb = find(b);
-    if (ra === rb) return false;
-    parent.set(rb, ra);
-    return true;
-  };
-
-  // Seed components from existing same-level walk edges.
-  for (const edge of existingEdges) {
-    if (edge.edgeType !== 'walk') continue;
-    if (!nodeIds.has(edge.from) || !nodeIds.has(edge.to)) continue;
-    union(edge.from, edge.to);
-  }
-
-  // Group nodes by current component root.
-  const groups = new Map<string, NodeEntry[]>();
-  for (const node of nodes) {
-    const root = find(node.id);
-    let g = groups.get(root);
-    if (!g) {
-      g = [];
-      groups.set(root, g);
-    }
-    g.push(node);
-  }
-  if (groups.size <= 1) return [];
-
-  const roots = [...groups.keys()];
-
-  // For every pair of components, choose the closest connecting node pair,
-  // preferring one whose segment stays inside the walkable polygons. Segment
-  // tests dominate cost, so first find the K closest pairs by raw distance and
-  // only run containment checks on those; if none is valid, fall back to the
-  // overall closest pair (connectivity always wins over wall-clipping).
-  type Candidate = { from: NodeEntry; to: NodeEntry; weight: number; valid: boolean };
-  const VALIDATE_CANDIDATES = 8;
-  const candidates: Candidate[] = [];
-  for (let i = 0; i < roots.length; i++) {
-    for (let j = i + 1; j < roots.length; j++) {
-      const A = groups.get(roots[i])!;
-      const B = groups.get(roots[j])!;
-
-      const closest: { from: NodeEntry; to: NodeEntry; weight: number }[] = [];
-      let worstKept = Infinity;
-      for (const a of A) {
-        for (const b of B) {
-          const weight = euclidean(a.x, a.y, b.x, b.y);
-          if (closest.length >= VALIDATE_CANDIDATES && weight >= worstKept) continue;
-          closest.push({ from: a, to: b, weight });
-          if (closest.length > VALIDATE_CANDIDATES) {
-            closest.sort((p, q) => p.weight - q.weight);
-            closest.length = VALIDATE_CANDIDATES;
-            worstKept = closest[closest.length - 1].weight;
-          }
-        }
-      }
-      if (closest.length === 0) continue;
-      closest.sort((p, q) => p.weight - q.weight);
-
-      let chosen: Candidate | null = null;
-      for (const c of closest) {
-        if (segmentInsidePolygons(c.from.x, c.from.y, c.to.x, c.to.y, polygons)) {
-          chosen = { from: c.from, to: c.to, weight: c.weight, valid: true };
-          break;
-        }
-      }
-      if (!chosen) {
-        const c = closest[0];
-        chosen = { from: c.from, to: c.to, weight: c.weight, valid: false };
-      }
-      candidates.push(chosen);
-    }
-  }
-
-  // Prefer segment-valid links, then shorter ones (Kruskal over the complete
-  // component graph → always reaches a single component).
-  candidates.sort((a, b) => {
-    if (a.valid !== b.valid) return a.valid ? -1 : 1;
-    return a.weight - b.weight;
-  });
-
-  const bridgeEdges: RouteEdge[] = [];
-  const seen = new Set<string>();
-  let fallbackCount = 0;
-  for (const c of candidates) {
-    if (!union(c.from.id, c.to.id)) continue;
-
-    const key = c.from.id < c.to.id ? `${c.from.id}|${c.to.id}` : `${c.to.id}|${c.from.id}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    if (!c.valid) fallbackCount++;
-
-    bridgeEdges.push({
-      from: c.from.id,
-      to: c.to.id,
-      distanceMeters: c.weight,
-      timeSeconds: c.weight / WALKING_SPEED_MPS,
-      effortMetersEquivalent: c.weight,
-      level,
-      accessibilityPenalty: 0,
-      edgeType: 'walk',
-      isBridge: true,
-    });
-    bridgeEdges.push({
-      from: c.to.id,
-      to: c.from.id,
-      distanceMeters: c.weight,
-      timeSeconds: c.weight / WALKING_SPEED_MPS,
-      effortMetersEquivalent: c.weight,
-      level,
-      accessibilityPenalty: 0,
-      edgeType: 'walk',
-      isBridge: true,
-    });
-  }
-
-  if (bridgeEdges.length > 0) {
-    console.log(
-      `[graphBuilder] level ${level}: bridged ${groups.size} components ` +
-        `(${fallbackCount} fallback links crossing non-walkable space)`,
-    );
   }
 
   return bridgeEdges;
