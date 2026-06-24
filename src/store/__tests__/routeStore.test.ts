@@ -36,6 +36,15 @@ function setValidRoute(): void {
   useRouteStore.getState().setDestinationFeature(VALID_FEATURE_ID);
 }
 
+/**
+ * Flush the macrotask queue so deferred computeRouteOptions (setTimeout(0))
+ * completes before assertions. The store yields to the UI thread before the
+ * heavy computation, so tests must await the same yield.
+ */
+function flushCompute(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
 // ── Suite ──────────────────────────────────────────────────────────
 
 describe('routeStore', () => {
@@ -141,9 +150,10 @@ describe('routeStore', () => {
 
     // ── 7. computeRoute — success ─────────────────────────────────
 
-    it('with both origin and destination returns mock success result', () => {
+    it('with both origin and destination returns mock success result', async () => {
       setValidRoute();
       useRouteStore.getState().computeRoute();
+      await flushCompute();
       const s = useRouteStore.getState();
       expect(s.isComputing).toBe(false);
       expect(s.error).toBeNull();
@@ -161,10 +171,11 @@ describe('routeStore', () => {
   // ── 8. clearRoute ───────────────────────────────────────────────
 
   describe('clearRoute', () => {
-    it('resets result, error, origin, destination, and computing but NOT accessibilityMode', () => {
+    it('resets result, error, origin, destination, and computing but NOT accessibilityMode', async () => {
       // First set up a computed route
       setValidRoute();
       useRouteStore.getState().computeRoute();
+      await flushCompute();
       useRouteStore.getState().setAccessibilityMode('elevator_priority');
 
       // Verify we have state
@@ -205,10 +216,11 @@ describe('routeStore', () => {
   // ── 10. recomputeRoute ──────────────────────────────────────────
 
   describe('recomputeRoute', () => {
-    it('re-routes when previous result exists', () => {
+    it('re-routes when previous result exists', async () => {
       // Set up a route and compute it
       setValidRoute();
       useRouteStore.getState().computeRoute();
+      await flushCompute();
       expect(useRouteStore.getState().routeResult).not.toBeNull();
 
       // Inject a different computer that returns different distance
@@ -227,6 +239,7 @@ describe('routeStore', () => {
       }));
 
       useRouteStore.getState().recomputeRoute();
+      await flushCompute();
 
       const s = useRouteStore.getState();
       expect(s.routeResult).not.toBeNull();
@@ -238,11 +251,13 @@ describe('routeStore', () => {
       }
     });
 
-    it('is no-op when no previous result exists', () => {
+    it('is no-op when no previous result exists', async () => {
       setValidRoute();
       // setValidRoute now triggers auto-compute on setDestinationFeature,
       // so there is a prior result. recomputeRoute should work.
+      await flushCompute();
       useRouteStore.getState().recomputeRoute();
+      await flushCompute();
       const s = useRouteStore.getState();
       expect(s.routeResult).not.toBeNull();
       expect(s.isComputing).toBe(false);
@@ -252,7 +267,7 @@ describe('routeStore', () => {
   // ── 11. No-path response ────────────────────────────────────────
 
   describe('no-path response', () => {
-    it('sets error and does not throw when compute returns ok:false', () => {
+    it('sets error and does not throw when compute returns ok:false', async () => {
       setRouteComputer(() => ({
         ok: false as const,
         reason: 'No path found',
@@ -260,6 +275,7 @@ describe('routeStore', () => {
 
       setValidRoute();
       useRouteStore.getState().computeRoute();
+      await flushCompute();
 
       const s = useRouteStore.getState();
       expect(s.error).toBe('No path found');
@@ -271,7 +287,7 @@ describe('routeStore', () => {
   // ── 12. Isolation ───────────────────────────────────────────────
 
   describe('action isolation', () => {
-    it('setOriginFromFeature does not mutate destination, result, or computing', () => {
+    it('setOriginFromFeature does not mutate destination, result, or computing', async () => {
       useRouteStore.getState().setDestinationFeature(VALID_FEATURE_ID);
       const destBefore = useRouteStore.getState().routeDestination;
       // Destination is set but no origin yet — no routeOptions computed yet
@@ -279,6 +295,7 @@ describe('routeStore', () => {
 
       useRouteStore.getState().setOriginFromFeature(VALID_FEATURE_ID);
       // Now both are set → auto-compute fires, populating routeResult
+      await flushCompute();
 
       const s = useRouteStore.getState();
       expect(s.routeDestination).toBe(destBefore);
@@ -286,7 +303,7 @@ describe('routeStore', () => {
       expect(s.isComputing).toBe(false);
     });
 
-    it('setDestinationFeature does not mutate origin, result, or computing', () => {
+    it('setDestinationFeature does not mutate origin, result, or computing', async () => {
       useRouteStore.getState().setOriginFromFeature(VALID_FEATURE_ID);
       const originBefore = useRouteStore.getState().routeOrigin;
       // Origin is set but no destination yet — no routeOptions computed yet
@@ -294,6 +311,7 @@ describe('routeStore', () => {
 
       useRouteStore.getState().setDestinationFeature(VALID_FEATURE_ID);
       // Now both are set → auto-compute fires, populating routeResult
+      await flushCompute();
 
       const s = useRouteStore.getState();
       expect(s.routeOrigin).toBe(originBefore);
