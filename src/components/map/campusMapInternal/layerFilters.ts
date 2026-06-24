@@ -17,5 +17,8 @@ export function buildCategoryFilter(
 }
 
 export function buildSelectedFeatureFilter(selectedFeatureId: string | null): FilterSpecification {
-  return ['==', ['id'], selectedFeatureId ?? ''] as unknown as FilterSpecification;
+  // Features store their id in properties.id, not as a top-level GeoJSON id.
+  // Using ['get', 'id'] reads from properties, which is where all 386 campus
+  // features store their identifier (e.g. '1-4-7').
+  return ['==', ['get', 'id'], selectedFeatureId ?? ''] as unknown as FilterSpecification;
 }

@@ -1,12 +1,21 @@
 import { useMemo, useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { BLE_AP_FIXTURES } from '../../constants/bleAccessPoints';
-import { MAX_SAMPLE_AGE_MS } from '../../constants/bleConfig';
 import { GlassSurface } from '../glass';
 import type { BleWclResult, ArubaBleObservation } from '../../services/location/bleWclProvider';
-import type { BleWclScanStatus, BeaconStats } from '../../store/bleLocationStore';
+import type { BeaconStats, BleWclScanStatus } from '../../store/bleLocationStore';
 import type { FusionState } from '../../types/fusion';
+import { BleActionButtons } from './BleActionButtons';
+import { BleBeaconStatsTable } from './BleBeaconStatsTable';
+import {
+  DURATION_STEP_MS,
+  MAX_SCAN_DURATION_MS,
+  MIN_SCAN_DURATION_MS,
+  STATUS_LABELS,
+  STALE_THRESHOLD_MS,
+  computeStatsFromBatch,
+  formatAge,
+} from './bleWclFormatters';
 
 const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
 
@@ -38,104 +47,6 @@ type BleWclStatusCardProps = {
   fusionState: FusionState | null;
   fusionUnavailableReason: string | null;
 };
-
-const STATUS_LABELS: Record<BleWclScanStatus, string> = {
-  idle: '대기',
-  scanning: '스캔 중',
-  success: '성공',
-  error: '오류',
-};
-
-const knownBleIdentifiers = new Set<string>();
-for (const ap of BLE_AP_FIXTURES) {
-  if (ap.bleIdentifier) knownBleIdentifiers.add(ap.bleIdentifier.toLowerCase());
-}
-
-const STALE_THRESHOLD_MS = MAX_SAMPLE_AGE_MS;
-const MIN_SCAN_DURATION_MS = 3_000;
-const MAX_SCAN_DURATION_MS = 30_000;
-const DURATION_STEP_MS = 1_000;
-
-const BLE_AP_LABEL_LOOKUP = new Map(
-  BLE_AP_FIXTURES.filter((ap) => ap.bleIdentifier).map((ap) => [
-    ap.bleIdentifier.toLowerCase(),
-    ap.label,
-  ] as const),
-);
-
-const BLE_WCL_BLUE = '#2979FF';
-
-function rssiColor(rssi: number): string {
-  if (rssi > -60) return '#16a34a';
-  if (rssi > -80) return '#ca8a04';
-  return '#dc2626';
-}
-
-function formatAge(observedAt: number): string {
-  const seconds = Math.round((Date.now() - observedAt) / 1000);
-  if (seconds < 60) return `${seconds}초 전`;
-  const minutes = Math.floor(seconds / 60);
-  return `${minutes}분 ${seconds % 60}초 전`;
-}
-
-function truncateIdentifier(id: string, maxLen = 24): string {
-  if (id.length <= maxLen) return id;
-  return id.slice(0, maxLen) + '…';
-}
-
-/**
- * Compute per-beacon aggregated stats from raw batch observations.
- * Used when continuous stats are unavailable.
- */
-function computeStatsFromBatch(
-  observations: ArubaBleObservation[],
-): BeaconStats[] {
-  const grouped = new Map<string, ArubaBleObservation[]>();
-  for (const obs of observations) {
-    const list = grouped.get(obs.bleIdentifier);
-    if (list) {
-      list.push(obs);
-    } else {
-      grouped.set(obs.bleIdentifier, [obs]);
-    }
-  }
-
-  const result: BeaconStats[] = [];
-  for (const [, group] of grouped) {
-    group.sort((a, b) => a.observedAt - b.observedAt);
-
-    const rssiValues = group.map((o) => o.rssi);
-    const rssiMin = Math.min(...rssiValues);
-    const rssiMax = Math.max(...rssiValues);
-    const rssiAvg =
-      rssiValues.reduce((s, v) => s + v, 0) / rssiValues.length;
-    const first = group[0];
-    const last = group[group.length - 1];
-
-    let totalInterval = 0;
-    for (let i = 1; i < group.length; i++) {
-      totalInterval += group[i].observedAt - group[i - 1].observedAt;
-    }
-    const avgIntervalMs =
-      group.length > 1 ? totalInterval / (group.length - 1) : 0;
-
-    result.push({
-      bleIdentifier: last.bleIdentifier,
-      manufacturerId: last.manufacturerId,
-      observations: group.length,
-      rssiMin,
-      rssiMax,
-      rssiAvg,
-      firstSeen: first.observedAt,
-      lastSeen: last.observedAt,
-      avgIntervalMs,
-      lastRssi: last.rssi,
-    });
-  }
-
-  result.sort((a, b) => b.lastRssi - a.lastRssi);
-  return result;
-}
 
 export function BleWclStatusCard({
   colorScheme,
@@ -357,7 +268,7 @@ export function BleWclStatusCard({
           numberOfLines={isInsufficientAps ? 4 : 3}
         >
           {isInsufficientAps
-            ? '⚠ 감지된 AP가 3개 미만입니다.\n스캔 시간을 늘리거나 다른 위치에서 시도하세요.'
+            ? '⚠ 감지된 AP가 2개 미만입니다.\n스캔 시간을 늘리거나 다른 위치에서 시도하세요.'
             : error}
         </Text>
       ) : null}
@@ -414,85 +325,10 @@ export function BleWclStatusCard({
 
       {/* ── Beacon stats table ─────────────────── */}
       {displayBeacons.length > 0 ? (
-        <View style={styles.statsSection}>
-          <Text style={styles.statsSectionTitle}>
-            감지된 비콘: {displayBeacons.length}개
-          </Text>
-
-          {/* Table header */}
-          <View style={styles.statsHeaderRow}>
-            <Text style={[styles.statsHeaderCell, styles.colId]}>비콘 ID</Text>
-            <Text style={[styles.statsHeaderCell, styles.colRssi]}>RSSI</Text>
-            <Text style={[styles.statsHeaderCell, styles.colSmall]}>평균</Text>
-            <Text style={[styles.statsHeaderCell, styles.colSmall]}>최소</Text>
-            <Text style={[styles.statsHeaderCell, styles.colSmall]}>최대</Text>
-            <Text style={[styles.statsHeaderCell, styles.colInterval]}>
-              마지막
-            </Text>
-          </View>
-
-          {/* Table rows */}
-          {displayBeacons.map((beacon) => {
-            const normalizedIdentifier = beacon.bleIdentifier.toLowerCase();
-            const displayName =
-              BLE_AP_LABEL_LOOKUP.get(normalizedIdentifier) ??
-              truncateIdentifier(beacon.bleIdentifier, 22);
-            const weightPercent =
-              apContributionWeightLookup.get(displayName.toLowerCase()) ??
-              apContributionWeightLookup.get(normalizedIdentifier) ??
-              null;
-            const ageSeconds = Math.round((Date.now() - beacon.lastSeen) / 1000);
-            const isStale = ageSeconds > STALE_THRESHOLD_MS / 1000;
-            const isUnmapped = !knownBleIdentifiers.has(normalizedIdentifier);
-            const isDimmed = isStale || isUnmapped;
-            const cellStyle = isDimmed
-              ? [styles.statsCell, styles.statsCellDimmed]
-              : styles.statsCell;
-
-            return (
-              <View key={beacon.bleIdentifier} style={styles.statsRow}>
-                {weightPercent !== null ? (
-                  <View
-                    pointerEvents="none"
-                    style={[
-                      styles.weightBar,
-                      {
-                        width: `${weightPercent}%` as `${number}%`,
-                      },
-                    ]}
-                  />
-                ) : null}
-                <Text
-                  style={[cellStyle, styles.colId]}
-                  numberOfLines={1}
-                >
-                  {displayName}
-                </Text>
-                <Text
-                  style={[
-                    cellStyle,
-                    styles.colRssi,
-                    { color: rssiColor(beacon.lastRssi) },
-                  ]}
-                >
-                  {beacon.lastRssi}
-                </Text>
-                <Text style={[cellStyle, styles.colSmall]}>
-                  {beacon.rssiAvg.toFixed(0)}
-                </Text>
-                <Text style={[cellStyle, styles.colSmall]}>
-                  {beacon.rssiMin}
-                </Text>
-                <Text style={[cellStyle, styles.colSmall]}>
-                  {beacon.rssiMax}
-                </Text>
-                <Text style={[cellStyle, styles.colInterval]}>
-                  {ageSeconds}초 전
-                </Text>
-              </View>
-            );
-          })}
-        </View>
+        <BleBeaconStatsTable
+          displayBeacons={displayBeacons}
+          apContributionWeightLookup={apContributionWeightLookup}
+        />
       ) : null}
 
       {/* ── DR position display ─────────────────── */}
@@ -590,92 +426,22 @@ export function BleWclStatusCard({
       ) : null}
 
       {/* ── Actions ─────────────────────────────── */}
-      <View style={styles.actionsRow}>
-        {!isContinuousScanning ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="실시간 스캔 시작"
-            hitSlop={HIT_SLOP}
-            onPress={onStartContinuousScan}
-            style={({ pressed }) => [
-              styles.startButton,
-              pressed && styles.buttonPressed,
-            ]}
-          >
-            <Text style={styles.startButtonText}>● 스캔 시작</Text>
-          </Pressable>
-        ) : null}
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={
-            status === 'scanning' ? 'BLE 스캔 중' : 'BLE 다시 스캔'
-          }
-          hitSlop={HIT_SLOP}
-          disabled={status === 'scanning'}
-          onPress={onStartScan}
-          style={({ pressed }) => [
-            styles.primaryButton,
-            pressed && styles.buttonPressed,
-            status === 'scanning' && styles.buttonDisabled,
-          ]}
-        >
-          <Text style={styles.primaryButtonText}>
-            {status === 'scanning' ? '스캔 중...' : 'BLE 다시 스캔'}
-          </Text>
-        </Pressable>
-
-        {!isContinuousScanning && status !== 'scanning' ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="BLE 상태 카드 닫기"
-            hitSlop={HIT_SLOP}
-            onPress={onDismiss}
-            style={({ pressed }) => [
-              styles.secondaryButton,
-              pressed && styles.buttonPressed,
-            ]}
-          >
-            <Text style={styles.secondaryButtonText}>✕ 닫기</Text>
-          </Pressable>
-        ) : null}
-
-        {!isMotionActive ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="DR 시작"
-            hitSlop={HIT_SLOP}
-            onPress={onStartMotionTracking}
-            style={({ pressed }) => [
-              styles.motionButton,
-              styles.motionStartButton,
-              pressed && styles.buttonPressed,
-            ]}
-          >
-            <Text style={styles.motionButtonText}>DR 시작</Text>
-          </Pressable>
-        ) : (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="DR 중지"
-            hitSlop={HIT_SLOP}
-            onPress={onStopMotionTracking}
-            style={({ pressed }) => [
-              styles.motionButton,
-              styles.motionStopButton,
-              pressed && styles.buttonPressed,
-            ]}
-          >
-            <Text style={styles.motionButtonText}>DR 중지</Text>
-          </Pressable>
-        )}
-      </View>
+      <BleActionButtons
+        status={status}
+        isContinuousScanning={isContinuousScanning}
+        onStartContinuousScan={onStartContinuousScan}
+        onStopContinuousScan={onStopContinuousScan}
+        onStartScan={onStartScan}
+        onDismiss={onDismiss}
+        isMotionActive={isMotionActive}
+        onStartMotionTracking={onStartMotionTracking}
+        onStopMotionTracking={onStopMotionTracking}
+      />
     </GlassSurface>
   );
 }
 
 const PADDING = 18;
-const COL_GAP = 4;
 
 const styles = StyleSheet.create({
   card: {
@@ -833,122 +599,6 @@ const styles = StyleSheet.create({
     minWidth: 36,
     textAlign: 'center',
   },
-  // ── Beacon stats table ───────────────────────
-  statsSection: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 14,
-    padding: 12,
-    gap: 6,
-  },
-  statsSectionTitle: {
-    color: '#0f172a',
-    fontSize: 12,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  statsHeaderRow: {
-    flexDirection: 'row',
-    paddingBottom: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-    gap: COL_GAP,
-  },
-  statsHeaderCell: {
-    color: '#94a3b8',
-    fontSize: 10,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  statsRow: {
-    overflow: 'hidden',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: COL_GAP,
-    position: 'relative',
-  },
-  statsCell: {
-    fontSize: 11,
-    fontWeight: '600',
-    fontFamily: 'monospace',
-    color: '#334155',
-  },
-  statsCellDimmed: {
-    opacity: 0.35,
-  },
-  colId: {
-    flex: 1,
-  },
-  colRssi: {
-    width: 36,
-    textAlign: 'right',
-    fontWeight: '800',
-  },
-  colSmall: {
-    width: 28,
-    textAlign: 'right',
-  },
-  colInterval: {
-    width: 44,
-    textAlign: 'right',
-  },
-  weightBar: {
-    backgroundColor: BLE_WCL_BLUE,
-    borderRadius: 2,
-    bottom: 0,
-    left: 0,
-    opacity: 0.12,
-    position: 'absolute',
-    top: 0,
-  },
-  // ── Actions ──────────────────────────────────
-  actionsRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  startButton: {
-    alignItems: 'center',
-    backgroundColor: '#16a34a',
-    borderRadius: 16,
-    flex: 1,
-    paddingVertical: 13,
-  },
-  startButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  primaryButton: {
-    alignItems: 'center',
-    backgroundColor: '#1d4ed8',
-    borderRadius: 16,
-    flex: 1,
-    paddingVertical: 13,
-  },
-  primaryButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  secondaryButton: {
-    alignItems: 'center',
-    backgroundColor: '#eff6ff',
-    borderColor: '#bfdbfe',
-    borderRadius: 16,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 13,
-  },
-  secondaryButtonText: {
-    color: '#1d4ed8',
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  buttonPressed: {
-    opacity: 0.88,
-  },
-  buttonDisabled: {
-    opacity: 0.72,
-  },
   // ── DR section ──────────────────────────────
   drSection: {
     backgroundColor: '#f0fdf4',
@@ -1016,22 +666,9 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontFamily: 'monospace',
   },
-  // ── Motion tracking buttons ─────────────────
-  motionButton: {
-    alignItems: 'center',
-    borderRadius: 16,
-    flex: 1,
-    paddingVertical: 13,
-  },
-  motionStartButton: {
-    backgroundColor: '#16a34a',
-  },
-  motionStopButton: {
-    backgroundColor: '#dc2626',
-  },
-  motionButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '800',
+  // Shared pressed feedback used by the stop button.
+  // BleActionButtons owns its own `buttonPressed` style.
+  buttonPressed: {
+    opacity: 0.88,
   },
 });

@@ -52,7 +52,7 @@ export function createMapPressHandler(deps: {
       return;
     }
 
-    const featureId = String(pressedFeature.id ?? pressedFeature.properties?.id ?? '');
+    const featureId = String(pressedFeature.properties?.id ?? pressedFeature.id ?? '');
 
     if (!featureId || featureId === 'undefined') {
       return;
