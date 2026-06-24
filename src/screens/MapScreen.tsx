@@ -1,6 +1,7 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BG_WHITE, PRIMARY_BLUE, TEXT_DARK, TEXT_LIGHT } from '../theme';
 
@@ -26,6 +27,7 @@ const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
 type MapScreenProps = NativeStackScreenProps<RootStackParamList, 'Map'>;
 
 export function MapScreen({ navigation }: MapScreenProps) {
+  const insets = useSafeAreaInsets();
   const campusMapRef = useRef<CampusMapHandle>(null);
 
   const {
@@ -135,7 +137,7 @@ export function MapScreen({ navigation }: MapScreenProps) {
   const baseLayerIcon = MAP_STYLES.find((s) => s.id === baseLayer)?.icon ?? '⚙';
 
   return (
-    <View style={styles.screen}>
+    <View style={[styles.screen, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <ToastCard
         visible={toastVisible}
         message={toastConfig?.message}

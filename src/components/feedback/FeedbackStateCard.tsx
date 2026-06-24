@@ -1,6 +1,10 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { BG_WHITE, BORDER_LIGHT, FONT_SIZE, PRIMARY_BLUE, SPACING, TEXT_DARK, TEXT_MEDIUM } from '../../theme';
 
 const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
+// Button visual height (~40 from paddingVertical + content) + 2 * 8 hitSlop ≈ 56pt
+// — comfortably above the theme TOUCH_TARGET_MIN (44). Kept local; matches the
+// routePlanStyles pattern of per-file HIT_SLOP rather than a global constant.
 
 type FeedbackStateVariant = 'loading' | 'error' | 'empty' | 'info';
 
@@ -38,7 +42,7 @@ export function FeedbackStateCard({
 }: FeedbackStateCardProps) {
   return (
     <View style={[styles.card, getVariantStyles(variant)]}>
-      {variant === 'loading' ? <ActivityIndicator color="#1d4ed8" /> : null}
+      {variant === 'loading' ? <ActivityIndicator color={PRIMARY_BLUE} /> : null}
       <Text style={styles.title}>{title}</Text>
       <Text style={styles.message}>{message}</Text>
 
@@ -60,16 +64,16 @@ export function FeedbackStateCard({
 const styles = StyleSheet.create({
   card: {
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderColor: '#d8e2ef',
+    backgroundColor: BG_WHITE,
+    borderColor: BORDER_LIGHT,
     borderRadius: 24,
     borderWidth: 1,
     gap: 10,
     paddingHorizontal: 20,
-    paddingVertical: 24,
+    paddingVertical: SPACING.xl,
   },
   empty: {
-    backgroundColor: '#ffffff',
+    backgroundColor: BG_WHITE,
   },
   info: {
     backgroundColor: '#f8fbff',
@@ -81,27 +85,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff7f7',
   },
   title: {
-    color: '#0f172a',
-    fontSize: 16,
+    color: TEXT_DARK,
+    fontSize: FONT_SIZE.xxl,
     fontWeight: '800',
     textAlign: 'center',
   },
   message: {
-    color: '#475569',
-    fontSize: 13,
+    color: TEXT_MEDIUM,
+    fontSize: FONT_SIZE.md,
     lineHeight: 19,
     textAlign: 'center',
   },
   primaryButton: {
     alignItems: 'center',
     alignSelf: 'stretch',
-    backgroundColor: '#1d4ed8',
+    backgroundColor: PRIMARY_BLUE,
     borderRadius: 16,
-    paddingVertical: 12,
+    paddingVertical: SPACING.md,
   },
   primaryButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
+    color: BG_WHITE,
+    fontSize: FONT_SIZE.lg,
     fontWeight: '800',
   },
   secondaryButton: {
@@ -111,11 +115,11 @@ const styles = StyleSheet.create({
     borderColor: '#bfdbfe',
     borderRadius: 16,
     borderWidth: 1,
-    paddingVertical: 12,
+    paddingVertical: SPACING.md,
   },
   secondaryButtonText: {
-    color: '#1d4ed8',
-    fontSize: 14,
+    color: PRIMARY_BLUE,
+    fontSize: FONT_SIZE.lg,
     fontWeight: '800',
   },
   pressed: {

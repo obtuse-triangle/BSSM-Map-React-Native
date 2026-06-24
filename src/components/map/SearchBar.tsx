@@ -5,7 +5,7 @@ import { Keyboard, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, 
 import { adaptiveAccent, adaptiveText, adaptiveTextPlaceholder, adaptiveTextTertiary } from '../../theme'
 import { sheetAccent, sheetLabel, sheetTertiaryLabel } from '../../theme/sheetSemanticColors'
 
-const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 }
+const HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 }
 
 export interface SearchBarProps {
   searchQuery: string

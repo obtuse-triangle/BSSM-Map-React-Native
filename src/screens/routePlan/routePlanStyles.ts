@@ -1,7 +1,8 @@
 import { StyleSheet } from 'react-native';
 import { sheetSelectionBg } from '../../theme/sheetSemanticColors';
+import { FONT_SIZE, SPACING } from '../../theme';
 
-export const HIT_SLOP = { top: 8, bottom: 8, left: 8, right: 8 };
+export const HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 };
 
 export const styles = StyleSheet.create({
   screen: {
@@ -14,18 +15,18 @@ export const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 32,
+    paddingHorizontal: SPACING.lg,
+    paddingTop: SPACING.lg,
+    paddingBottom: SPACING.xxl,
   },
   header: {
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: SPACING.lg,
   },
   headerTitle: {
-    fontSize: 20,
+    fontSize: FONT_SIZE.title,
     fontWeight: '700',
   },
   closeButton: {
@@ -36,16 +37,16 @@ export const styles = StyleSheet.create({
     width: 32,
   },
   closeButtonText: {
-    fontSize: 16,
+    fontSize: FONT_SIZE.xxl,
     fontWeight: '700',
-    lineHeight: 16,
+    lineHeight: FONT_SIZE.xxl,
   },
   floorSelectorRow: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: 2,
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: SPACING.lg,
   },
   floorSelectorButton: {
     alignItems: 'center',
@@ -59,19 +60,19 @@ export const styles = StyleSheet.create({
     backgroundColor: sheetSelectionBg,
   },
   floorSelectorButtonText: {
-    fontSize: 13,
+    fontSize: FONT_SIZE.md,
     fontWeight: '600',
   },
   inputGroup: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    gap: 8,
+    gap: SPACING.sm,
     marginBottom: 10,
   },
   inputColumn: {
     flex: 1,
     flexDirection: 'column',
-    gap: 8,
+    gap: SPACING.sm,
   },
   inputRow: {
     alignItems: 'center',
@@ -80,11 +81,11 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     minHeight: 46,
-    paddingHorizontal: 12,
+    paddingHorizontal: SPACING.md,
   },
   destinationRow: {},
   inputDot: {
-    fontSize: 12,
+    fontSize: FONT_SIZE.sm,
     fontWeight: '800',
   },
   destDot: {
@@ -92,7 +93,7 @@ export const styles = StyleSheet.create({
   },
   inputText: {
     flex: 1,
-    fontSize: 15,
+    fontSize: FONT_SIZE.xl,
     fontWeight: '600',
     paddingVertical: 0,
   },
@@ -104,19 +105,19 @@ export const styles = StyleSheet.create({
     width: 26,
   },
   clearInlineText: {
-    fontSize: 18,
+    fontSize: FONT_SIZE.xxxl,
     fontWeight: '800',
-    lineHeight: 18,
+    lineHeight: FONT_SIZE.xxxl,
   },
   swapButton: {
     alignItems: 'center',
     borderRadius: 12,
     borderWidth: 1,
     justifyContent: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: SPACING.md,
   },
   swapIcon: {
-    fontSize: 20,
+    fontSize: FONT_SIZE.title,
     fontWeight: '800',
   },
   currentLocationButton: {
@@ -124,52 +125,52 @@ export const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     flexDirection: 'row',
-    gap: 8,
+    gap: SPACING.sm,
     justifyContent: 'center',
-    marginBottom: 16,
+    marginBottom: SPACING.lg,
     minHeight: 40,
   },
   currentLocationIcon: {
-    fontSize: 16,
+    fontSize: FONT_SIZE.xxl,
     fontWeight: '800',
   },
   currentLocationText: {
-    fontSize: 14,
+    fontSize: FONT_SIZE.lg,
     fontWeight: '700',
   },
   resultsContainer: {
     borderRadius: 12,
-    marginBottom: 12,
+    marginBottom: SPACING.md,
   },
   searchResultRow: {
     borderBottomWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.md,
   },
   searchResultName: {
-    fontSize: 15,
+    fontSize: FONT_SIZE.xl,
     fontWeight: '600',
     marginBottom: 2,
   },
   searchResultMeta: {
-    fontSize: 12,
+    fontSize: FONT_SIZE.sm,
     fontWeight: '500',
   },
   optionsContainer: {
-    marginTop: 4,
+    marginTop: SPACING.xs,
   },
   optionsSectionTitle: {
-    fontSize: 13,
+    fontSize: FONT_SIZE.md,
     fontWeight: '700',
     letterSpacing: 0.2,
-    marginBottom: 8,
+    marginBottom: SPACING.sm,
     textTransform: 'uppercase',
   },
   sortTabRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
-    marginBottom: 12,
+    marginBottom: SPACING.md,
   },
   sortTab: {
     borderRadius: 12,
@@ -178,7 +179,7 @@ export const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   sortTabLabel: {
-    fontSize: 12,
+    fontSize: FONT_SIZE.sm,
     fontWeight: '700',
     letterSpacing: 0.2,
   },
@@ -193,13 +194,13 @@ export const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: SPACING.sm,
   },
   optionLabelGroup: {
     alignItems: 'center',
     flexDirection: 'row',
     flex: 1,
-    gap: 8,
+    gap: SPACING.sm,
   },
   routeSwatch: {
     borderRadius: 4,
@@ -208,57 +209,57 @@ export const styles = StyleSheet.create({
   },
   optionLabel: {
     flex: 1,
-    fontSize: 16,
+    fontSize: FONT_SIZE.xxl,
     fontWeight: '700',
   },
   warningBadge: {
     borderRadius: 8,
-    paddingHorizontal: 8,
+    paddingHorizontal: SPACING.sm,
     paddingVertical: 3,
   },
   warningBadgeText: {
-    fontSize: 11,
+    fontSize: FONT_SIZE.xs,
     fontWeight: '700',
     letterSpacing: 0.2,
   },
   optionMetricsRow: {
     alignItems: 'baseline',
     flexDirection: 'row',
-    gap: 12,
+    gap: SPACING.md,
   },
   optionTime: {
-    fontSize: 22,
+    fontSize: FONT_SIZE.display,
     fontWeight: '800',
   },
   optionDistance: {
-    fontSize: 14,
+    fontSize: FONT_SIZE.lg,
     fontWeight: '600',
   },
   optionErrorText: {
-    fontSize: 13,
+    fontSize: FONT_SIZE.md,
     fontWeight: '500',
-    marginTop: 4,
+    marginTop: SPACING.xs,
   },
   tradeoffRow: {
     alignItems: 'center',
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: SPACING.sm,
     marginTop: 6,
   },
   tradeoffText: {
-    fontSize: 11,
+    fontSize: FONT_SIZE.xs,
     fontWeight: '600',
     letterSpacing: 0.1,
   },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 24,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.xl,
   },
   emptyStateText: {
-    fontSize: 14,
+    fontSize: FONT_SIZE.lg,
     fontWeight: '600',
     textAlign: 'center',
   },

@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
+  ActivityIndicator,
+  type ColorValue,
   Keyboard,
+  Platform,
+  PlatformColor,
   Pressable,
   ScrollView,
   Text,
@@ -18,6 +22,7 @@ import { useRouteStore } from '../store/routeStore';
 import type { RootStackParamList } from '../navigation/types';
 import type { CampusFeature } from '../types/geojson';
 import type { RouteSortMode } from '../types/routing';
+import { ROUTE_SWATCH_COLORS } from '../services/routing/constants';
 
 import { SearchResultList } from './routePlan/SearchResultList';
 import { FloorSelectorRow } from './routePlan/FloorSelectorRow';
@@ -39,6 +44,26 @@ import { getFeatureById, getLevelKeys } from '../utils/geoJsonHelpers';
 
 const campusData = campusDataUntyped as unknown as CampusGeoJSON;
 
+// `systemRed` on iOS, matching fallback used elsewhere in the app. Inline so
+// this task stays scoped to RoutePlanScreen (theme file is owned by Task 7).
+const errorColor: ColorValue =
+  Platform.OS === 'ios' ? PlatformColor('systemRed') : '#FF3B30';
+
+// RouteStore may surface technical sentinel codes (e.g. ROUTE_ORIGIN_REQUIRED)
+// for its own contract checks. Map them to Korean user copy. Any unknown /
+// non-sentinel string is shown verbatim — the store already sets user-facing
+// messages like 'Route computation failed' for genuine failures.
+function userFacingErrorMessage(raw: string): string {
+  switch (raw) {
+    case 'ROUTE_ORIGIN_REQUIRED':
+      return '출발지를 먼저 선택해주세요.';
+    case 'ROUTE_DESTINATION_REQUIRED':
+      return '도착지를 먼저 선택해주세요.';
+    default:
+      return `경로를 계산하지 못했습니다.\n${raw}`;
+  }
+}
+
 const SORT_TABS: { mode: RouteSortMode; label: string }[] = [
   { mode: 'recommended', label: '추천' },
   { mode: 'fastest', label: '빠름' },
@@ -46,7 +71,6 @@ const SORT_TABS: { mode: RouteSortMode; label: string }[] = [
   { mode: 'shortest', label: '가까움' },
 ];
 
-const ROUTE_SWATCH_COLORS = ['#2979FF', '#FF7043', '#66BB6A', '#AB47BC', '#FFCA28'];
 type ActiveField = 'origin' | 'destination' | null;
 
 function featureDisplayName(feature: CampusFeature | undefined): string {
@@ -64,6 +88,7 @@ export function RoutePlanScreen() {
     routeOptions,
     selectedRouteIndex,
     sortMode,
+    isComputing,
     error,
   } = useRouteStore();
   const {
@@ -164,12 +189,18 @@ export function RoutePlanScreen() {
   };
 
   const handleSwap = () => {
-    if (!routeOrigin || !routeDestination) return;
-    const prevOriginFeatureId =
-      routeOrigin.type === 'selected_place' ? routeOrigin.featureId : null;
+    if (!routeOrigin || !routeDestination) {
+      console.warn('[RoutePlanScreen] swap ignored: missing origin or destination');
+      return;
+    }
+    if (routeOrigin.type === 'user_location') {
+      console.warn(
+        '[RoutePlanScreen] swap ignored: user_location origin has no featureId to swap with',
+      );
+      return;
+    }
+    const prevOriginFeatureId = routeOrigin.featureId;
     const prevDestFeatureId = routeDestination.featureId;
-
-    if (!prevOriginFeatureId || !prevDestFeatureId) return;
 
     // Set destination → origin first, then origin → destination.
     setOriginFromFeature(prevDestFeatureId);
@@ -199,7 +230,17 @@ export function RoutePlanScreen() {
     destinationSearch.searchQuery.trim().length > 0 &&
     destinationSearch.searchResults.length > 0;
   const showRouteOptions = routeOptions.length > 0;
-  const showEmptyState = !showRouteOptions && routeOrigin && routeDestination;
+  const showLoading = isComputing && !showRouteOptions;
+  const showError = !!error && !isComputing && !showRouteOptions;
+  const showEmptyState =
+    !showRouteOptions && !showLoading && !showError && !!routeOrigin && !!routeDestination;
+
+  // Swap requires both endpoints to be feature-backed. A `user_location` origin
+  // has no featureId, so swap would silently no-op — disable + explain instead.
+  const isSwapDisabled =
+    !routeOrigin ||
+    !routeDestination ||
+    routeOrigin.type === 'user_location';
 
   const accentColor = sheetAccent(scheme);
 
@@ -322,12 +363,20 @@ export function RoutePlanScreen() {
             <Pressable
               accessibilityLabel="출발지와 도착지 교체"
               accessibilityRole="button"
+              accessibilityState={isSwapDisabled ? { disabled: true } : undefined}
+              accessibilityHint={
+                isSwapDisabled
+                  ? '현재 위치는 출발지로만 설정할 수 있어 교체할 수 없습니다.'
+                  : undefined
+              }
+              disabled={isSwapDisabled}
               hitSlop={HIT_SLOP}
               onPress={handleSwap}
               style={({ pressed }) => [
                 styles.swapButton,
                 { backgroundColor: sheetSystemFill, borderColor: sheetSeparator },
-                pressed && { opacity: 0.7 },
+                isSwapDisabled && { opacity: 0.4 },
+                !isSwapDisabled && pressed && { opacity: 0.7 },
               ]}
             >
               <Text style={[styles.swapIcon, { color: sheetSecondaryLabel }]}>⇅</Text>
@@ -414,10 +463,56 @@ export function RoutePlanScreen() {
             </View>
           )}
 
+          {showLoading && (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12,
+                paddingVertical: 24,
+                paddingHorizontal: 16,
+              }}
+            >
+              <ActivityIndicator size="small" color={accentColor} />
+              <Text style={[styles.emptyStateText, { color: sheetSecondaryLabel }]}>
+                경로 계산 중...
+              </Text>
+            </View>
+          )}
+
+          {showError && (
+            <View
+              style={{
+                flexDirection: 'row',
+                alignItems: 'flex-start',
+                gap: 8,
+                paddingVertical: 16,
+                paddingHorizontal: 16,
+                borderLeftWidth: 3,
+                borderLeftColor: errorColor,
+                backgroundColor: sheetSecondarySystemFill,
+                borderRadius: 8,
+                marginTop: 8,
+              }}
+            >
+              <Text style={{ color: errorColor, fontSize: 16, lineHeight: 22 }}>⚠</Text>
+              <Text
+                style={{
+                  flex: 1,
+                  color: errorColor,
+                  fontSize: 14,
+                  lineHeight: 20,
+                }}
+              >
+                {userFacingErrorMessage(error!)}
+              </Text>
+            </View>
+          )}
+
           {showEmptyState && (
             <View style={styles.emptyState}>
               <Text style={[styles.emptyStateText, { color: sheetTertiaryLabel }]}>
-                {error ? error : '출발지와 도착지를 설정해주세요'}
+                경로를 계산할 수 없어요. 출발지와 도착지를 다시 확인해주세요.
               </Text>
             </View>
           )}

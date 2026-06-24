@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { ErrorBoundary } from './src/components/common/ErrorBoundary';
+import { BG_LIGHT } from './src/theme';
 
 export default function App() {
   return (
@@ -25,6 +26,6 @@ export default function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f4f7fb',
+    backgroundColor: BG_LIGHT,
   },
 });

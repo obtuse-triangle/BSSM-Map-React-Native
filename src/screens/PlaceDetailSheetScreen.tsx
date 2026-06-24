@@ -18,6 +18,8 @@ import { getFeatureById, getFeatureCentroid } from '../utils/geoJsonHelpers';
 
 const campusData = campusDataUntyped as unknown as CampusGeoJSON;
 
+const HIT_SLOP = { top: 12, bottom: 12, left: 12, right: 12 };
+
 type DetailFloorElement = FloorElement & {
   _geojsonMeta?: { category: string; centroid: string };
 };
@@ -236,7 +238,7 @@ export function PlaceDetailSheetScreen() {
                 { backgroundColor: sheetSystemFill },
                 pressed && styles.closeButtonPressed,
               ]}
-              hitSlop={{ top: 7, bottom: 7, left: 7, right: 7 }}
+              hitSlop={HIT_SLOP}
             >
               <Text style={[styles.closeButtonText, { color: sheetSecondaryLabel }]}>×</Text>
             </Pressable>
@@ -267,6 +269,7 @@ export function PlaceDetailSheetScreen() {
                       key={c}
                       accessibilityRole="button"
                       accessibilityLabel={`색상 ${c}`}
+                      hitSlop={HIT_SLOP}
                       onPress={() => useSavedPlacesStore.getState().updateCustomPin(customPinPlace.id, { color: c })}
                       style={[
                         styles.colorSwatch,
@@ -324,7 +327,7 @@ export function PlaceDetailSheetScreen() {
               { backgroundColor: sheetSystemFill },
               pressed && styles.closeButtonPressed,
             ]}
-            hitSlop={{ top: 7, bottom: 7, left: 7, right: 7 }}
+            hitSlop={HIT_SLOP}
           >
             <Text style={[styles.saveButtonText, { color: isSaved ? sheetAccent(accentScheme) : sheetSecondaryLabel }]}>
               {isSaved ? '★' : '☆'}
@@ -341,7 +344,7 @@ export function PlaceDetailSheetScreen() {
             { backgroundColor: sheetSystemFill },
             pressed && styles.closeButtonPressed,
           ]}
-          hitSlop={{ top: 7, bottom: 7, left: 7, right: 7 }}
+          hitSlop={HIT_SLOP}
         >
           <Text style={[styles.closeButtonText, { color: sheetSecondaryLabel }]}>×</Text>
         </Pressable>
