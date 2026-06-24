@@ -203,7 +203,7 @@ export function RoutePlanScreen() {
 
   const handleClose = () => {
     useRouteStore.getState().clearRouteOptions();
-    navigation.navigate('Map');
+    navigation.goBack();
   };
 
   const handleSelectRoute = (index: number) => {
