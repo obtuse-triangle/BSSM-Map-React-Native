@@ -2,70 +2,91 @@
 
 ## 핵심 불변식 (Core invariant)
 
-기존 RTT/SVG 실내 위치 측정 파이프라인은 map-percent `x/y`로 위치를 저장하고 렌더링한다.
-BLE WCL 파이프라인(iOS 포그라운드 전용)은 MapLibre용 WGS84 `[longitude, latitude]`를 생성한다.
+모든 측위 및 렌더링 파이프라인은 **WGS84** `[longitude, latitude]`를 사용한다.
+필요 시 `src/utils/coordinateTransform.ts`(proj4)를 통해 EPSG:5183(한국 TM)으로
+중간 투영한다.
 
-## BSSM -> map -> APs -> RTT
+> `src/constants/bssmFloorMap.ts`의 room 데이터는 map-percent `0..1` x/y로
+> 저장되지만, 이는 캠퍼스 지오메트리일 뿐 위치 추정/마커 렌더링 경로에는
+> 사용되지 않는다.
 
-1. `src/constants/bssmFloorMap.ts`는 map-percent 좌표계의 floor JSON을 제공한다.
-2. `src/utils/floorMap.ts`는 활성 floor를 선택한다.
-3. `src/utils/accessPoint.ts`는 인터랙티브 room의 중심점을 추출하여 AP를 생성한다.
-4. `src/services/rtt/mockRttScanner.ts`는 해당 AP들로부터 RTT 측정을 시뮬레이션한다.
-5. `src/utils/positioning.ts`는 역거리 가중치(inverse-distance weighting)로 위치를 추정한다.
-6. `src/store/positionStore.ts`는 결과를 저장하고 디버그 데이터를 `src/store/debugStore.ts`에 미러링한다.
-7. `src/components/map/NativeFloorMap.tsx`는 room 블록, AP 마커, 정확도 원, 사용자 마커를 렌더링한다.
+## 위치 결정 경로
 
-## Debug RTT
+`src/store/mapStore.ts`가 좌표의 단일 머지 지점이다:
 
-- `DebugRttScreen`은 스토어에서 최신 floor, AP 목록, 스캔 결과, 위치를 읽는다.
-- 이 화면은 측정 횟수, 참조/모의 위치, 추정 위치, AP별 행을 표시한다.
+1. `bleCoordinates` — iOS BLE WCL + Dead Reckoning + Particle Fusion 결과.
+2. `gpsCoordinates` — GPS / Core Location 결과.
 
-## iOS 보정 경로
+`resolveMergedCoordinates`가 BLE 우선 → GPS 폴백 → `null` 순으로 머지하여
+`mapStore.userCoordinates`를 산출한다. `CampusMap.tsx`의 `userCoordsRef`와
+`UserPositionMarker`가 이 값을 MapLibre WGS84 마커로 직접 렌더링한다.
 
-1. 향후 iOS 통합에서 Core Location의 위도/경도를 읽을 수 있다.
-2. `src/services/calibration/iosCalibration.ts`는 명시적인 bounds 또는 anchor를 사용해 해당 값을 map-percent로 변환한다.
-3. 보정된 위치는 제한된 정밀도(limited precision)로 표시된다.
-4. floor 및 room 정밀도는 명시적으로 보장되지 않는다.
+머지 활성 여부는 `bleTrackingEnabled` / `gpsTrackingEnabled` 플래그로 제어한다.
 
-## BLE WCL (Weighted Centroid Localisation) — iOS foreground only
+## iOS: BLE WCL + Dead Reckoning + Particle Fusion
 
-BLE WCL은 기존 RTT/SVG 경로와 **병렬 파이프라인**이다. map-percent 좌표가 아닌
-MapLibre 캠퍼스 맵용 WGS84 `[longitude, latitude]` 좌표를 생성한다.
+iOS의 통합 실내 측위 파이프라인. BLE 스캔을 anchor로, CoreMotion
+step/heading을 연속 추정 신호로 사용하고 particle filter가 둘을 융합한다.
+이 섹션이 iOS production 측위의 전부이다.
 
 ### 데이터 흐름
 
-1. `modules/ios-ble-positioning/ios/ExpoBlePositioningModule.swift`는 포그라운드
-   CoreBluetooth 광고를 스캔하고 HPE/Aruba 제조사 ID `0x011B`로 필터링한다.
-2. `modules/ios-ble-positioning/src/index.ts`는 `ArubaBleObservation`
-   (bleIdentifier, manufacturerId, rssi, payloadHex, observedAt)을 수신한다.
-3. `src/services/location/bleObservations.ts`의 `BleObservationBuffer`는 AP
-   식별자별 최신 관측값을 저장한다(O(1) 삽입, 120초 이상 오래된 항목 제거).
-4. `src/services/location/bleWeightedCentroid.ts`는 순수 WCL 함수이다:
-   - floorKey, 제조사, RSSI ≥ −90 dBm, age ≤ 120s 기준으로 필터링한다.
-   - 유효 AP ≥ 2개를 요구한다(미만 시 `INSUFFICIENT_APS` 반환).
-   - EPSG:5183 좌표계에서 RSSI 가중 중심점을 계산한다.
-   - `src/utils/coordinateTransform.ts`(proj4)를 통해 중심점을 WGS84로 변환한다.
-5. `src/services/location/bleWclProvider.ts`는 캠퍼스 bounds
-   (`src/constants/campusBounds.ts`)와 finite 체크로 결과를 검증한다.
-6. `src/store/bleLocationStore.ts`는 Zustand 스토어로, 결과를 수신하고
-   confidence > 0일 때 `mapStore.userCoordinates`로 전달한다.
-7. `src/components/map/BleWclStatusCard.tsx`는 사용된 AP 수, confidence,
-   accuracy, 샘플 age, STALE 배지를 표시하는 디버그 카드이다.
-8. `CampusMap.tsx`는 `mapStore.userCoordinates`를 통해 BLE WCL 마커를 렌더링한다.
+1. **Native scan 시작** — `MapSheetScreen`의 BLE 토글이
+   `useBleLocationStore.startContinuousScan()`을 호출.
+   - `getBleScanner()`로 platform-neutral adapter 획득
+     (iOS는 `modules/ios-ble-positioning`의 `IosBlePositioning`).
+   - `scanner.startContinuousArubaBleScan()` 호출 및
+     `onArubaBleObservation` 이벤트 구독.
+   - 관측값(`ArubaBleObservation`)은 `BleObservationBuffer`에 누적되고
+     per-beacon `BeaconStats`(RSSI min/max/avg, interval 등)가 갱신된다.
+2. **Motion tracking 시작** — `useBleLocationStore.startMotionTracking()`.
+   - `IosBlePositioning.startMotionUpdates()` + `onMotionUpdate` 구독.
+   - step 누적(`lastMotionCumulativeSteps`) + heading 추적.
+3. **1Hz WCL 재계산** — `CONTINUOUS_RECOMPUTE_INTERVAL_MS`마다:
+   - `computePositionFromBuffer(floorKey, continuousBuffer, BLE_AP_FIXTURES)`
+     (`bleWclProvider`의 buffer 기반 동기 파이프라인) 호출.
+   - 결과는 `BleWclResult { longitude, latitude, confidence, accuracyMeters, usedApCount, detectedFloorKey? }`.
+4. **Particle fusion 갱신** — `ParticleFusionEngine`(300 particles, motion/heading
+   노이즈 + decay τ 튜닝):
+   - 첫 anchor 또는 unknown state → `fusionEngine.resetFromBle(obs)`.
+   - 그 외 → `fusionEngine.applyBleCorrection(obs)`.
+   - `fusionEngine.getState()`로 fused lat/lng 획득.
+5. **DR anchor reset** — `isMotionActive`이면 `resetDrToBleAnchor(lat, lng)`로
+   DR 엔진을 최신 BLE 위치에 재고정.
+6. **mapStore push** — `bleTrackingEnabled`이고 `confidenceLevel !== 'unknown'`이면
+   `useMapStore.getState().setBleCoordinates({ longitude, latitude })` 호출.
+7. **Motion-driven fusion** — step 변화량이 양수면
+   `fusionEngine.applyMotion(motionEvent)` 후 동일 조건으로 `setBleCoordinates` 호출.
+8. **Floor 자동 동기화** — `wclResult.detectedFloorKey`가 현재 `selectedFloorKey`와
+   다르면 `mapStore.setSelectedFloorKey(detectedFloorKey)`로 자동 전환.
+
+### WCL 가중치 (`src/services/location/bleWeightedCentroid.ts`)
+
+- `floorKey`, 제조사 ID, RSSI ≥ −90 dBm, age ≤ 120s 기준 필터.
+- 유효 AP ≥ 2개 요구(미만 시 `INSUFFICIENT_APS`).
+- EPSG:5183 좌표계에서 RSSI 가중 중심점을 계산 후 proj4로 WGS84 변환.
+- `src/services/location/bleWclProvider.ts`의 `validateCoordinates()`가
+  finite + `src/constants/campusBounds.ts`의 캠퍼스 bounds로 결과 검증.
 
 ### 핵심 제약 조건
 
-- **iOS 전용**: 네이티브 모듈은 Swift/ObjC로 작성되어 Android BLE 스캔은 지원하지 않는다.
-- **포그라운드 전용**: 백그라운드 BLE 전달은 지원하지 않는다.
-- **지연된 전달**: AP 광고 간격이 1초임에도 불구하고 iOS CoreBluetooth는
-  BLE 패킷을 5초에서 1분 이상 지연시킬 수 있다.
-- **Fixture 데이터**: `src/constants/bleAccessPoints.ts`에는 모든 좌표가
-  0인 EPSG:5183 placeholder `BLE_AP_FIXTURES`가 포함되어 있다. 운영 환경에서는
-  실제 AP 측량 데이터가 필요하다.
-- **핑거프린팅 미사용**: MVP는 RSSI 핑거프린팅이나 무선 맵을 사용하지 않는다.
-  좌표는 알려진 AP 위치에서만 유도된다.
+- **iOS only, foreground only**. Android는 별도 측위가 없고 GPS 경로를 따른다.
+- **Delayed delivery**: AP 광고 간격 1초에도 iOS CoreBluetooth는 5초~1분 지연.
+- **Fixture AP**: `src/constants/bleAccessPoints.ts`의 `BLE_AP_FIXTURES`는 모든 좌표가 0인
+  EPSG:5183 placeholder. 운영 환경에서는 실측 데이터로 교체 필요.
+- **Fingerprinting 미사용**: RSSI 가중 중심점 + known AP 위치만 사용.
 
-전체 아키텍처 및 제약 조건 문서는 `docs/ble-wcl-mvp.md`를 참조한다.
+전체 아키텍처는 `docs/ble-wcl-mvp.md`, 모션 융합은 `docs/ble-motion-fusion.md`,
+필드 QA는 `docs/ble-fusion-field-qa.md` 참조.
+
+## GPS (전 플랫폼)
+
+`src/store/mapStore.ts`의 `setGpsCoordinates({ longitude, latitude })`가 진입점.
+`CampusMap.tsx`의 `createUserLocationUpdateHandler`(campusMapInternal/mapInteractions.ts)가
+MapLibre `onUserLocationUpdate` 콜백에서 lat/lng을 push한다.
+
+`bleTrackingEnabled === false`이고 `gpsTrackingEnabled === true`일 때
+`resolveMergedCoordinates`가 GPS를 `userCoordinates`로 채택한다.
 
 ## Indoor Routing & Wayfinding
 
@@ -147,9 +168,3 @@ MapLibre 캠퍼스 맵용 WGS84 `[longitude, latitude]` 좌표를 생성한다.
   회피하도록 엣지 가중치를 변경한다.
 - **모의 폴백**: 라우팅 데이터가 없는 테스트 환경에서는 모의 route computer가
   고정된 50m 경로를 반환한다.
-
-## 프로바이더 추상화
-
-- `src/services/location/locationTypes.ts`는 프로바이더 계약을 정의한다.
-- `src/services/location/indoorLocationProvider.ts`는 Mock RTT를 기본 프로바이더로 유지한다.
-- `src/services/location/mockIndoorLocationProvider.ts`는 기존 mock RTT 파이프라인을 프로바이더 계약에 맞게 어댑팅한다.
