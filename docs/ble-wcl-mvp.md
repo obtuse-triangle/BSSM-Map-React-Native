@@ -7,23 +7,18 @@ feature. It is a **foreground-only**, **iOS-only** positioning path that
 uses known Aruba/HPE BLE beacon coordinates in EPSG:5183 to compute a
 WGS84 `[lng, lat]` estimate via RSSI-weighted centroid.
 
-The BLE WCL path is **parallel to the legacy map-percent RTT pipeline**.
-It does not modify or depend on it.
+The BLE WCL path is the **production indoor positioning pipeline**. It produces WGS84 `[longitude, latitude]` coordinates from RSSI-weighted centroids over known Aruba/HPE BLE AP positions.
 
 ---
 
 ## Coordinate Systems
 
-The app now has three distinct coordinate systems:
-
 | System | CRS | Purpose | Consumer |
 |---|---|---|---|
-| **MapLibre (WGS84)** | EPSG:4326 | Production campus map (GeoJSON) | `CampusMap.tsx`, GPS marker, BLE WCL result |
-| **Legacy RTT/SVG** | map-percent `x/y` | Old indoor SVG overlay, AP room centers | `NativeFloorMap.tsx`, `IndoorLocationProvider` |
+| **MapLibre (WGS84)** | EPSG:4326 | Production campus map (GeoJSON) and user position marker | `CampusMap.tsx`, BLE WCL result, GPS marker |
 | **BLE AP (TM)** | EPSG:5183 (Korean 2000 / Central Belt 2010) | Known AP coordinate survey data | `bleWeightedCentroid.ts` → `coordinateTransform.ts` |
 
-The BLE WCL pipeline converts EPSG:5183 → EPSG:4326 via `proj4` for the
-final centroid point. Map-percent coordinates are never used in this path.
+The BLE WCL pipeline converts EPSG:5183 → EPSG:4326 via `proj4` for the final centroid point.
 
 ---
 

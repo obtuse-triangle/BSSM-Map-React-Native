@@ -1,7 +1,6 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { HomeScreen } from '../screens/HomeScreen';
-import { DebugRttScreen } from '../screens/DebugRttScreen';
 import { MapScreen } from '../screens/MapScreen';
 import { MapSheetScreen } from '../screens/MapSheetScreen';
 import { PlaceDetailSheetScreen } from '../screens/PlaceDetailSheetScreen';
@@ -63,7 +62,6 @@ export function RootNavigator() {
           headerShown: false,
         }}
       />
-      <Stack.Screen name="DebugRtt" component={DebugRttScreen} />
     </Stack.Navigator>
   );
 }

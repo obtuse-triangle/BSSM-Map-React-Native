@@ -200,6 +200,5 @@ The routing graph is rebuilt at runtime from the committed GeoJSON files via `bu
 These files must NOT be modified by routing work:
 
 - `src/constants/bssmFloorMap.ts`
-- `src/components/map/NativeFloorMap.tsx`
 
 Routing must not add outdoor routing, turn-by-turn navigation, live rerouting, or a third route formSheet.

@@ -1,7 +1,5 @@
 export { useMapStore } from './mapStore'
 export type { MapBaseLayer, CampusFeatureCategory } from './mapStore'
-export { usePositionStore } from './positionStore'
-export { useDebugStore } from './debugStore'
 export { useBleLocationStore } from './bleLocationStore'
 export type { BleWclScanStatus, BeaconStats } from './bleLocationStore'
 export { useSavedPlacesStore } from './savedPlacesStore'

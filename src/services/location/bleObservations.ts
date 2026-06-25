@@ -20,7 +20,6 @@
  *     colon-separated format).
  *
  * @see BleAccessPoint5183  – the static AP catalogue this buffer feeds
- * @see iosBleProvider.ts   – the native bridge that produces these observations
  */
 
 import { EMA_SMOOTHING_ALPHA, MAX_SAMPLE_AGE_MS } from '../../constants/bleConfig';

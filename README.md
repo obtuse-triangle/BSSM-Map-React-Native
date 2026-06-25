@@ -1,6 +1,6 @@
 # school-map-react-native
 
-Expo 기반 BSSM 학교 지도 앱입니다. BSSM-Map MIT 데이터를 사용해 층/교실을 map-percent 좌표로 렌더링하고, 현재는 Mock RTT로 현재 위치를 계산합니다.
+Expo 기반 BSSM 학교 지도 앱입니다. BSSM-Map MIT 데이터를 사용해 캠퍼스/층/교실을 MapLibre WGS84 GeoJSON으로 렌더링하고, iOS에서 BLE WCL (Weighted Centroid Localisation)로 실내 현재 위치를 계산합니다.
 
 ## Run
 
@@ -16,32 +16,14 @@ Expo 기반 BSSM 학교 지도 앱입니다. BSSM-Map MIT 데이터를 사용해
 
 ## Coordinate Systems
 
-The app has two parallel coordinate pipelines:
+Production은 두 좌표계를 `proj4`로 연결합니다:
 
-### Legacy RTT / SVG (map-percent)
+- **MapLibre (WGS84 / EPSG:4326)** — Production 캠퍼스 맵과 `userCoordinates` 마커. `src/data/campus-wgs84.json` GeoJSON이 소스.
+- **BLE AP (EPSG:5183 / Korean TM)** — 알려진 AP 좌표 측량 데이터. `bleWclProvider`가 `src/constants/bleAccessPoints.ts`의 AP 위치를 읽고 `src/utils/coordinateTransform.ts`로 WGS84 투영.
 
-- The old indoor SVG overlay (`NativeFloorMap.tsx`) uses map-percent
-  `x/y/width/height` coordinates from `bssmFloorMap.ts`.
-- APs are generated from room centers in map-percent space.
-- Mock RTT operates in the same map-percent space.
-- The `IndoorLocationProvider` pipeline produces map-percent `IndoorPosition`.
+`src/constants/bssmFloorMap.ts`의 map-percent room geometry는 실내 렌더링/UX 전용이며 측위에 사용되지 않습니다.
 
-### BLE WCL (WGS84 / MapLibre)
-
-- The BLE WCL MVP (see `docs/ble-wcl-mvp.md`) produces WGS84
-  `[longitude, latitude]` coordinates directly.
-- It uses known Aruba/HPE BLE beacon positions in **EPSG:5183** (Korean
-  TM) and converts the centroid to WGS84 via `proj4`.
-- Coordinates are displayed on the MapLibre map (`CampusMap.tsx`) as a
-  GPS-style marker.
-- The BLE WCL path is **foreground-only**, **iOS-only**, and does not
-  use or modify the legacy map-percent pipeline.
-
-### Verify a coordinate's source
-
-- Debug RTT screen → legacy map-percent RTT data.
-- BLE WCL Status Card → BLE WCL WGS84 data. Shows used AP count,
-  confidence, accuracy, sample age, and STALE indicator.
+BLE WCL 경로는 **foreground-only, iOS-only**입니다. 전체 파이프라인은 `docs/ble-wcl-mvp.md`, `docs/data-flow.md`를 참고하세요.
 
 ## iOS limitation
 

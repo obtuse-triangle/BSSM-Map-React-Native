@@ -1,9 +1,9 @@
 /**
  * Zustand store for BLE WCL (Weighted Centroid Localisation) state.
  *
- * This store is **independent** of the legacy `positionStore` and its
- * `IndoorPosition` (map-percent) type.  BLE WCL produces WGS84 lat/lng
- * coordinates directly — no map-percent conversion needed.
+ * This store is **independent** of any legacy position pipeline.
+ * BLE WCL produces WGS84 lat/lng coordinates directly — no map-percent
+ * conversion needed.
  *
  * ── Data flow ─────────────────────────────────────────────────────────
  *   continuous BLE scan → buffer → WCL → validate

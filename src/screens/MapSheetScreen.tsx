@@ -18,7 +18,6 @@ import { GlassView, isGlassEffectAPIAvailable } from 'expo-glass-effect';
 import { SearchBar } from '../components/map/SearchBar';
 import { useSearchBar } from '../hooks/useSearchBar';
 import { useMapStore } from '../store/mapStore';
-import { usePositionStore } from '../store/positionStore';
 import { useBleLocationStore } from '../store/bleLocationStore';
 import { useSavedPlacesStore } from '../store/savedPlacesStore';
 import {
@@ -85,11 +84,10 @@ export function MapSheetScreen() {
   } = useMapStore();
 
   const allCategories = useMapStore((s) => s.allCategories);
-  const { position, status: positionStatus, error: positionError } = usePositionStore();
 
   const levels = useMemo(() => getLevelKeys(campusData), []);
   const gpsSearching = gpsTrackingEnabled && !userCoordinates;
-  const isLocateDisabled = positionStatus === 'loading' || gpsSearching;
+  const isLocateDisabled = gpsSearching;
   const baseLayerIcon = MAP_STYLES.find((s) => s.id === baseLayer)?.icon ?? '⚙';
 
   // ── Wheel floor selector ─────────────────────────────────────────────
@@ -253,15 +251,6 @@ export function MapSheetScreen() {
       });
     }
   }, [bleCardVisible, settingsVisible, navigation]);
-
-  const currentPosition = useMemo(() => {
-    if (!selectedFloorKey || !position || position.floorKey !== selectedFloorKey) {
-      return null;
-    }
-    return position;
-  }, [position, selectedFloorKey]);
-
-  const statusForSelectedFloor = currentPosition !== null || positionStatus !== 'success' ? positionStatus : 'idle';
 
   const handleSelectSearchResult = useCallback(
     (featureId: string) => {
@@ -528,18 +517,11 @@ export function MapSheetScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
       >
-        {(() => {
-          const msg = statusForSelectedFloor === 'loading'
-            ? '현재 위치를 계산하는 중입니다.'
-            : statusForSelectedFloor === 'success' && currentPosition
-              ? `현재 위치 x ${currentPosition.x.toFixed(1)}% · y ${currentPosition.y.toFixed(1)}%`
-              : statusForSelectedFloor === 'error'
-                ? positionError ?? '현재 위치를 찾지 못했습니다.'
-                : bleStatus === 'success' && bleResult
-                  ? `BLE WCL 위치 확인됨 · ±${bleResult.accuracyMeters.toFixed(1)}m · 신뢰도 ${(bleResult.confidence * 100).toFixed(0)}%`
-                  : null;
-          return msg ? <Text style={[styles.helperText, { color: sheetSecondaryLabel }]}>{msg}</Text> : null;
-        })()}
+        {bleStatus === 'success' && bleResult ? (
+          <Text style={[styles.helperText, { color: sheetSecondaryLabel }]}>
+            {`BLE WCL 위치 확인됨 · ±${bleResult.accuracyMeters.toFixed(1)}m · 신뢰도 ${(bleResult.confidence * 100).toFixed(0)}%`}
+          </Text>
+        ) : null}
 
         {!showBle && !showSettings && searchQuery.trim().length === 0 && savedPlacesArray.length > 0 && (
           <SavedPlacesList

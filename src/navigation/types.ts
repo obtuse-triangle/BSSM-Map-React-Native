@@ -4,5 +4,4 @@ export type RootStackParamList = {
   MapSheet: undefined;
   PlaceDetailSheet: undefined;
   RoutePlan: undefined;
-  DebugRtt: undefined;
 };

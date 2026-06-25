@@ -14,7 +14,6 @@ import type { CampusGeoJSON } from '../types/geojson';
 import { getAccessPointsForFloor } from '../utils/accessPoint';
 import { getLevelKeys } from '../utils/geoJsonHelpers';
 import { useMapStore } from '../store/mapStore';
-import { usePositionStore } from '../store/positionStore';
 import { getSelectedFloor } from '../utils/floorMap';
 import { usePermissions } from '../hooks/usePermissions';
 import { useToast } from '../hooks/useToast';
@@ -52,17 +51,9 @@ export function MapScreen({ navigation }: MapScreenProps) {
     showAttributionTick,
   } = useMapStore();
 
-  const { position, status: positionStatus, error: positionError, locateCurrentPosition } = usePositionStore();
-
   const { requestLocationPermission, requestPreciseLocation } = usePermissions();
 
   const { showToast, hideToast, visible: toastVisible, toastConfig } = useToast();
-
-  useEffect(() => {
-    if (positionError && gpsTrackingEnabled) {
-      showToast({ message: positionError, variant: 'error', duration: 4000 });
-    }
-  }, [positionError, gpsTrackingEnabled, showToast]);
 
   const selectedFloor = useMemo(
     () => getSelectedFloor(bssmFloorMap, selectedFloorKey),
@@ -133,7 +124,6 @@ export function MapScreen({ navigation }: MapScreenProps) {
     useMapStore.getState().requestMinimizeSheets();
   }, []);
 
-  const isLocateDisabled = positionStatus === 'loading' && gpsTrackingEnabled;
   const baseLayerIcon = MAP_STYLES.find((s) => s.id === baseLayer)?.icon ?? '⚙';
 
   return (
