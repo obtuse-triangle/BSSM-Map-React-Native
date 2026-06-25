@@ -1,6 +1,5 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import { HomeScreen } from '../screens/HomeScreen';
 import { MapScreen } from '../screens/MapScreen';
 import { MapSheetScreen } from '../screens/MapSheetScreen';
 import { PlaceDetailSheetScreen } from '../screens/PlaceDetailSheetScreen';
@@ -20,7 +19,6 @@ export function RootNavigator() {
         },
       }}
     >
-      <Stack.Screen name="Home" component={HomeScreen} />
       <Stack.Screen name="Map" component={MapScreen} />
       <Stack.Screen
         name="MapSheet"
