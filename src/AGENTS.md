@@ -1,6 +1,6 @@
 # SRC KNOWLEDGE BASE
 
-**Generated:** 2026-06-24T23:33:55Z
+**Generated:** 2026-06-25T00:00:00Z
 
 ## OVERVIEW
 App code root for the Expo SDK 56 + React Native 0.81.5 monorepo. Most app logic lives under `src/components/map`, `src/services/{location,routing}`, `src/store`, and `src/screens`.
@@ -20,10 +20,8 @@ src/
 ├── navigation/         # RootNavigator (native stack) + RootStackParamList
 ├── screens/            # MapScreen, sheet screens (see AGENTS.md inside)
 ├── services/
-│   ├── calibration/    # iosCalibration.ts — iOS lat/lng ↔ map-percent helpers
 │   ├── location/       # BLE WCL, dead reckoning, particle fusion (see AGENTS.md inside)
-│   ├── routing/        # Graph + pathfinder + multi-option routing (see AGENTS.md inside)
-│   └── rtt/            # mockRttScanner, rttTypes — legacy RTT stubs
+│   └── routing/        # Graph + pathfinder + multi-option routing (see AGENTS.md inside)
 ├── store/              # zustand stores (see AGENTS.md inside)
 ├── theme/              # colors, spacing, sheetSemanticColors (barrel)
 ├── types/              # Domain types (barrel)
@@ -35,11 +33,11 @@ src/
 | Task | Location | Notes |
 |------|----------|-------|
 | Map UI | `src/components/map/` | CampusMap, BleWclStatusCard, markers, internal map primitives |
-| Indoor location | `src/services/location/` | BLE WCL, RTT, fusion, calibration-adjacent logic |
+| Indoor location | `src/services/location/` | BLE WCL, dead reckoning, particle fusion |
 | Indoor routing | `src/services/routing/` | Multi-option pathfinding, route profiles, graph construction |
 | State | `src/store/` | App stores and selectors; barrel in `src/store/index.ts` |
 | Sheets | `src/screens/` | MapSheetScreen, PlaceDetailSheetScreen, RoutePlanScreen |
-| Coordinate utils | `src/utils/coordinateTransform.ts` | map-percent ↔ EPSG:5183 ↔ WGS84 via proj4 |
+| Coordinate utils | `src/utils/coordinateTransform.ts` | EPSG:5183 ↔ WGS84 via proj4 |
 | Map data | `src/constants/`, `src/data/` | Floor map, access points, routing datasets, shims |
 
 ## CONVENTIONS
@@ -59,12 +57,9 @@ src/
 2. **NEVER fold `accessibilityPenalty` into `timeSeconds` or `effortMetersEquivalent`.**
 3. **NEVER use `setUserCoordinates`**; it is deprecated. Use `setGpsCoordinates`.
 4. **NEVER treat BLE WCL as background or Android-capable** — it is foreground-only, iOS-only.
-5. **NEVER conflate the two coordinate pipelines**: legacy RTT/SVG uses map-percent; BLE WCL uses WGS84.
-6. **NEVER assume iOS Core Location is accurate indoors** without calibration/anchors.
 
 ## UNIQUE STYLES
 
-- Two parallel coordinate pipelines: map-percent (legacy RTT/SVG) and WGS84 (BLE WCL).
 - Routing is a multi-option engine with profiles `fastest` / `shortest` / `easiest`; accessibility mode is orthogonal.
 - Cross-screen UI signals use monotonic tick counters (`showAttributionTick`, `minimizeSheetsTick`) in `mapStore`.
 - Internal subdirs hide complex logic; parent modules are the public surface.
@@ -90,5 +85,5 @@ node scripts/validate-routing-data.js
 - `src/screens/MapSheetScreen.tsx`, `src/screens/PlaceDetailSheetScreen.tsx`, `src/screens/RoutePlanScreen.tsx`, `src/constants/bssmFloorMap.ts`, `src/services/routing/routeOptions.ts`, and `src/store/bleLocationStore.ts` are the largest hotspot files.
 - `src/dev/` is for on-device harness code and should not be mixed into app screens.
 - `src/data/` contains committed routing assets plus the offline mbtiles tile; updates require regeneration via scripts.
-- `src/services/calibration/iosCalibration.ts` and `src/utils/coordinateTransform.ts` are the key coordinate helpers.
+- `src/services/location/bleWeightedCentroid.ts` and `src/utils/coordinateTransform.ts` are the key coordinate helpers.
 - **No `src/index.ts`** — the app entrypoint is outside the source tree.

@@ -1,15 +1,14 @@
 # src/screens KNOWLEDGE BASE
 
-**Generated:** 2026-06-24T23:33:55Z
+**Generated:** 2026-06-25T00:00:00Z
 
 ## OVERVIEW
-React Native screens for the app shell and the three sheet flows. Three screens are formSheet-presented, `MapSheet`, `PlaceDetailSheet`, `RoutePlan`. Two are full-screen, `Map`, `DebugRtt`. The sheet setup lives in `src/navigation/RootNavigator.tsx`, not inside the screen files.
+React Native screens for the app shell and the three sheet flows. Three screens are formSheet-presented, `MapSheet`, `PlaceDetailSheet`, `RoutePlan`. One is full-screen, `Map`. The sheet setup lives in `src/navigation/RootNavigator.tsx`, not inside the screen files.
 
 ## STRUCTURE
 ```text
 src/screens/
 ├── MapScreen.tsx               # Full-screen map, entry after boot
-├── DebugRttScreen.tsx          # Full-screen legacy RTT debug surface
 ├── MapSheetScreen.tsx          # formSheet, main bottom sheet UI, largest
 ├── PlaceDetailSheetScreen.tsx  # formSheet, place detail bottom sheet
 ├── RoutePlanScreen.tsx         # formSheet, route planning bottom sheet
@@ -30,7 +29,6 @@ src/screens/
 | Screen | File | Presentation |
 |--------|------|--------------|
 | Map | `src/screens/MapScreen.tsx` | full-screen, boot entry |
-| Debug RTT | `src/screens/DebugRttScreen.tsx` | full-screen |
 | Map Sheet | `src/screens/MapSheetScreen.tsx` | formSheet |
 | Place Detail | `src/screens/PlaceDetailSheetScreen.tsx` | formSheet |
 | Route Plan | `src/screens/RoutePlanScreen.tsx` | formSheet |
@@ -43,7 +41,6 @@ src/screens/
 - `src/screens/mapSheet/` holds panels consumed by `MapSheetScreen.tsx`.
 - `src/screens/routePlan/` holds panels consumed by `RoutePlanScreen.tsx`.
 - Shared sheet styling stays in the screen file plus `routePlanStyles.ts` for route plan only.
-- `DebugRttScreen.tsx` is the legacy map-percent RTT surface, kept separate from the map and sheet flows.
 
 ## ANTI-PATTERNS
 1. Never move formSheet config into `MapSheetScreen.tsx`, `PlaceDetailSheetScreen.tsx`, or `RoutePlanScreen.tsx`.
@@ -57,7 +54,7 @@ src/screens/
 - `sheetGrabberVisible` is `true` for all sheet routes.
 - `sheetLargestUndimmedDetentIndex` is `3` for all sheet routes.
 - `MapSheetScreen.tsx` sets `gestureEnabled: false`.
-- `RootNavigator.tsx` declares the five routes: `Map`, `MapSheet`, `PlaceDetailSheet`, `RoutePlan`, `DebugRtt`.
+- `RootNavigator.tsx` declares the four routes: `Map`, `MapSheet`, `PlaceDetailSheet`, `RoutePlan`.
 
 ## COMMANDS
 ```bash
@@ -66,7 +63,7 @@ npm test -- src/screens/__tests__/MapSheetScreen.floorSelector.test.ts
 ```
 
 ## NOTES
-- Largest files are `src/screens/MapSheetScreen.tsx` at 785 lines, `src/screens/PlaceDetailSheetScreen.tsx` at 608 lines, and `src/screens/RoutePlanScreen.tsx` at 522 lines.
+- Largest files are `src/screens/MapSheetScreen.tsx` at 767 lines, `src/screens/PlaceDetailSheetScreen.tsx` at 608 lines, and `src/screens/RoutePlanScreen.tsx` at 522 lines.
 - `MapScreen.tsx` is the app entry screen after boot, not the home screen.
 - `src/screens/mapSheet/` is still imported piecemeal, not via a barrel.
 - `routePlanStyles.ts` keeps route plan styling local instead of spreading theme overrides.
